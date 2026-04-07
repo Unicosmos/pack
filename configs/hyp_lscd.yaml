@@ -1,0 +1,58 @@
+# LSCD数据集训练配置
+# 完全复刻论文参数表格 - 分割模型
+
+# 任务配置
+task: segment
+
+# 项目管理配置
+mlflow-uri: http://localhost:5001
+project: /root/source/data2/hyg/projects/pack/runs/segment
+name: lscd_segmentation
+exist_ok: false
+
+# 模型和数据配置
+model: yolov8-seg-cheap.yaml
+data: /root/source/data2/hyg/projects/pack/coco_style_oneclass/yolo_dataset_seg/dataset.yaml
+
+# 设备配置
+device: 0
+workers: 8
+seed: 0
+
+# ========== 论文表格参数 ==========
+
+# 训练参数
+epochs: 36
+batch: 16
+imgsz: 640
+
+# 优化器配置
+optimizer: AdamW
+amp: true
+
+# 学习率配置
+lr0: 0.01
+lrf: 0.01
+cos_lr: false
+
+# SGD参数
+momentum: 0.937
+weight_decay: 0.0005
+
+# 预热配置
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+
+# 损失函数权重
+box: 7.5
+cls: 0.5
+dfl: 1.5
+
+# 数据增强
+mosaic: 1.0
+mixup: 0.1
+copy_paste: 0.1
+close_mosaic: 10
+
+pretrained: false
+
