@@ -10,6 +10,9 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 import numpy as np
+from PIL import Image
+import io
+import base64
 
 # ═══════════════════════════ 路径配置 ═══════════════════════════
 CROPS_DIR = Path("crops")
@@ -72,18 +75,38 @@ def get_crop_images(folder_name):
 def get_sku_items(db, keyword=""):
     """
     获取 SKU 列表（用于库池展示）
+    支持两种数据库结构：
+    1. 新结构: {"skus": [{"sku_id": "xxx", "sku_name": "xxx", ...}, ...]}
+    2. 旧结构: {"sku_id": {"name": "xxx", ...}, ...}
     返回: [{"id","name","cover","cnt"}, ...]
     """
     out = []
-    for sid, info in db.items():
-        sd = SKU_DIR / sid
-        if sd.exists():
-            fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
-            cnt = len(fs)
-            cover = str(sorted(fs)[0]) if fs else None
-        else:
-            cnt, cover = 0, None
-        out.append(dict(id=sid, name=info.get("name", sid), cover=cover, cnt=cnt))
+    
+    # 兼容新旧两种数据库结构
+    if "skus" in db:
+        # 新结构: {"skus": [...]}
+        sku_list = db["skus"]
+        for sku in sku_list:
+            sid = sku.get("sku_id", "")
+            sname = sku.get("sku_name", sid)
+            members = sku.get("members", [])
+            # 统计实际存在的图片
+            existing_imgs = [m for m in members if Path(m).exists()] if members else []
+            cnt = len(existing_imgs)
+            cover = existing_imgs[0] if existing_imgs else None
+            out.append(dict(id=sid, name=sname, cover=cover, cnt=cnt))
+    else:
+        # 旧结构: {"sku_id": {...}}
+        for sid, info in db.items():
+            sd = SKU_DIR / sid
+            if sd.exists():
+                fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
+                cnt = len(fs)
+                cover = str(sorted(fs)[0]) if fs else None
+            else:
+                cnt, cover = 0, None
+            out.append(dict(id=sid, name=info.get("name", sid), cover=cover, cnt=cnt))
+    
     if keyword:
         k = keyword.lower()
         out = [o for o in out if k in o["id"].lower() or k in o["name"].lower()]
@@ -101,9 +124,9 @@ def get_sku_images(sid):
 def auto_sku_id(db):
     """自动生成不重复的 SKU 编号"""
     i = 1
-    while f"SKU{i:03d}" in db:
+    while f"{i:06d}" in db:
         i += 1
-    return f"SKU{i:03d}"
+    return f"{i:06d}"
 
 
 def add_log(logs, msg):
@@ -115,6 +138,76 @@ def add_log(logs, msg):
 def render_logs(logs):
     """将日志列表转为显示文本"""
     return "\n".join(logs[-100:])
+
+
+def rotate_image(image_path, angle):
+    """旋转图片"""
+    try:
+        img = Image.open(image_path)
+        rotated = img.rotate(angle, expand=True)
+        # 生成临时文件路径（使用系统临时目录）
+        import tempfile
+        temp_dir = Path(tempfile.gettempdir()) / "sku_editor"
+        temp_dir.mkdir(exist_ok=True)
+        temp_path = temp_dir / f"rotated_{Path(image_path).name}"
+        rotated.save(temp_path)
+        return str(temp_path)
+    except Exception as e:
+        print(f"旋转图片失败: {e}")
+        return None
+
+
+def crop_image(image_path, x1, y1, x2, y2):
+    """裁剪图片（使用百分比坐标）"""
+    try:
+        img = Image.open(image_path)
+        width, height = img.size
+        # 将百分比转换为像素坐标
+        x1_px = int((x1 / 100) * width)
+        y1_px = int((y1 / 100) * height)
+        x2_px = int((x2 / 100) * width)
+        y2_px = int((y2 / 100) * height)
+        # 确保坐标在有效范围内
+        x1_px = max(0, min(width, x1_px))
+        y1_px = max(0, min(height, y1_px))
+        x2_px = max(0, min(width, x2_px))
+        y2_px = max(0, min(height, y2_px))
+        # 确保 x1 < x2 且 y1 < y2
+        if x1_px >= x2_px or y1_px >= y2_px:
+            return None
+        cropped = img.crop((x1_px, y1_px, x2_px, y2_px))
+        # 生成临时文件路径（使用系统临时目录）
+        import tempfile
+        temp_dir = Path(tempfile.gettempdir()) / "sku_editor"
+        temp_dir.mkdir(exist_ok=True)
+        temp_path = temp_dir / f"cropped_{Path(image_path).name}"
+        cropped.save(temp_path)
+        return str(temp_path)
+    except Exception as e:
+        print(f"裁剪图片失败: {e}")
+        return None
+
+
+def save_edited_image(edited_path, original_path, sku_id):
+    """保存编辑后的图片到 SKU 库，使用同名文件"""
+    try:
+        if not edited_path or not sku_id:
+            return None
+        
+        # 确保 SKU 目录存在
+        sku_dir = SKU_DIR / sku_id
+        sku_dir.mkdir(exist_ok=True)
+        
+        # 生成目标文件路径（使用原始文件名）
+        target_path = sku_dir / Path(original_path).name
+        
+        # 复制编辑后的图片到 SKU 库
+        shutil.copy2(edited_path, target_path)
+        
+        return str(target_path)
+    except Exception as e:
+        print(f"保存编辑后的图片失败: {e}")
+        return None
 
 
 # ═══════════════════════════ 初始化 ═══════════════════════════
@@ -133,6 +226,8 @@ with gr.Blocks(
     st_sku_id = gr.State(None)          # 右侧当前选中的 SKU ID
     st_logs = gr.State([])              # 操作日志
     st_sku_img_sel = gr.State([])       # SKU 详情区已选中的图片索引
+    st_editing_image = gr.State(None)    # 当前正在编辑的图片路径
+    st_edited_image = gr.State(None)     # 编辑后的图片数据
 
     # ── 标题 ──
     gr.HTML(
@@ -168,7 +263,7 @@ with gr.Blocks(
         with gr.Column(scale=4):
             with gr.Row():
                 txt_newid = gr.Textbox(
-                    label="新增SKU编号", placeholder="留空自动生成",
+                    label="新增SKU", placeholder="留空自动生成",
                     scale=4, max_lines=1, show_label=True
                 )
                 btn_add = gr.Button("➕ 新增", size="sm", variant="secondary")
@@ -199,10 +294,68 @@ with gr.Blocks(
             gr.Markdown("### 📋 已选中图片")
             gr.HTML('<span style="font-size:12px;color:#999">显示当前已选择的图片，点击图片可取消选中</span>')
             gal_selected = gr.Gallery(
-                columns=5, height=350, object_fit="contain",
+                columns=5, height="auto", object_fit="contain",
                 show_label=False,
                 interactive=True
             )
+            
+            # 图片编辑折叠面板
+            acc_edit = gr.Accordion("🖼️ 图片编辑", open=False)
+            with acc_edit:
+                gr.Markdown("#### 选择要编辑的图片，然后进行裁剪或旋转")
+                with gr.Row():
+                    btn_edit_selected = gr.Button("编辑选中图片")
+                with gr.Row():
+                    gr.Markdown("##### 旋转图片")
+                    angle = gr.Slider(minimum=-180, maximum=180, step=90, value=0, label="旋转角度")
+                    btn_rotate = gr.Button("旋转")
+                with gr.Row():
+                    gr.Markdown("##### 裁剪图片")
+                    with gr.Column(scale=1):
+                        x1 = gr.Number(label="X1 (%)", value=0, minimum=0, maximum=100, step=1)
+                        y1 = gr.Number(label="Y1 (%)", value=0, minimum=0, maximum=100, step=1)
+                    with gr.Column(scale=1):
+                        x2 = gr.Number(label="X2 (%)", value=100, minimum=0, maximum=100, step=1)
+                        y2 = gr.Number(label="Y2 (%)", value=100, minimum=0, maximum=100, step=1)
+                    btn_crop = gr.Button("裁剪")
+                img_editor = gr.Image(label="编辑预览", type="filepath", interactive=True, elem_id="img-editor")
+                with gr.Row():
+                    btn_save_edit = gr.Button("保存编辑", variant="primary")
+                    btn_cancel_edit = gr.Button("取消编辑")
+        
+        # 自定义 CSS 样式，使图片编辑预览高度自适应
+        demo.css = """
+        #img-editor img {
+            max-height: none !important;
+            height: auto !important;
+        }
+        .grid-wrap img {
+            max-height: none !important;
+            height: auto !important;
+        }
+        .grid-wrap.fixed-height {
+            height: auto !important;
+            max-height: none !important;
+            min-height: 200px;
+            overflow: visible !important; 
+        }
+        
+        .gallery-container,
+        .gallery {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+        }
+
+        .grid-wrap img {
+            max-height: none !important;
+            height: auto !important;
+        }
+        .gallery-item img {
+            max-height: none !important;
+            height: auto !important;
+        }
+        """
 
         # ─── 右侧：SKU 库池区 ───
         with gr.Column(scale=1):
@@ -230,7 +383,7 @@ with gr.Blocks(
             with acc_detail:
                 txt_sku_detail = gr.Textbox(show_label=False, interactive=False, lines=2)
                 gal_sku_imgs = gr.Gallery(
-                    columns=4, height=350, object_fit="contain",
+                    columns=4, height="auto", object_fit="contain",
                     show_label=False,
                     interactive=True
                 )
@@ -603,37 +756,91 @@ with gr.Blocks(
         outputs=[gal_sku, txt_log]
     )
 
-    # ━━━━━━━━━━ 10. 新增 SKU ━━━━━━━━━━
+    # ━━━━━━━━━━ 10. 新增/重命名 SKU ━━━━━━━━━━
     def on_add_sku(custom_id, logs):
         db = read_db()
-        # 支持通过 | 分隔输入名称，编号自动递增
-        if custom_id.strip():
-            # 只输入名称，编号自动递增
-            name = custom_id.strip()
-            sid = auto_sku_id(db)
+        
+        # 兼容新旧两种数据库结构
+        if "skus" in db:
+            # 新结构: {"skus": [...]}
+            # 检查是否包含 | 分隔（格式：原编号|新名称）
+            if "|" in custom_id:
+                parts = custom_id.split("|", 1)
+                old_sid = parts[0].strip()
+                new_name = parts[1].strip()
+                
+                # 查找并更新 SKU
+                found = False
+                for sku in db["skus"]:
+                    if sku.get("sku_id") == old_sid:
+                        old_name = sku.get("sku_name", old_sid)
+                        sku["sku_name"] = new_name
+                        write_db(db)
+                        logs = add_log(logs, f"✏️ 重命名 SKU: {old_sid} | {old_name} → {new_name}")
+                        found = True
+                        break
+                
+                if not found:
+                    logs = add_log(logs, f"⚠️ 未找到 SKU '{old_sid}'")
+                
+                sku_upd, logs = _sku_gallery_update(txt_search.value, logs)
+                return sku_upd, logs, f"✅ 重命名完成" if found else f"⚠️ 未找到 {old_sid}", render_logs(logs)
+            else:
+                # 只输入名称，编号自动递增
+                name = custom_id.strip()
+                sid = auto_sku_id(db)
+                
+                # 创建新 SKU
+                new_sku = {
+                    "sku_id": sid,
+                    "sku_name": name,
+                    "member_count": 0,
+                    "members": [],
+                    "feature_center": []
+                }
+                db["skus"].append(new_sku)
+                write_db(db)
+                (SKU_DIR / sid).mkdir(exist_ok=True)
+                
+                logs = add_log(logs, f"➕ 新增 SKU: {sid} | {name}")
+                sku_upd, logs = _sku_gallery_update(txt_search.value, logs)
+                return sku_upd, logs, f"✅ 已新增 SKU: {sid} | {name}", render_logs(logs)
         else:
-            # 空输入，编号和名称都自动生成
-            sid = auto_sku_id(db)
-            name = ''
-
-        # 校验唯一性
-        if sid in db:
-            logs = add_log(logs, f"⚠️ SKU 编号 '{sid}' 已存在，请更换编号")
-            return (
-                gr.update(), logs,
-                f"⚠️ 编号 '{sid}' 已存在，请更换",
-                render_logs(logs)
-            )
-
-        # 创建
-        db[sid] = {"name": name, "images": [], "feature_mean": [], "image_count": 0}
-        write_db(db)
-        (SKU_DIR / sid).mkdir(exist_ok=True)
-
-        logs = add_log(logs, f"➕ 新增 SKU: {sid} | {name}")
-        sku_upd, logs = _sku_gallery_update(txt_search.value, logs)
-
-        return sku_upd, logs, f"✅ 已新增 SKU: {sid} | {name}", render_logs(logs)
+            # 旧结构: {"sku_id": {...}}
+            # 检查是否包含 | 分隔（格式：原编号|新名称）
+            if "|" in custom_id:
+                parts = custom_id.split("|", 1)
+                old_sid = parts[0].strip()
+                new_name = parts[1].strip()
+                
+                if old_sid in db:
+                    old_name = db[old_sid].get("name", old_sid)
+                    db[old_sid]["name"] = new_name
+                    write_db(db)
+                    logs = add_log(logs, f"✏️ 重命名 SKU: {old_sid} | {old_name} → {new_name}")
+                else:
+                    logs = add_log(logs, f"⚠️ 未找到 SKU '{old_sid}'")
+                
+                sku_upd, logs = _sku_gallery_update(txt_search.value, logs)
+                return sku_upd, logs, f"✅ 重命名完成" if old_sid in db else f"⚠️ 未找到 {old_sid}", render_logs(logs)
+            else:
+                # 只输入名称，编号自动递增
+                name = custom_id.strip()
+                sid = auto_sku_id(db)
+                
+                # 校验唯一性
+                if sid in db:
+                    logs = add_log(logs, f"⚠️ SKU 编号 '{sid}' 已存在")
+                    return gr.update(), logs, f"⚠️ 编号 '{sid}' 已存在", render_logs(logs)
+                
+                # 创建
+                db[sid] = {"name": name, "images": [], "feature_mean": [], "image_count": 0}
+                write_db(db)
+                (SKU_DIR / sid).mkdir(exist_ok=True)
+                
+                logs = add_log(logs, f"➕ 新增 SKU: {sid} | {name}")
+                sku_upd, logs = _sku_gallery_update(txt_search.value, logs)
+                return sku_upd, logs, f"✅ 已新增 SKU: {sid} | {name}", render_logs(logs)
 
     btn_add.click(
         fn=on_add_sku,
@@ -646,30 +853,47 @@ with gr.Blocks(
         progress(0, desc="开始保存…")
         logs = add_log(logs, "💾 开始保存 SKU 库更新…")
 
-        # ① 同步数据库中的图片计数
-        progress(0.2, desc="同步图片计数…")
+        # ① 同步数据库
+        progress(0.2, desc="同步数据库…")
         db = read_db()
-        for sid in list(db.keys()):
-            sd = SKU_DIR / sid
-            if sd.exists():
-                cnt = len([f for f in sd.iterdir() if f.suffix.lower() in EXTS])
-                db[sid]["image_count"] = cnt
+        
+        # 兼容新旧两种数据库结构
+        if "skus" in db:
+            # 新结构: {"skus": [...]}
+            for sku in db["skus"]:
+                sid = sku.get("sku_id", "")
+                if sid:
+                    sd = SKU_DIR / sid
+                    if sd.exists():
+                        # 统计实际存在的图片
+                        fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
+                        sku["member_count"] = len(fs)
+                        sku["members"] = [str(f) for f in sorted(fs)]
+        else:
+            # 旧结构: {"sku_id": {...}}
+            for sid in list(db.keys()):
+                sd = SKU_DIR / sid
+                if sd.exists():
+                    cnt = len([f for f in sd.iterdir() if f.suffix.lower() in EXTS])
+                    db[sid]["image_count"] = cnt
+        
         write_db(db)
-        logs = add_log(logs, "  ✓ 图片计数同步完成")
+        logs = add_log(logs, "  ✓ 数据库同步完成")
 
         # ② 更新特征矩阵
         progress(0.5, desc="更新特征矩阵…")
         feats = read_feats()
         try:
-            # 计算每个 SKU 的模拟特征均值（实际项目中替换为真实模型特征）
-            sku_ids = sorted(db.keys())
-            n = len(sku_ids)
+            # 根据数据库结构确定 SKU 数量
+            if "skus" in db:
+                n = len(db["skus"])
+            else:
+                n = len(db.keys())
             new_feats = np.zeros((n, 256), dtype=np.float32)
             if feats.shape[0] > 0 and feats.shape[1] == 256:
                 # 保留已有特征，新增 SKU 用零向量占位
-                for i, sid in enumerate(sku_ids):
-                    if i < feats.shape[0]:
-                        new_feats[i] = feats[i]
+                for i in range(min(n, feats.shape[0])):
+                    new_feats[i] = feats[i]
             write_feats(new_feats)
             logs = add_log(logs, f"  ✓ 特征矩阵更新完成（{n} 个 SKU × 256维）")
         except Exception as e:
@@ -730,6 +954,129 @@ with gr.Blocks(
             return new_sel, txt, logs, gr.update(value=selected_images)
         
         return cur_sel, f"✅ 已选择 {len(cur_sel)} 张图片" if cur_sel else "未选择图片", logs, gr.update(value=[images[i] for i in cur_sel if i < len(images)])
+    
+    # ━━━━━━━━━━ 14. 图片编辑功能 ━━━━━━━━━━
+    # 编辑选中图片
+    def on_edit_selected(crop_sel, images, logs):
+        if not crop_sel:
+            logs = add_log(logs, "⚠️ 请先选择要编辑的图片")
+            return None, None, logs, render_logs(logs)
+        
+        # 取第一张选中的图片进行编辑
+        img_path = images[crop_sel[0]] if crop_sel[0] < len(images) else None
+        if not img_path:
+            logs = add_log(logs, "⚠️ 选中的图片不存在")
+            return None, None, logs, render_logs(logs)
+        
+        logs = add_log(logs, f"开始编辑图片: {Path(img_path).name}")
+        return img_path, img_path, logs, render_logs(logs)
+    
+    btn_edit_selected.click(
+        fn=on_edit_selected,
+        inputs=[st_crop_sel, st_images, st_logs],
+        outputs=[st_editing_image, img_editor, st_logs, txt_log]
+    )
+    
+    # 旋转图片
+    def on_rotate(editing_image, angle, logs):
+        if not editing_image:
+            logs = add_log(logs, "⚠️ 请先选择要编辑的图片")
+            return None, logs, render_logs(logs)
+        
+        rotated_path = rotate_image(editing_image, angle)
+        if rotated_path:
+            logs = add_log(logs, f"旋转图片 {angle} 度")
+            return rotated_path, logs, render_logs(logs)
+        else:
+            logs = add_log(logs, "⚠️ 旋转图片失败")
+            return None, logs, render_logs(logs)
+    
+    btn_rotate.click(
+        fn=on_rotate,
+        inputs=[st_editing_image, angle, st_logs],
+        outputs=[img_editor, st_logs, txt_log]
+    )
+    
+    # 裁剪图片
+    def on_crop(editing_image, x1, y1, x2, y2, logs):
+        if not editing_image:
+            logs = add_log(logs, "⚠️ 请先选择要编辑的图片")
+            return None, logs, render_logs(logs)
+        
+        cropped_path = crop_image(editing_image, x1, y1, x2, y2)
+        if cropped_path:
+            logs = add_log(logs, f"裁剪图片: ({x1}%,{y1}%)-({x2}%,{y2}%)")
+            return cropped_path, logs, render_logs(logs)
+        else:
+            logs = add_log(logs, "⚠️ 裁剪图片失败，请检查坐标")
+            return None, logs, render_logs(logs)
+    
+    btn_crop.click(
+        fn=on_crop,
+        inputs=[st_editing_image, x1, y1, x2, y2, st_logs],
+        outputs=[img_editor, st_logs, txt_log]
+    )
+    
+    # 保存编辑
+    def on_save_edit(editing_image, edited_path, crop_sel, images, sku_id, logs):
+        if not editing_image or not edited_path:
+            logs = add_log(logs, "⚠️ 请先编辑图片")
+            return None, crop_sel, f"✅ 已选择 {len(crop_sel)} 张图片" if crop_sel else "未选择图片", gr.update(value=[images[i] for i in crop_sel if i < len(images)]), logs, render_logs(logs)
+        
+        if not sku_id:
+            logs = add_log(logs, "⚠️ 请先选择目标 SKU")
+            return None, crop_sel, f"✅ 已选择 {len(crop_sel)} 张图片" if crop_sel else "未选择图片", gr.update(value=[images[i] for i in crop_sel if i < len(images)]), logs, render_logs(logs)
+        
+        # 保存编辑后的图片到 SKU 库
+        target_path = save_edited_image(edited_path, editing_image, sku_id)
+        if not target_path:
+            logs = add_log(logs, "⚠️ 保存编辑后的图片失败")
+            return None, crop_sel, f"✅ 已选择 {len(crop_sel)} 张图片" if crop_sel else "未选择图片", gr.update(value=[images[i] for i in crop_sel if i < len(images)]), logs, render_logs(logs)
+        
+        # 更新数据库
+        db = read_db()
+        if sku_id not in db:
+            db[sku_id] = {"name": sku_id, "images": [], "feature_mean": []}
+        existing = db[sku_id].get("images", [])
+        img_name = Path(editing_image).name
+        if img_name not in existing:
+            existing.append(img_name)
+        db[sku_id]["images"] = existing
+        db[sku_id]["image_count"] = len(existing)
+        write_db(db)
+        
+        logs = add_log(logs, f"✅ 保存编辑后的图片到 SKU {sku_id}: {img_name}")
+        
+        # 清空选中状态
+        return None, [], "未选择图片", gr.update(value=[]), logs, render_logs(logs)
+    
+    btn_save_edit.click(
+        fn=on_save_edit,
+        inputs=[st_editing_image, img_editor, st_crop_sel, st_images, st_sku_id, st_logs],
+        outputs=[st_editing_image, st_crop_sel, txt_sel_status, gal_selected, st_logs, txt_log]
+    )
+    
+    # 取消编辑
+    def on_cancel_edit(logs):
+        # 清理临时文件
+        try:
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir()) / "sku_editor"
+            if temp_dir.exists():
+                for f in temp_dir.glob("cropped_*"):
+                    f.unlink()
+                for f in temp_dir.glob("rotated_*"):
+                    f.unlink()
+        except Exception as e:
+            print(f"清理临时文件失败: {e}")
+        logs = add_log(logs, "已取消编辑")
+        return None, None, logs, render_logs(logs)
+    
+    btn_cancel_edit.click(
+        fn=on_cancel_edit,
+        inputs=[st_logs],
+        outputs=[st_editing_image, img_editor, st_logs, txt_log]
+    )
 
 
 # ═══════════════════════════ 启动 ═══════════════════════════
