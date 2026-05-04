@@ -14,10 +14,11 @@ import io
 import base64
 
 from PIL import Image
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "SKU"))
 
@@ -128,24 +129,71 @@ def get_sku_count() -> int:
     return 0
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """请求参数验证错误处理"""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "detail": "请求参数验证失败",
+            "errors": exc.errors()
+        }
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """HTTP异常处理"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "detail": exc.detail,
+            "status_code": exc.status_code
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """全局异常处理"""
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "detail": f"服务器内部错误: {str(exc)}",
+            "status_code": 500
+        }
+    )
+
+
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
     """健康检查接口"""
     detector_ready = detector is not None and detector.is_ready()
     matcher_ready = matcher is not None and matcher.is_ready()
+    sku_count_val = get_sku_count()
 
     if detector is None:
         status = "init"
+        message = "系统初始化中，检测模型未加载"
     elif not detector_ready:
         status = "error"
+        message = "检测模型加载失败"
+    elif matcher is None or not matcher_ready:
+        status = "partial"
+        message = "检测就绪，但SKU匹配功能不可用"
     else:
         status = "ok"
+        message = "系统正常运行"
 
     return HealthResponse(
         status=status,
+        message=message,
         detector_ready=detector_ready,
         matcher_ready=matcher_ready,
-        sku_count=get_sku_count(),
+        sku_count=sku_count_val,
         model_path=str(config.paths.MODEL_PATH),
         sku_dir=str(config.paths.SKU_DIR)
     )
@@ -158,7 +206,7 @@ async def detect_image(
 ):
     """仅检测接口（不进行SKU匹配）"""
     if detector is None or not detector.is_ready():
-        raise HTTPException(status_code=503, detail="检测模型未加载")
+        raise HTTPException(status_code=503, detail="检测模型未加载，请检查模型文件是否存在")
 
     try:
         contents = await file.read()
@@ -220,14 +268,52 @@ async def detect_image(
         raise HTTPException(status_code=500, detail=f"检测失败: {str(e)}")
 
 
+@app.post("/api/match", response_model=MatchResponse)
+async def match_image(
+    file: UploadFile = File(...),
+    match_threshold: float = 0.85,
+    ratio_threshold: float = 1.2
+):
+    """仅SKU匹配接口"""
+    if matcher is None or not matcher.is_ready():
+        raise HTTPException(status_code=503, detail="SKU匹配器未加载，请检查SKU库是否存在")
+
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+
+        resized = resize_with_padding(image, target_size=config.model.INPUT_SIZE)
+        features = matcher.extract_features(resized)
+
+        result = matcher.match_sku(features, threshold=match_threshold, ratio_threshold=ratio_threshold)
+
+        top5_labels = [TopLabel(label=t['label'], similarity=t['similarity']) for t in result.top5_labels] if result.top5_labels else []
+
+        return MatchResponse(
+            success=True,
+            sku_id=result.sku_id,
+            similarity=result.similarity,
+            ratio=result.ratio,
+            status=result.status,
+            top5_labels=top5_labels
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"匹配失败: {str(e)}")
+
+
 @app.post("/api/detect-and-match", response_model=DetectAndMatchResponse)
 async def detect_and_match_image(
     file: UploadFile = File(...),
-    conf_threshold: float = 0.5
+    conf_threshold: float = 0.5,
+    match_threshold: float = 0.85
 ):
     """检测+匹配接口（主接口）"""
     if detector is None or not detector.is_ready():
-        raise HTTPException(status_code=503, detail="检测模型未加载")
+        raise HTTPException(status_code=503, detail="检测模型未加载，请检查模型文件是否存在")
 
     try:
         contents = await file.read()
@@ -284,7 +370,7 @@ async def detect_and_match_image(
                             top5_labels=[]
                         ))
                     else:
-                        mr = matcher.match_sku(feat)
+                        mr = matcher.match_sku(feat, threshold=match_threshold)
                         match_results.append(mr)
             except Exception as e:
                 print(f"匹配失败: {e}")

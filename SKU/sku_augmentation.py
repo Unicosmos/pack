@@ -52,6 +52,7 @@ import os
 import sys
 import argparse
 import json
+import csv
 import hashlib
 import re
 from datetime import datetime
@@ -356,6 +357,33 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
     # 保存元数据
     with open(output_path / 'metadata.json', 'w', encoding='utf-8') as f:
         json.dump(metadata, f, indent=2, ensure_ascii=False)
+    
+    # 生成 sku_library.csv 索引文件
+    # 字段: image_name,sku_id,label,sku_name
+    # label格式: {sku_id}_{face_id} (每个面作为独立label)
+    csv_rows = []
+    for sku_metadata in metadata['skus']:
+        sku_id = sku_metadata['sku_name']
+        for face in sku_metadata['faces']:
+            face_id = face['face_id']
+            for aug in face['augmentations']:
+                image_name = f"{sku_id}/{aug['output_file']}"
+                label = f"{sku_id}_{face_id}"
+                csv_rows.append({
+                    'image_name': image_name,
+                    'sku_id': sku_id,
+                    'label': label,
+                    'sku_name': sku_id
+                })
+    
+    # 写入CSV
+    csv_path = output_path / 'sku_library.csv'
+    with open(csv_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=['image_name', 'sku_id', 'label', 'sku_name'])
+        writer.writeheader()
+        writer.writerows(csv_rows)
+    
+    print(f"已生成索引文件: {csv_path}")
     
     # 打印统计
     print("\n" + "=" * 70)

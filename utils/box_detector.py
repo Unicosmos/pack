@@ -222,6 +222,13 @@ def save_cropped_images(
     """
     保存裁剪后的箱体图像
     
+    输出结构:
+        output_dir/
+            {原图名称(含后缀)}/
+                001.jpg   # 第1个箱体
+                002.jpg   # 第2个箱体
+                ...
+    
     Args:
         results: 检测结果列表
         output_dir: 输出目录
@@ -234,13 +241,18 @@ def save_cropped_images(
     
     for result in results:
         img_path = Path(result["image_path"])
-        img_stem = img_path.stem
+        img_name = img_path.name  # 保留完整文件名（含扩展名）
+        
+        # 创建原图名称的子文件夹
+        img_output_dir = output_dir / img_name
+        img_output_dir.mkdir(parents=True, exist_ok=True)
         
         for idx, det in enumerate(result["detections"]):
             if "cropped_image" in det and det["cropped_image"] is not None:
                 cropped = det["cropped_image"]
-                save_name = f"{img_stem}_box{idx}_{det['class']}_conf{det['confidence']:.2f}.jpg"
-                save_path = output_dir / save_name
+                # 按序号命名: 001.jpg, 002.jpg, ...
+                save_name = f"{idx + 1:03d}.jpg"
+                save_path = img_output_dir / save_name
                 cropped.save(save_path, quality=95)
                 saved_count += 1
                 

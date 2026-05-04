@@ -28,7 +28,8 @@ class MatchInfo(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: str = Field(..., description="系统状态: ok/error/init")
+    status: str = Field(..., description="系统状态: ok/error/init/partial")
+    message: str = Field("", description="状态描述信息")
     detector_ready: bool = Field(False, description="检测器是否就绪")
     matcher_ready: bool = Field(False, description="匹配器是否就绪")
     sku_count: int = Field(0, description="SKU库数量")
@@ -59,7 +60,11 @@ class DetectAndMatchResponse(BaseModel):
 
 class MatchResponse(BaseModel):
     success: bool = Field(True, description="是否成功")
-    matches: List[MatchInfo] = Field(default_factory=list, description="匹配结果列表")
+    sku_id: Optional[str] = Field(None, description="匹配的SKU编号")
+    similarity: Optional[float] = Field(None, description="Top-1相似度")
+    ratio: Optional[float] = Field(None, description="相似度比值")
+    status: str = Field("", description="匹配状态: matched/low_conf/unmatched")
+    top5_labels: List[TopLabel] = Field(default_factory=list, description="Top-5候选标签")
 
 
 class SKUInfo(BaseModel):

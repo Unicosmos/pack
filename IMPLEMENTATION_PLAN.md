@@ -2,7 +2,7 @@
 
 > 基于 `DESIGN.md` 的详细实施计划
 >
-> 更新时间：2026-05-02
+> 更新时间：2026-05-04
 
 ---
 
@@ -363,17 +363,43 @@ function reset() { ... }
 
 **Phase 2 完成后**：完整的前端页面可运行
 
-### 7.3 Phase 3：状态与错误处理（P1）
+### 7.2.1 Phase 2 完成记录 (2026-05-04)
 
-| 任务 | 文件 | 优先级 | 预估 |
-|------|------|--------|------|
-| 状态横幅组件 | `StatusBanner.vue` | P1 | 0.5h |
-| Pinia状态管理 | `stores/app.js` | P1 | 1h |
-| SYSTEM_INIT处理 | main.py + 前端 | P1 | 1h |
-| 错误处理完善 | main.py | P1 | 1h |
-| 空状态UI | HomeView.vue | P1 | 0.5h |
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 项目脚手架 | ✅ 完成 | package.json, vite.config.js, main.js, index.html |
+| 根组件 | ✅ 完成 | App.vue 重构，使用组件化结构 |
+| 上传组件 | ✅ 完成 | UploadArea.vue 支持拖拽/点击上传 |
+| 预览组件 | ✅ 完成 | ImagePreview.vue 图片预览显示 |
+| 统计卡片 | ✅ 完成 | StatsCard.vue 支持颜色和数值显示 |
+| 检测列表 | ✅ 完成 | DetectionList.vue 完整检测详情 |
+| API调用层 | ✅ 完成 | api/detector.js 封装API调用 |
+| npm依赖安装 | ✅ 完成 | 73个包安装成功 |
+| 前端运行 | ✅ 完成 | http://localhost:5173 |
+| 后端运行 | ✅ 完成 | http://localhost:8000 |
+
+### 7.3 Phase 3：状态与错误处理（P1）✅
+
+| 任务 | 文件 | 优先级 | 预估 | 状态 |
+|------|------|--------|------|------|
+| 状态横幅组件 | `StatusBanner.vue` | P1 | 0.5h | ✅ |
+| Pinia状态管理 | `stores/app.js` | P1 | 1h | ✅ |
+| SYSTEM_INIT处理 | main.py + 前端 | P1 | 1h | ✅ |
+| 错误处理完善 | main.py | P1 | 1h | ✅ |
+| 空状态UI | App.vue | P1 | 0.5h | ✅ |
 
 **Phase 3 完成后**：完整的状态机和错误处理
+
+#### 7.3.1 Phase 3 完成记录 (2026-05-04)
+
+| 任务 | 说明 |
+|------|------|
+| 状态横幅组件 | 支持init/error/no-sku三种状态显示不同颜色横幅 |
+| Pinia状态管理 | 实现完整状态机：IDLE → UPLOADED → PROCESSING → SUCCESS/ERROR |
+| SYSTEM_INIT处理 | health接口返回status: init/partial/ok/error四种状态 |
+| 全局异常处理 | 统一处理HTTPException、ValidationError、通用异常 |
+| 空状态UI | 无结果时显示友好的空状态提示 |
+| 新增API端点 | `/api/match` 仅SKU匹配接口 |
 
 ### 7.4 Phase 4：SKU库与工具（P0）
 
@@ -526,25 +552,37 @@ pyyaml>=6.0.0
 - [ ] POST `/api/detect-and-match` 返回完整结果（含matched/low_conf/unmatched）（需模型和SKU库）
 - [ ] Ratio Test逻辑正确验证（需SKU库）
 
-### 10.2 Phase 2 验收
+### 10.2 Phase 2 验收 ✅
 
-- [ ] 前端可正常启动 `npm run dev`
-- [ ] 图片上传显示预览
-- [ ] 点击检测后显示结果
-- [ ] 统计卡片数字正确
+- [x] 前端可正常启动 `npm run dev`
+- [x] 创建Vue组件：UploadArea, ImagePreview, StatsCard, DetectionList
+- [x] 创建API调用层 api/detector.js
+- [x] App.vue使用组件重构完成
+- [x] 前端运行在 http://localhost:5173
+- [x] 后端运行在 http://localhost:8000
+- [x] `/api/health` 返回系统状态
+- [ ] 图片上传显示预览（需前端测试）
+- [ ] 点击检测后显示结果（需模型文件）
+- [ ] 统计卡片数字正确（需检测结果）
 
-### 10.3 Phase 3 验收
+### 10.3 Phase 3 验收 ✅
 
-- [ ] SYSTEM_INIT状态显示红色横幅
-- [ ] 错误状态正确显示错误信息
-- [ ] count=0时显示空状态插画
-- [ ] SKU库不存在时显示黄色提示条
+- [x] SYSTEM_INIT状态显示黄色横幅（warning状态）
+- [x] 错误状态正确显示错误信息（error状态）
+- [x] count=0时显示空状态提示
+- [x] SKU库不存在时显示蓝色提示条（no-sku状态）
+- [x] Pinia状态管理集成完成
+- [x] 全局异常处理完善
 
-### 10.4 Phase 4 验收
+### 10.4 Phase 4 验收（SKU库建设）✅
 
-- [ ] sku_library.csv格式正确
-- [ ] sku_features.npy形状为[N, 384]
-- [ ] 匹配结果正确返回sku_id和similarity
+- [x] 修改 box_detector.py 输出结构 → crops/{原图名称}/
+- [x] 修改 sku_augmentation.py 生成 sku_library.csv 索引
+- [x] 创建 feature_extractor.py（ViT-S16 DINO，384维）
+- [x] 特征维度统一为384维（适配ViT-S16 DINO）
+- [ ] sku_library.csv格式验证（需实际运行）
+- [ ] sku_features.npy形状为[N, 384]（需实际运行）
+- [ ] 匹配结果正确返回sku_id和similarity（需SKU库）
 
 ---
 
