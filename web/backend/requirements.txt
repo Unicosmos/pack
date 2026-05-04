@@ -23,6 +23,7 @@ pillow>=11.3.0
 
 # 工具库
 tqdm>=4.67.1
+mlflow>=2.8.0
 
 # 安装说明：
 # PyTorch 2.2.2 + CUDA 12.1
