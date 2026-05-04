@@ -1,10 +1,29 @@
+# Python 3.10 环境依赖
+# 硬件配置：NVIDIA RTX 4090 GPU，CUDA 12.1
+
+# Web框架
 fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-python-multipart>=0.0.6
-pydantic>=2.0.0
-ultralytics>=8.0.0
-torch>=2.0.0
-torchvision>=0.15.0
-opencv-python>=4.8.0
-pillow>=10.0.0
-numpy>=1.24.0
+uvicorn[standard]>=0.46.0
+starlette>=1.0.0
+anyio>=4.13.0
+
+# 数据处理
+pydantic>=2.11.7
+pydantic-settings>=2.6.1
+python-multipart>=0.0.27
+numpy>=2.3.3
+PyYAML>=6.0.3
+
+# 计算机视觉
+ultralytics==8.1.7
+torch==2.2.2
+torchvision>=0.17.0
+opencv-python>=4.13.0
+pillow>=11.3.0
+
+# 工具库
+tqdm>=4.67.1
+
+# 安装说明：
+# PyTorch 2.2.2 + CUDA 12.1
+# pip3 install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cu121
