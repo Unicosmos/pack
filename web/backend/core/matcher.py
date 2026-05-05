@@ -82,7 +82,8 @@ class SKUMatcher:
         feature_dim: int = 384,
         match_threshold: float = 0.85,
         ratio_threshold: float = 1.2,
-        top_k: int = 5
+        top_k: int = 5,
+        sku_model_path: Optional[str] = None
     ):
         """
         初始化SKU匹配器
@@ -94,6 +95,7 @@ class SKUMatcher:
             match_threshold: 相似度阈值
             ratio_threshold: Ratio Test阈值
             top_k: 返回前k个候选
+            sku_model_path: SKU微调模型路径 (.pth文件)
         """
         self.model_path = model_path
         self.sku_dir = Path(sku_dir)
@@ -101,6 +103,7 @@ class SKUMatcher:
         self.match_threshold = match_threshold
         self.ratio_threshold = ratio_threshold
         self.top_k = top_k
+        self.sku_model_path = sku_model_path
 
         self.sku_features = None
         self.sku_labels = None
@@ -148,7 +151,7 @@ class SKUMatcher:
             return
 
         try:
-            self.extractor = FeatureExtractor(device='cpu')
+            self.extractor = FeatureExtractor(model_path=self.sku_model_path, device='cpu')
             print("  FeatureExtractor已初始化")
         except Exception as e:
             print(f"初始化FeatureExtractor失败: {e}")
@@ -257,12 +260,11 @@ class SKUMatcher:
         Returns:
             特征向量 [D]
         """
-        if not HAS_FEATURE_EXTRACTOR:
+        if not HAS_FEATURE_EXTRACTOR or not self.extractor:
             return np.zeros(self.feature_dim)
 
         try:
-            extractor = FeatureExtractor(device='cpu')
-            feat = extractor.extract(image)
+            feat = self.extractor.extract(image)
             if feat.ndim == 2:
                 feat = feat.squeeze()
             norm = np.linalg.norm(feat)

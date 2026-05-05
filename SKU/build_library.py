@@ -14,7 +14,7 @@ SKU特征建库脚本
 - sku_library/sku_library.csv   索引文件，包含 image_name,sku_id,label,sku_name
 
 使用方法:
-    python build_library.py --input ./sku_output --output ../sku_library
+    python build_library.py --input ./sku_output --output ../sku_library --model-path ./models/sku_trained_vits16_dino.pth
     python build_library.py --device cuda  # 使用GPU加速
 """
 
@@ -84,6 +84,13 @@ def parse_args():
         help='使用 sku_augmentation.py 生成的 sku_library.csv 作为输入'
     )
     
+    parser.add_argument(
+        '--model-path',
+        type=str,
+        default=None,
+        help='微调模型路径 (默认: 使用预训练模型)'
+    )
+    
     return parser.parse_args()
 
 
@@ -127,6 +134,10 @@ def main():
     print(f"  输出目录: {output_dir.resolve()}")
     print(f"  推理设备: {args.device}")
     print(f"  使用增强CSV: {args.use_aug_csv}")
+    if args.model_path:
+        print(f"  微调模型: {Path(args.model_path).resolve()}")
+    else:
+        print(f"  微调模型: (未使用，使用预训练模型)")
     print()
     
     # 1. 收集图片数据
@@ -230,7 +241,7 @@ def main():
     # 2. 初始化特征提取器
     print("[2/5] 初始化特征提取器...")
     try:
-        extractor = FeatureExtractor(device=args.device)
+        extractor = FeatureExtractor(model_path=args.model_path, device=args.device)
         print(f"  ✓ ViT-S16 DINO 模型加载成功")
     except Exception as e:
         print(f"  ✗ 模型加载失败: {e}")

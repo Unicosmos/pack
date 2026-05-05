@@ -81,7 +81,8 @@ async def lifespan(app: FastAPI):
                 str(cfg.paths.MODEL_PATH),
                 str(cfg.paths.SKU_DIR),
                 match_threshold=cfg.match.MATCH_THRESHOLD,
-                ratio_threshold=cfg.match.RATIO_THRESHOLD
+                ratio_threshold=cfg.match.RATIO_THRESHOLD,
+                sku_model_path=str(cfg.paths.SKU_MODEL_PATH) if cfg.paths.SKU_MODEL_PATH else None
             )
             if matcher.is_ready():
                 print("  SKUMatcher加载成功")
@@ -124,7 +125,7 @@ def get_sku_count() -> int:
     """获取SKU数量"""
     if matcher and matcher.is_ready():
         sku_ids = set()
-        for item in matcher.sku_index:
+        for item in matcher.sku_info:
             sku_ids.add(item.get('sku_id', ''))
         return len(sku_ids)
     return 0
@@ -293,7 +294,7 @@ async def match_image(
             image = image.convert("RGB")
 
         resized = resize_with_padding(image, target_size=config.model.INPUT_SIZE)
-        features = matcher.extract_features(resized)
+        features = matcher.extract_feature(resized)
 
         result = matcher.match_sku(features, threshold=match_threshold, ratio_threshold=ratio_threshold)
 
@@ -364,7 +365,7 @@ async def detect_and_match_image(
                     cropped = crop_box(image, box.get("bbox", []))
                     if cropped:
                         resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
-                        feat = matcher.extract_features(resized)
+                        feat = matcher.extract_feature(resized)
                         features.append(feat)
                     else:
                         features.append(None)
@@ -465,15 +466,15 @@ async def get_sku_list():
         return SKUListResponse(success=True, skus=[], count=0)
 
     sku_map = {}
-    for item in matcher.sku_index:
+    for item in matcher.sku_info:
         sku_id = item.get('sku_id', '')
-        if sku_id and sku_id not in sku_map:
-            sku_map[sku_id] = {
-                'sku_id': sku_id,
-                'sku_name': item.get('sku_name', sku_id),
-                'labels': []
-            }
         if sku_id:
+            if sku_id not in sku_map:
+                sku_map[sku_id] = {
+                    'sku_id': sku_id,
+                    'sku_name': item.get('sku_name', sku_id),
+                    'labels': []
+                }
             sku_map[sku_id]['labels'].append(item.get('label', ''))
 
     skus = [

@@ -33,6 +33,7 @@ class PathConfig:
     SKU_DIR: Path
     SKU_FEATURES: Path
     SKU_INDEX: Path
+    SKU_MODEL_PATH: Optional[Path]
     ULTRALYTICS_DIR: Path
     YOLO_CONFIG_DIR: Path
 
@@ -60,12 +61,33 @@ class Config:
     def _load_paths(self):
         """加载路径配置"""
         backend_dir = Path(__file__).parent
+        base_dir = backend_dir.parent.parent
+        
+        # 查找微调模型
+        sku_model_path = None
+        # 先在 SKU/models/ 下查找
+        candidate = base_dir / "SKU" / "models"
+        if candidate.exists():
+            for f in candidate.iterdir():
+                if f.suffix == ".pth" and "sku" in f.name.lower():
+                    sku_model_path = f
+                    break
+        if not sku_model_path:
+            # 在 SKU/ 下直接查找
+            sku_dir = Path(base_dir / "SKU")
+            if sku_dir.exists():
+                for f in sku_dir.iterdir():
+                    if f.suffix == ".pth" and "sku" in f.name.lower():
+                        sku_model_path = f
+                        break
+        
         self.paths = PathConfig(
-            BASE_DIR=backend_dir.parent.parent,
-            MODEL_PATH=backend_dir.parent.parent / "models" / "best.pt",
-            SKU_DIR=backend_dir.parent.parent / "sku_library",
-            SKU_FEATURES=backend_dir.parent.parent / "sku_library" / "sku_features.npy",
-            SKU_INDEX=backend_dir.parent.parent / "sku_library" / "sku_library.csv",
+            BASE_DIR=base_dir,
+            MODEL_PATH=base_dir / "models" / "best.pt",
+            SKU_DIR=base_dir / "sku_library",
+            SKU_FEATURES=base_dir / "sku_library" / "sku_features.npy",
+            SKU_INDEX=base_dir / "sku_library" / "sku_library.csv",
+            SKU_MODEL_PATH=sku_model_path,
             ULTRALYTICS_DIR=backend_dir / ".ultralytics",
             YOLO_CONFIG_DIR=backend_dir / ".yolo"
         )
