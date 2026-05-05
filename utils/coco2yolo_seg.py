@@ -1,5 +1,5 @@
 """
-COCO格式转YOLO格式脚本（分割版本）
+COCO格式转YOLO格式脚本（分割版本）- 完全保留原始标注信息版本
 适用于四类别LSCD数据集（Carton-inner-all, Carton-inner-occlusion, Carton-outer-all, Carton-outer-occlusion）
 
 YOLO分割格式说明:
@@ -20,6 +20,7 @@ import os
 import shutil
 from pathlib import Path
 from tqdm import tqdm
+import numpy as np
 
 
 def convert_coco_to_yolo_seg(
@@ -70,6 +71,7 @@ def convert_coco_to_yolo_seg(
     
     converted_count = 0
     skipped_count = 0
+    total_polygons_converted = 0
     
     for img_info in tqdm(coco_data['images'], desc=f"转换{split}集"):
         img_id = img_info['id']
@@ -98,28 +100,30 @@ def convert_coco_to_yolo_seg(
                 # 处理分割标注
                 segmentation = ann['segmentation']
                 
-                # COCO格式的segmentation可能是列表的列表（多边形）
+                # COCO格式的segmentation可能是列表的列表（多边形）或RLE格式
                 if isinstance(segmentation, list):
-                    # 取第一个多边形（通常是主要的分割区域）
-                    polygon = segmentation[0]
-                    
-                    # 归一化坐标
-                    normalized_polygon = []
-                    for i in range(0, len(polygon), 2):
-                        x = polygon[i] / img_width
-                        y = polygon[i+1] / img_height
-                        # 确保坐标在0-1范围内
-                        x = max(0, min(1, x))
-                        y = max(0, min(1, y))
-                        normalized_polygon.extend([x, y])
-                    
-                    # 写入YOLO格式
-                    line = [str(yolo_class_id)] + [f"{coord:.6f}" for coord in normalized_polygon]
-                    f.write(' '.join(line) + '\n')
+                    # 处理所有多边形 - 完全保留所有分割区域
+                    for polygon in segmentation:
+                        # 归一化坐标 - 不做截断，保留原始比例
+                        normalized_polygon = []
+                        for i in range(0, len(polygon), 2):
+                            x = polygon[i] / img_width
+                            y = polygon[i+1] / img_height
+                            normalized_polygon.extend([x, y])
+                        
+                        # 写入YOLO格式 - 使用更高精度保留坐标
+                        line = [str(yolo_class_id)] + [f"{coord:.12f}" for coord in normalized_polygon]
+                        f.write(' '.join(line) + '\n')
+                        total_polygons_converted += 1
+                elif isinstance(segmentation, dict):
+                    # RLE格式处理（如果需要）
+                    print(f"警告: 遇到RLE格式标注，暂时跳过: image_id={img_id}")
+                    continue
         
         converted_count += 1
     
     print(f"转换完成: {converted_count} 张图片")
+    print(f"转换多边形总数: {total_polygons_converted}")
     if skipped_count > 0:
         print(f"跳过: {skipped_count} 张图片（找不到源文件）")
     
@@ -158,8 +162,8 @@ names:
 
 
 def main():
-    base_dir = "/root/source/data2/hyg/projects/pack/coco_style_fourclass"
-    output_dir = "/root/source/data2/hyg/projects/pack/coco_style_fourclass/yolo_dataset_seg"
+    base_dir = "/root/pack/coco_style_fourclass"
+    output_dir = "/root/pack/datasets/coco_style_fourclass/yolo_dataset_seg"
     
     train_json = os.path.join(base_dir, "annotations", "instances_train2017.json")
     val_json = os.path.join(base_dir, "annotations", "instances_val2017.json")
@@ -167,7 +171,7 @@ def main():
     val_images = os.path.join(base_dir, "images", "val2017")
     
     print("=" * 60)
-    print("COCO格式 -> YOLO分割格式 转换工具")
+    print("COCO格式 -> YOLO分割格式 转换工具 (完全保留原始标注)")
     print("=" * 60)
     print(f"源数据集目录: {base_dir}")
     print(f"输出目录: {output_dir}")

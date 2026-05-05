@@ -1,0 +1,35 @@
+# YOLO验证配置文件
+# 用于LSCD分割模型验证
+
+# 基础任务配置
+task: segment  # 任务类型：segment(实例分割)
+
+# 项目管理配置
+project: runs/val  # 结果保存目录
+name: lscd_seg_val  # 实验名称
+
+# 模型和数据配置
+model: /root/source/data2/hyg/projects/pack/runs/segment/lscd_segmentation_20260409214824/weights/best.pt
+
+# 数据集配置文件路径
+data: /root/source/data2/hyg/projects/pack/coco_style_oneclass/yolo_dataset_seg/dataset.yaml
+
+# 验证参数
+imgsz: 640      # 输入图像尺寸
+batch: 16       # 批次大小
+workers: 4
+conf: 0.001     # 置信度阈值（验证时通常设置较低）
+iou: 0.6        # NMS IoU阈值
+device: 0       # 设备选择，使用第0号GPU
+half: false     # 是否使用FP16半精度推理
+
+# 输出配置
+save_json: true     # 保存结果到JSON文件
+plots: true         # 生成验证结果图表
+verbose: true       # 显示详细验证日志
+
+# 其他配置
+max_det: 300        # 每张图像最大检测数
+agnostic_nms: false # 是否使用类别无关的NMS
+
+cache: false

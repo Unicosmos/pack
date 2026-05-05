@@ -1,0 +1,9 @@
+# 默认忽略所有内容
+*
+
+# 但允许 .gitignore 本身
+!.gitignore
+
+# 只追踪特定的训练结果目录
+!lscd_segmentation_20260504232735/
+!lscd_segmentation_20260504232735/**

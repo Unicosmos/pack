@@ -21,7 +21,7 @@ build/
 *~
 .DS_Store
 Thumbs.db
-runs/
+runs/*
 weights/
 data/
 coco_style_oneclass/
@@ -48,3 +48,12 @@ data/**/*.webp
 SKU/**/*.jpg
 SKU/**/*.jpeg
 SKU/**/*.png
+
+# 备份和训练产物
+mlartifacts/
+ultralytics_backup/
+YOLOv8-cheap/
+YOLO/coco_style_fourclass/yolo_dataset_seg/images/
+YOLO/coco_style_fourclass/annotations/
+YOLO/coco_style_fourclass/statictics
+YOLO/mlruns/

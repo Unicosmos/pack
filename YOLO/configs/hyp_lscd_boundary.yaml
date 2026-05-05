@@ -1,0 +1,93 @@
+# LSCD数据集训练配置
+# 完全复刻论文参数表格 - 分割模型 + 边界感知损失
+
+# 任务配置
+task: segment
+
+# 项目管理配置
+mlflow-uri: http://localhost:5001
+project: ./runs/
+name: lscd_segmentation
+exist_ok: false
+
+# 模型和数据配置
+model: yolov8-seg-cheap.yaml
+data: ./coco_style_fourclass/yolo_dataset_seg/dataset.yaml
+
+# 设备配置
+device: 0
+workers: 8
+seed: 0
+
+# ========== 论文表格参数 ==========
+
+# 训练参数
+epochs: 36
+batch: 16
+imgsz: 640
+
+# 优化器配置
+optimizer: AdamW
+amp: true
+
+# 学习率配置
+lr0: 0.01
+lrf: 0.01
+cos_lr: false
+
+# SGD参数
+momentum: 0.937
+weight_decay: 0.0005
+
+# 预热配置
+warmup_epochs: 3.0
+warmup_momentum: 0.8
+
+# 损失函数权重
+box: 7.5
+cls: 0.5
+dfl: 1.5
+
+# 数据增强
+mosaic: 1.0
+mixup: 0.1
+copy_paste: 0.1
+close_mosaic: 10
+
+pretrained: false
+
+# ===== 关闭 YOLOv8 默认隐藏增强 =====
+
+# 颜色增强（HSV）
+hsv_h: 0.0
+hsv_s: 0.0
+hsv_v: 0.0
+
+# 几何变换
+translate: 0.0
+scale: 0.0
+shear: 0.0
+perspective: 0.0
+
+# 翻转
+flipud: 0.0
+fliplr: 0.0
+
+# 自动增强（很重要！）
+auto_augment: null
+
+# 随机擦除（强增强）
+erasing: 0.0
+
+# Albumentations相关
+crop_fraction: 1.0
+
+conf: 0.25
+iou: 0.7
+
+# ========== 边界感知损失参数 ==========
+# 必须在训练前替换 ultralytics/utils/loss.py
+# 参考: 毕业设计/loss_with_boundary_fast.py
+
+boundary: 1.5  # 边界像素权重倍数（1.0=关闭，1.5=推荐）
+boundary_width: 3  # 边界宽度（像素）
