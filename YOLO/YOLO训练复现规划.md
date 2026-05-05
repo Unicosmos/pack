@@ -146,7 +146,6 @@
 ### 8.1 保存训练模型
 
 - [ ] 复制最佳权重到 `models/best.pt`
-- [ ] 复制到 `web/backend/models/`
 
 ### 8.2 部署验证
 

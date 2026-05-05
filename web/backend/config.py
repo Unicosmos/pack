@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 @dataclass
 class ModelConfig:
-    CONF_THRESHOLD: float = 0.5
+    CONF_THRESHOLD: float = 0.35
     IOU_THRESHOLD: float = 0.45
     MIN_AREA_RATIO: float = 0.01
     MIN_PIXEL_AREA: int = 2500

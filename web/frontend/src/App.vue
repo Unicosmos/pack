@@ -72,10 +72,12 @@
         <div class="images">
           <div class="image-box">
             <h3 style="margin-bottom: 10px;">检测结果</h3>
-            <img v-if="store.result.image_with_boxes" :src="'data:image/jpeg;base64,' + store.result.image_with_boxes" style="width: 100%; border-radius: 8px; border: 1px solid #e0e0e0;">
-            <div v-else class="empty-result">
-              <div class="empty-icon">📭</div>
-              <p>未检测到目标</p>
+            <div class="image-wrapper">
+              <img v-if="store.result.image_with_boxes" :src="'data:image/jpeg;base64,' + store.result.image_with_boxes" class="result-image">
+              <div v-else class="empty-result">
+                <div class="empty-icon">📭</div>
+                <p>未检测到目标</p>
+              </div>
             </div>
           </div>
         </div>
@@ -435,6 +437,26 @@ onMounted(() => {
 .image-box {
   flex: 1;
   min-width: 300px;
+}
+
+.image-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f9f9f9;
+  border-radius: 8px;
+  padding: 10px;
+  min-height: 200px;
+}
+
+.result-image {
+  max-width: 100%;
+  max-height: 500px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
 }
 
 .result-title {

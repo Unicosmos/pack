@@ -18,7 +18,6 @@ import base64
 CROPS_DIR = Path("crops")
 SKU_DIR = Path("sku_output")
 DB_PATH = SKU_DIR / "sku_database.json"
-FEAT_PATH = SKU_DIR / "sku_features.npy"
 CANDIDATES_DIR = SKU_DIR / "new_candidates"
 EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
@@ -30,8 +29,6 @@ def ensure_dirs():
         d.mkdir(parents=True, exist_ok=True)
     if not DB_PATH.exists():
         DB_PATH.write_text(json.dumps({}, ensure_ascii=False, indent=2), "utf-8")
-    if not FEAT_PATH.exists():
-        np.save(FEAT_PATH, np.zeros((0, 256), dtype=np.float32))
 
 
 def read_db():
@@ -43,17 +40,6 @@ def read_db():
 
 def write_db(db):
     DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), "utf-8")
-
-
-def read_feats():
-    try:
-        return np.load(FEAT_PATH)
-    except Exception:
-        return np.zeros((0, 256), dtype=np.float32)
-
-
-def write_feats(f):
-    np.save(FEAT_PATH, f)
 
 
 def get_folders():
@@ -880,27 +866,10 @@ with gr.Blocks(
         write_db(db)
         logs = add_log(logs, "  ✓ 数据库同步完成")
 
-        # ② 更新特征矩阵
-        progress(0.5, desc="更新特征矩阵…")
-        feats = read_feats()
-        try:
-            # 根据数据库结构确定 SKU 数量
-            if "skus" in db:
-                n = len(db["skus"])
-            else:
-                n = len(db.keys())
-            new_feats = np.zeros((n, 256), dtype=np.float32)
-            if feats.shape[0] > 0 and feats.shape[1] == 256:
-                # 保留已有特征，新增 SKU 用零向量占位
-                for i in range(min(n, feats.shape[0])):
-                    new_feats[i] = feats[i]
-            write_feats(new_feats)
-            logs = add_log(logs, f"  ✓ 特征矩阵更新完成（{n} 个 SKU × 256维）")
-        except Exception as e:
-            logs = add_log(logs, f"  ⚠ 特征矩阵更新异常: {e}")
+        # ② 特征矩阵更新已移除（由 build_library.py 单独处理）
 
         # ③ 最终确认写入
-        progress(0.85, desc="最终写入…")
+        progress(0.7, desc="最终写入…")
         write_db(db)
 
         progress(1.0, desc="保存完成")

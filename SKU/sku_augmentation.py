@@ -19,19 +19,24 @@ SKU图片库增强脚本
 输出目录结构：
     output_dir/
         000001/
-            001_001.jpg    # 面编号_增强编号
-            001_002.jpg
-            001_003.jpg
-            001_004.jpg
-            001_005.jpg
-            002_001.jpg    # 第二张原图的增强
+            IMG_001_001.jpg    # 左侧视角
+            IMG_001_002.jpg    # 右侧视角
+            IMG_001_003.jpg    # 暗光环境
+            IMG_001_004.jpg    # 亮光环境
+            IMG_001_005.jpg    # 轻微模糊
+            IMG_001_006.jpg    # 旋转90度
+            IMG_001_007.jpg    # 旋转180度
+            IMG_001_008.jpg    # 旋转270度
+            IMG_001_009.jpg    # 对比度增强
+            IMG_001_010.jpg    # 轻微噪声
+            IMG_002_001.jpg ~ IMG_002_010.jpg    # 第二张原图的增强
             ...
         000002/
-            001_001.jpg
+            photo1_001.jpg ~ photo1_010.jpg
             ...
         metadata.json
 
-固定增强方案（5张/每面）：
+固定增强方案（10张/每面）：
 
 | 编号 | 增强类型     | 核心操作                          | 物理意义              |
 |-----|-------------|----------------------------------|---------------------|
@@ -39,7 +44,12 @@ SKU图片库增强脚本
 | 002 | 右侧视角     | perspective(右倾0.003)          | 右侧斜向拍摄视角       |
 | 003 | 暗光环境     | hsv_v(-0.25), hsv_s(-0.15)       | 光线不足，颜色偏暗     |
 | 004 | 亮光环境     | hsv_v(+0.25), hsv_s(+0.10)       | 强光照射，颜色偏亮     |
-| 005 | 低质量模拟   | scale(0.9) + blur(3) + noise(5)  | 远距离/低质量拍摄     |
+| 005 | 轻微模糊     | blur(5)                         | 轻微失焦              |
+| 006 | 旋转90度    | rotate(90)                      | 垂直放置（顺时针90度） |
+| 007 | 旋转180度   | rotate(180)                     | 倒置放置              |
+| 008 | 旋转270度   | rotate(270)                     | 垂直放置（逆时针90度）|
+| 009 | 对比度增强   | contrast(1.15)                  | 增强特征可见度         |
+| 010 | 轻微噪声     | noise(3)                        | 真实场景轻微噪声       |
 
 使用方法：
     python sku_augmentation.py --input ./sku_raw --output ./sku_library
@@ -105,13 +115,56 @@ FIXED_AUGMENTATION_PLAN = [
     },
     {
         'id': '005',
-        'name': 'low_quality',
-        'name_cn': '低质量模拟',
-        'description': '缩放90%+模糊+噪声，模拟远距离拍摄',
+        'name': 'mild_blur',
+        'name_cn': '轻微模糊',
+        'description': '高斯模糊模拟轻微失焦',
         'operations': [
-            {'type': 'scale', 'factor': 0.9},
-            {'type': 'blur', 'kernel': 3},
-            {'type': 'noise', 'std': 5}
+            {'type': 'blur', 'kernel': 5}
+        ]
+    },
+    {
+        'id': '006',
+        'name': 'rotate_90',
+        'name_cn': '旋转90度',
+        'description': '顺时针旋转90度（垂直放置）',
+        'operations': [
+            {'type': 'rotate', 'angle': 90}
+        ]
+    },
+    {
+        'id': '007',
+        'name': 'rotate_180',
+        'name_cn': '旋转180度',
+        'description': '旋转180度（倒置放置）',
+        'operations': [
+            {'type': 'rotate', 'angle': 180}
+        ]
+    },
+    {
+        'id': '008',
+        'name': 'rotate_270',
+        'name_cn': '旋转270度',
+        'description': '顺时针旋转270度（逆时针90度）',
+        'operations': [
+            {'type': 'rotate', 'angle': 270}
+        ]
+    },
+    {
+        'id': '009',
+        'name': 'contrast_boost',
+        'name_cn': '对比度增强',
+        'description': '轻微增强对比度使特征更明显',
+        'operations': [
+            {'type': 'contrast', 'factor': 1.15}
+        ]
+    },
+    {
+        'id': '010',
+        'name': 'mild_noise',
+        'name_cn': '轻微噪声',
+        'description': '添加轻微高斯噪声模拟真实场景',
+        'operations': [
+            {'type': 'noise', 'std': 3}
         ]
     }
 ]
@@ -203,6 +256,42 @@ def add_gaussian_noise(image: np.ndarray, std: int) -> np.ndarray:
     return np.clip(noisy, 0, 255).astype(np.uint8)
 
 
+def rotate_image(image: np.ndarray, angle: int) -> np.ndarray:
+    """旋转图像90/180/270度"""
+    h, w = image.shape[:2]
+    
+    if angle == 90:
+        # 顺时针旋转90度
+        rotated = cv2.transpose(image)
+        rotated = cv2.flip(rotated, 1)
+    elif angle == 180:
+        # 旋转180度
+        rotated = cv2.flip(image, -1)
+    elif angle == 270:
+        # 顺时针旋转270度 = 逆时针90度
+        rotated = cv2.transpose(image)
+        rotated = cv2.flip(rotated, 0)
+    else:
+        # 其他角度使用标准旋转（但保持尺寸）
+        center = (w // 2, h // 2)
+        M = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(image, M, (w, h), borderMode=cv2.BORDER_REFLECT_101)
+    
+    return rotated
+
+
+def adjust_contrast(image: np.ndarray, factor: float) -> np.ndarray:
+    """调整对比度"""
+    # 转换为浮点数
+    img_float = image.astype(np.float32)
+    # 计算均值
+    mean = np.mean(img_float, axis=(0, 1), keepdims=True)
+    # 调整对比度：new = mean + factor * (old - mean)
+    adjusted = mean + factor * (img_float - mean)
+    # 裁剪到有效范围
+    return np.clip(adjusted, 0, 255).astype(np.uint8)
+
+
 def apply_single_operation(image: np.ndarray, operation: Dict) -> np.ndarray:
     """应用单个增强操作"""
     op_type = operation['type']
@@ -217,6 +306,10 @@ def apply_single_operation(image: np.ndarray, operation: Dict) -> np.ndarray:
         return apply_gaussian_blur(image, operation['kernel'])
     elif op_type == 'noise':
         return add_gaussian_noise(image, operation['std'])
+    elif op_type == 'rotate':
+        return rotate_image(image, operation['angle'])
+    elif op_type == 'contrast':
+        return adjust_contrast(image, operation['factor'])
     else:
         raise ValueError(f"未知操作类型: {op_type}")
 
@@ -277,6 +370,22 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
         print(f"  [{plan['id']}] {plan['name_cn']}: {plan['description']}")
     print("=" * 70)
     
+    # 读取 sku_database.json 获取 sku_name 映射
+    sku_name_map = {}
+    db_path = input_path / 'sku_database.json'
+    if db_path.exists():
+        try:
+            with open(db_path, 'r', encoding='utf-8') as f:
+                db = json.load(f)
+            for sku_id, info in db.items():
+                if isinstance(info, dict):
+                    sku_name_map[sku_id] = info.get('name', sku_id)
+                else:
+                    sku_name_map[sku_id] = sku_id
+            print(f"  ✓ 已加载 {len(sku_name_map)} 个SKU的命名信息")
+        except Exception as e:
+            print(f"  ⚠ 无法读取 sku_database.json: {e}")
+    
     # 元数据
     metadata = {
         'created_at': datetime.now().isoformat(),
@@ -295,28 +404,31 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
     }
     
     for sku_folder in tqdm(sku_folders, desc="处理SKU"):
-        sku_name = sku_folder.name  # 如 000001
+        sku_id = sku_folder.name  # 如 000001
+        sku_name = sku_name_map.get(sku_id, sku_id)  # 从数据库获取真实名称
         
-        # 收集该SKU的所有图片（按文件名排序）
-        face_images = []
+        # 收集该SKU的所有图片（按文件名排序），使用set去重
+        face_images_set = set()
         for ext in image_extensions:
-            face_images.extend(sku_folder.glob(f'*{ext}'))
-            face_images.extend(sku_folder.glob(f'*{ext.upper()}'))
-        face_images = sorted(face_images, key=lambda x: x.name)
+            face_images_set.update(sku_folder.glob(f'*{ext}'))
+            face_images_set.update(sku_folder.glob(f'*{ext.upper()}'))
+        face_images = sorted(face_images_set, key=lambda x: x.name)
         
         if not face_images:
             stats['errors'].append(f"SKU {sku_name} 没有图片")
             continue
         
         sku_metadata = {
+            'sku_id': sku_id,
             'sku_name': sku_name,
             'source_folder': str(sku_folder),
             'faces': []
         }
         
-        # 处理每张图片（面编号从001开始）
+        # 处理每张图片
         for face_idx, face_img in enumerate(face_images, start=1):
-            face_id = f"{face_idx:03d}"  # 001, 002, 003...
+            # 使用原图文件名（去扩展名）作为前缀
+            face_stem = face_img.stem  # 如 "IMG_001"
             
             # 读取图片
             image = cv2.imread(str(face_img))
@@ -331,9 +443,10 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
             for plan in FIXED_AUGMENTATION_PLAN:
                 aug_image = apply_augmentation_plan(image, plan)
 
-                # 生成输出文件名：面编号_增强编号.jpg，保存到SKU文件夹
-                output_name = f"{face_id}_{plan['id']}.jpg"
-                sku_output_dir = output_path / sku_name
+                # 生成输出文件名：原图名_增强编号.jpg，保存到SKU文件夹
+                # 例如：IMG_001_001.jpg, IMG_001_002.jpg, ...
+                output_name = f"{face_stem}_{plan['id']}.jpg"
+                sku_output_dir = output_path / sku_id
                 sku_output_dir.mkdir(parents=True, exist_ok=True)
                 output_path_file = sku_output_dir / output_name
                 cv2.imwrite(str(output_path_file), aug_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
@@ -346,8 +459,9 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
                 })
             
             sku_metadata['faces'].append({
-                'face_id': face_id,
+                'face_id': str(face_idx),
                 'source_file': face_img.name,
+                'source_stem': face_stem,
                 'image_size': [image.shape[1], image.shape[0]],
                 'augmentations': face_augmentations
             })
@@ -360,20 +474,21 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
     
     # 生成 sku_library.csv 索引文件
     # 字段: image_name,sku_id,label,sku_name
-    # label格式: {sku_id}_{face_id} (每个面作为独立label)
+    # label格式: 原图名（去扩展名），每个原图对应一个label，该原图的所有增强图共享这个label
     csv_rows = []
     for sku_metadata in metadata['skus']:
-        sku_id = sku_metadata['sku_name']
+        sku_id = sku_metadata['sku_id']
+        sku_name = sku_metadata['sku_name']
         for face in sku_metadata['faces']:
-            face_id = face['face_id']
+            face_stem = face.get('source_stem', face['face_id'])
+            label = face_stem  # label = 原图名（去扩展名）
             for aug in face['augmentations']:
                 image_name = f"{sku_id}/{aug['output_file']}"
-                label = f"{sku_id}_{face_id}"
                 csv_rows.append({
                     'image_name': image_name,
                     'sku_id': sku_id,
                     'label': label,
-                    'sku_name': sku_id
+                    'sku_name': sku_name
                 })
     
     # 写入CSV
@@ -419,8 +534,8 @@ def main():
             ...
 
 输出命名规则：
-    {SKU编号}/{面编号}_{增强编号}.jpg
-    例如：000001/001_001.jpg
+    {SKU编号}/{原图名}_{增强编号}.jpg
+    例如：000001/IMG_001_001.jpg
 
 示例命令：
     python sku_augmentation.py --input ./sku_output --output ./sku_library

@@ -31,7 +31,6 @@ mlruns/
 mlruns/artifacts/
 SKU/crops/
 SKU/features.csv
-SKU/sku_output/
 SKU/source/
 compare.md
 nn/
@@ -48,12 +47,16 @@ data/**/*.webp
 SKU/**/*.jpg
 SKU/**/*.jpeg
 SKU/**/*.png
+sku_library/**/*.jpg
+sku_library/**/*.jpeg
+sku_library/**/*.png
 
 # 备份和训练产物
 mlartifacts/
 ultralytics_backup/
 YOLOv8-cheap/
 YOLO/coco_style_fourclass/yolo_dataset_seg/images/
+YOLO/coco_style_fourclass/images/
 YOLO/coco_style_fourclass/annotations/
 YOLO/coco_style_fourclass/statictics
 YOLO/mlruns/

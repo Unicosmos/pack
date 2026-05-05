@@ -21,13 +21,14 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "SKU"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "utils"))
 
 try:
     from box_detector import BoxDetector as OriginalBoxDetector
     HAS_ORIGINAL_MODULES = True
-except ImportError:
+except ImportError as e:
     HAS_ORIGINAL_MODULES = False
-    print("警告: 原始SKU模块导入失败")
+    print(f"警告: 原始SKU模块导入失败: {e}")
 
 from config import config
 from models.schemas import (
@@ -215,9 +216,11 @@ async def detect_image(
         if image.mode != "RGB":
             image = image.convert("RGB")
 
-        result = detector.detect_single_image(image, return_cropped=True)
+        result = detector.detect_single_image(image, return_cropped=True, return_plot=True)
 
         boxes = result.get("detections", [])
+        plot_image = result.get("plot_image", None)
+        
         if not boxes:
             return DetectResponse(
                 success=True,
@@ -234,7 +237,11 @@ async def detect_image(
             min_pixel_area=config.model.MIN_PIXEL_AREA
         )
 
-        result_image = draw_boxes_only(image, boxes)
+        # 优先使用YOLO自带的可视化
+        if plot_image:
+            result_image = plot_image
+        else:
+            result_image = draw_boxes_only(image, boxes)
         img_base64 = image_to_base64(result_image)
 
         crops_base64 = []
@@ -322,9 +329,11 @@ async def detect_and_match_image(
         if image.mode != "RGB":
             image = image.convert("RGB")
 
-        result = detector.detect_single_image(image, return_cropped=True)
+        result = detector.detect_single_image(image, return_cropped=True, return_plot=True)
 
         boxes = result.get("detections", [])
+        plot_image = result.get("plot_image", None)
+        
         if not boxes:
             return DetectAndMatchResponse(
                 success=True,
@@ -379,8 +388,23 @@ async def detect_and_match_image(
         if not sku_matcher_enabled:
             match_results = [None] * len(boxes)
 
-        result_image, crops_base64 = draw_detection_result(image, boxes, match_results)
+        # 优先使用YOLO自带的可视化图片，如果没有则使用自定义绘制
+        if plot_image:
+            result_image = plot_image
+        else:
+            result_image, _ = draw_detection_result(image, boxes, match_results)
+        
         img_base64 = image_to_base64(result_image)
+        
+        # 生成裁剪图
+        crops_base64 = []
+        for box in boxes:
+            cropped = crop_box(image, box.get("bbox", []))
+            if cropped:
+                resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
+                crops_base64.append(image_to_base64(resized))
+            else:
+                crops_base64.append(None)
 
         box_infos = [
             BoxInfo(

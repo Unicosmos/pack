@@ -51,9 +51,6 @@ class FeatureExtractor:
                 pretrained=True
             )
             
-            # 移除分类头，只保留特征提取部分
-            self.model = nn.Sequential(*list(self.model.children())[:-1])
-            
             # 设置为评估模式
             self.model = self.model.to(self.device)
             self.model.eval()
