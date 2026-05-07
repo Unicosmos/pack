@@ -85,25 +85,61 @@
         <div style="margin-top: 25px;">
           <h3 style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px;">📋 检测详情</h3>
           <div class="detection-list">
-            <div v-for="(box, idx) in store.result.boxes" :key="idx" class="detection-item">
-              <img v-if="store.result.crops && store.result.crops[idx]" :src="'data:image/jpeg;base64,' + store.result.crops[idx]" class="thumb" alt="缩略图">
-              <div v-else class="thumb" style="background: #f0f0f0; display: flex; align-items: center; justify-content: center;">N/A</div>
+            <div v-for="(box, idx) in store.result.boxes" :key="idx" class="detection-item-container">
+              <div class="detection-item">
+                <img v-if="store.result.crops && store.result.crops[idx]" :src="'data:image/jpeg;base64,' + store.result.crops[idx]" class="thumb" alt="缩略图">
+                <div v-else class="thumb" style="background: #f0f0f0; display: flex; align-items: center; justify-content: center;">N/A</div>
 
-              <div class="item-info">
-                <div>
-                  <strong>箱体 {{ idx + 1 }}</strong>
-                  <span style="margin-left: 10px; color: #666;">置信度: {{ (box.confidence * 100).toFixed(1) }}%</span>
+                <div class="item-info">
+                  <div>
+                    <strong>箱体 {{ idx + 1 }}</strong>
+                    <span style="margin-left: 10px; color: #666;">置信度: {{ (box.confidence * 100).toFixed(1) }}%</span>
+                  </div>
+                  <div style="font-size: 12px; color: #999;">位置: [{{ box.bbox.join(', ') }}]</div>
                 </div>
-                <div style="font-size: 12px; color: #999;">位置: [{{ box.bbox.join(', ') }}]</div>
+
+                <div v-if="store.result.matches && store.result.matches[idx]">
+                  <span :class="store.result.matches[idx].status === 'matched' ? 'tag-success' : 'tag-warning'">
+                    {{ store.result.matches[idx].sku_id }} ({{ (store.result.matches[idx].similarity * 100).toFixed(1) }}%)
+                  </span>
+                </div>
+                <div v-else>
+                  <span class="tag-info">待匹配</span>
+                </div>
               </div>
 
-              <div v-if="store.result.matches && store.result.matches[idx]">
-                <span :class="store.result.matches[idx].status === 'matched' ? 'tag-success' : 'tag-warning'">
-                  {{ store.result.matches[idx].sku_id }} ({{ (store.result.matches[idx].similarity * 100).toFixed(1) }}%)
-                </span>
-              </div>
-              <div v-else>
-                <span class="tag-info">待匹配</span>
+              <div v-if="store.result.matches && store.result.matches[idx] && store.result.matches[idx].top5_labels && store.result.matches[idx].top5_labels.length > 0" class="top5-section">
+                <div class="top5-header">
+                  <span class="top5-title">Top-5 匹配候选</span>
+                  <span class="top5-status" :class="store.result.matches[idx].status">
+                    {{ store.result.matches[idx].status === 'matched' ? '✓ 已匹配' : store.result.matches[idx].status === 'low_conf' ? '⚠️ 低置信' : '✗ 未匹配' }}
+                  </span>
+                </div>
+                <div class="top5-grid">
+                  <div
+                    v-for="(label, labelIdx) in store.result.matches[idx].top5_labels"
+                    :key="labelIdx"
+                    class="top5-item"
+                    :class="{ 'top1': labelIdx === 0, 'selected': labelIdx === 0 && store.result.matches[idx].status === 'matched' }"
+                  >
+                    <div class="top5-thumb">
+                      <img
+                        v-if="label.image_name"
+                        :src="`/static/sku_images/${label.sku_id}/${label.image_name}`"
+                        :alt="label.sku_name || label.label"
+                        onerror="this.style.display='none'"
+                      />
+                      <div v-if="!label.image_name" class="top5-placeholder">
+                        <span class="top5-rank">{{ labelIdx + 1 }}</span>
+                      </div>
+                    </div>
+                    <div class="top5-info">
+                      <div class="top5-sku-id">{{ label.sku_id || label.label }}</div>
+                      <div class="top5-sku-name">{{ label.sku_name }}</div>
+                      <div class="top5-similarity">相似度: {{ (label.similarity * 100).toFixed(1) }}%</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -520,6 +556,160 @@ onMounted(() => {
   color: #909399;
   padding: 4px 12px;
   border-radius: 4px;
+}
+
+.detection-item-container {
+  margin-bottom: 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.detection-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.detection-item:hover {
+  background: #f5f5f5;
+}
+
+.top5-section {
+  padding: 16px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+}
+
+.top5-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.top5-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.top5-status {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+.top5-status.matched {
+  background: #e1f3d8;
+  color: #67c23a;
+}
+
+.top5-status.low_conf {
+  background: #faecd8;
+  color: #e6a23c;
+}
+
+.top5-status.unmatched {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+
+.top5-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.top5-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  width: calc(20% - 8px);
+  min-width: 120px;
+  transition: all 0.2s ease;
+}
+
+.top5-item:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.top5-item.top1 {
+  border-color: #67c23a;
+  background: #f0f9eb;
+}
+
+.top5-item.selected {
+  border-width: 2px;
+  border-color: #67c23a;
+}
+
+.top5-thumb {
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.top5-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.top5-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0e0e0;
+}
+
+.top5-rank {
+  font-size: 24px;
+  font-weight: bold;
+  color: #999;
+}
+
+.top5-info {
+  text-align: center;
+  width: 100%;
+}
+
+.top5-sku-id {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 3px;
+}
+
+.top5-sku-name {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.top5-similarity {
+  font-size: 11px;
+  color: #999;
 }
 
 .empty {

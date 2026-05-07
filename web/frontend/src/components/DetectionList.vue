@@ -37,6 +37,34 @@
           <el-tag v-else type="info" size="large">待匹配</el-tag>
         </div>
       </div>
+
+      <div v-if="items.length > 0 && items[0].match && items[0].match.top5_labels && items[0].match.top5_labels.length > 0" class="top5-section">
+        <h4>Top-5 匹配结果</h4>
+        <div class="top5-grid">
+          <div
+            v-for="(label, labelIdx) in items[0].match.top5_labels"
+            :key="labelIdx"
+            class="top5-item"
+            :class="{ 'top1': labelIdx === 0 }"
+          >
+            <div class="top5-thumb">
+              <img
+                v-if="label.image_name"
+                :src="getSkuImageUrl(label.image_name)"
+                :alt="label.sku_name || label.label"
+              />
+              <div v-else class="top5-placeholder">
+                <span class="top5-rank">{{ labelIdx + 1 }}</span>
+              </div>
+            </div>
+            <div class="top5-info">
+              <div class="top5-sku-id">{{ label.sku_id || label.label }}</div>
+              <div class="top5-sku-name">{{ label.sku_name }}</div>
+              <div class="top5-similarity">相似度: {{ (label.similarity * 100).toFixed(1) }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -58,6 +86,10 @@ const getMatchTagType = (status) => {
     case 'low_conf': return 'warning'
     default: return 'info'
   }
+}
+
+const getSkuImageUrl = (imageName) => {
+  return `/static/sku_images/${imageName}`
 }
 </script>
 
@@ -145,5 +177,107 @@ const getMatchTagType = (status) => {
 .match-sim {
   margin-left: 4px;
   opacity: 0.8;
+}
+
+.top5-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+
+.top5-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.top5-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.top5-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  width: calc(20% - 10px);
+  min-width: 120px;
+}
+
+.top5-item.top1 {
+  border-color: #67c23a;
+  background: #f0f9eb;
+}
+
+.top5-thumb {
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.top5-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.top5-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0e0e0;
+}
+
+.top5-rank {
+  font-size: 24px;
+  font-weight: bold;
+  color: #999;
+}
+
+.top5-info {
+  text-align: center;
+  width: 100%;
+}
+
+.top5-sku-id {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.top5-sku-name {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top5-similarity {
+  font-size: 11px;
+  color: #999;
+}
+
+@media (max-width: 768px) {
+  .top5-item {
+    width: calc(33.33% - 8px);
+  }
 }
 </style>

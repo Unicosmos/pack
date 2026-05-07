@@ -25,6 +25,7 @@ semi_structured_module.SparseSemiStructuredTensor = None
 semi_structured_module.SparseSemiStructuredTensorBCSR = None
 semi_structured_module.SparseSemiStructuredTensorBCOO = None
 semi_structured_module.SparseSemiStructuredTensorCUSPARSELT = None
+semi_structured_module.SparseSemiStructuredTensorCUTLASS = None
 semi_structured_module.semi_structured_to_dense = lambda x: x
 semi_structured_module.dense_to_semi_structured = lambda x: x
 semi_structured_module.to_sparse_semi_structured = lambda x: x
@@ -69,7 +70,7 @@ class MatchResult:
     similarity: float
     ratio: Optional[float]
     status: str
-    top5_labels: List[Dict[str, float]]
+    top5_labels: List[Dict[str, Any]]
 
 
 class SKUMatcher:
@@ -201,10 +202,17 @@ class SKUMatcher:
         top_similarities = similarities[top_indices]
         top_labels = [self.sku_labels[i] for i in top_indices]
 
-        top5_labels = [
-            {"label": top_labels[i], "similarity": float(top_similarities[i])}
-            for i in range(len(top_labels))
-        ]
+        top5_labels = []
+        for i, idx in enumerate(top_indices):
+            label = self.sku_labels[idx]
+            info = self.sku_info[idx] if idx < len(self.sku_info) else {}
+            top5_labels.append({
+                "label": label,
+                "similarity": float(top_similarities[i]),
+                "image_name": info.get("image_name", ""),
+                "sku_id": info.get("sku_id", ""),
+                "sku_name": info.get("sku_name", "")
+            })
 
         if len(top_labels) == 0:
             return MatchResult(

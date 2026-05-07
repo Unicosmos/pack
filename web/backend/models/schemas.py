@@ -17,6 +17,9 @@ class BoxInfo(BaseModel):
 class TopLabel(BaseModel):
     label: str = Field(..., description="标签名称")
     similarity: float = Field(..., description="相似度")
+    image_name: Optional[str] = Field("", description="匹配图片名称")
+    sku_id: Optional[str] = Field("", description="SKU编号")
+    sku_name: Optional[str] = Field("", description="SKU名称")
 
 
 class MatchInfo(BaseModel):

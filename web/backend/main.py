@@ -120,6 +120,10 @@ static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+sku_images_dir = Path(__file__).parent.parent.parent / "sku_library" / "images"
+if sku_images_dir.exists():
+    app.mount("/static/sku_images", StaticFiles(directory=str(sku_images_dir)), name="sku_images")
+
 
 def get_sku_count() -> int:
     """获取SKU数量"""
@@ -298,7 +302,7 @@ async def match_image(
 
         result = matcher.match_sku(features, threshold=match_threshold, ratio_threshold=ratio_threshold)
 
-        top5_labels = [TopLabel(label=t['label'], similarity=t['similarity']) for t in result.top5_labels] if result.top5_labels else []
+        top5_labels = [TopLabel(label=t['label'], similarity=t['similarity'], image_name=t.get('image_name', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in result.top5_labels] if result.top5_labels else []
 
         return MatchResponse(
             success=True,
@@ -427,7 +431,7 @@ async def detect_and_match_image(
                 match_infos.append(None)
                 unmatched_count += 1
             else:
-                top5 = [TopLabel(label=t['label'], similarity=t['similarity']) for t in mr.top5_labels] if mr.top5_labels else []
+                top5 = [TopLabel(label=t['label'], similarity=t['similarity'], image_name=t.get('image_name', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in mr.top5_labels] if mr.top5_labels else []
                 match_infos.append(MatchInfo(
                     sku_id=mr.sku_id,
                     similarity=mr.similarity,
