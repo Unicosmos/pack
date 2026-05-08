@@ -124,12 +124,12 @@
                   >
                     <div class="top5-thumb">
                       <img
-                        v-if="label.image_name"
-                        :src="`/static/sku_images/${label.sku_id}/${label.image_name}`"
+                        v-if="label.image_name && label.sku_id"
+                        :src="`/api/sku-image/${label.sku_id}/${encodeURIComponent(label.image_name)}`"
                         :alt="label.sku_name || label.label"
-                        onerror="this.style.display='none'"
+                        @error="(e) => e.target.style.display = 'none'"
                       />
-                      <div v-if="!label.image_name" class="top5-placeholder">
+                      <div v-show="!label.image_name || !label.sku_id" class="top5-placeholder">
                         <span class="top5-rank">{{ labelIdx + 1 }}</span>
                       </div>
                     </div>
@@ -507,7 +507,7 @@ onMounted(() => {
 }
 
 .detection-list {
-  max-height: 400px;
+  max-height: 800px;
   overflow-y: auto;
 }
 

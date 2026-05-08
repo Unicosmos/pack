@@ -16,7 +16,7 @@ import base64
 from PIL import Image
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 
@@ -492,6 +492,31 @@ async def get_sku_list():
     ]
 
     return SKUListResponse(success=True, skus=skus, count=len(skus))
+
+
+@app.get("/api/sku-image/{sku_id}/{image_name}")
+async def get_sku_image(sku_id: str, image_name: str):
+    """获取SKU图片"""
+    sku_images_dir = Path(__file__).parent.parent.parent / "sku_library" / "images"
+    image_path = sku_images_dir / sku_id / image_name
+    
+    if not image_path.exists():
+        return JSONResponse(status_code=404, content={"detail": "图片不存在"})
+    
+    try:
+        with open(image_path, "rb") as f:
+            content = f.read()
+        
+        if image_name.lower().endswith(".jpg") or image_name.lower().endswith(".jpeg"):
+            media_type = "image/jpeg"
+        elif image_name.lower().endswith(".png"):
+            media_type = "image/png"
+        else:
+            media_type = "application/octet-stream"
+        
+        return Response(content=content, media_type=media_type)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
 @app.get("/")
