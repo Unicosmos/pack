@@ -5,5 +5,7 @@
 !.gitignore
 
 # 只追踪特定的训练结果目录
-!lscd_segmentation_20260504232735/
-!lscd_segmentation_20260504232735/**
+!lscd_segmentation_20260510131215/
+!lscd_segmentation_20260510131215/**
+!lscd_segmentation_20260510140818/
+!lscd_segmentation_20260510140818/**

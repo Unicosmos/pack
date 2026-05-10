@@ -162,8 +162,8 @@ names:
 
 
 def main():
-    base_dir = "/root/pack/coco_style_fourclass"
-    output_dir = "/root/pack/datasets/coco_style_fourclass/yolo_dataset_seg"
+    base_dir = "/root/pack/YOLO/coco_stytle_fourclass"
+    output_dir = "/root/pack/YOLO/coco_stytle_fourclass/yolo_dataset_seg"
     
     train_json = os.path.join(base_dir, "annotations", "instances_train2017.json")
     val_json = os.path.join(base_dir, "annotations", "instances_val2017.json")

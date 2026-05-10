@@ -56,31 +56,31 @@ close_mosaic: 10
 
 pretrained: false
 
-# ===== 关闭 YOLOv8 默认隐藏增强 =====
+# # ===== 关闭 YOLOv8 默认隐藏增强 =====
 
-# 颜色增强（HSV）
-hsv_h: 0.0
-hsv_s: 0.0
-hsv_v: 0.0
+# # 颜色增强（HSV）
+# hsv_h: 0.0
+# hsv_s: 0.0
+# hsv_v: 0.0
 
-# 几何变换
-translate: 0.0
-scale: 0.0
-shear: 0.0
-perspective: 0.0
+# # 几何变换
+# translate: 0.0
+# scale: 0.0
+# shear: 0.0
+# perspective: 0.0
 
-# 翻转
-flipud: 0.0
-fliplr: 0.0
+# # 翻转
+# flipud: 0.0
+# fliplr: 0.0
 
-# 自动增强（很重要！）
-auto_augment: null
+# # 自动增强（很重要！）
+# auto_augment: null
 
-# 随机擦除（强增强）
-erasing: 0.0
+# # 随机擦除（强增强）
+# erasing: 0.0
 
-# Albumentations相关
-crop_fraction: 1.0
+# # Albumentations相关
+# crop_fraction: 1.0
 
 conf: 0.25
 iou: 0.7

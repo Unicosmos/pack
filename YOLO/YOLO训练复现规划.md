@@ -52,6 +52,7 @@
 
 - [x] 下载 `yolov8-seg-cheap.yaml` 模型文件
 - [x] 放置在项目根目录或 YOLO/ 目录
+- [x] 替换/usr/local/miniconda3/envs/py310/lib/python3.10/site-packages/ultralytics/
 
 ### 3.2 确认模型规格
 
@@ -89,6 +90,10 @@
 - [ ] 复制 `loss_with_boundary_fast.py` 到 ultralytics utils 目录
 
 ### 5.3 确认参数配置
+
+/usr/local/miniconda3/envs/py310/lib/python3.10/site-packages/ultralytics/cfg/default.yaml
+
+在mask\_ratio: 4后添加：
 
 - [ ] boundary: 1.5（边界像素权重倍数）
 - [ ] boundary\_width: 3（边界宽度）

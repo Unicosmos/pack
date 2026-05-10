@@ -55,8 +55,7 @@ sku_library/**/*.png
 mlartifacts/
 ultralytics_backup/
 YOLOv8-cheap/
-YOLO/coco_style_fourclass/yolo_dataset_seg/images/
-YOLO/coco_style_fourclass/images/
-YOLO/coco_style_fourclass/annotations/
-YOLO/coco_style_fourclass/statictics
+yolo-cheap
+YOLO/coco_style_fourclass/
+YOLO/coco_stytle_fourclass/
 YOLO/mlruns/
