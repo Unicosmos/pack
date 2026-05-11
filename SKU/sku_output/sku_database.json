@@ -10,63 +10,89 @@
   "000002": {
     "name": "澳柯玛电热杯",
     "images": [
-      "1 (113)_008.jpg"
+      "1 (113)_008.jpg",
+      "1 (113)_001.jpg",
+      "1 (113)_003.jpg",
+      "1 (113)_005.jpg",
+      "1 (113)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 5
   },
   "000003": {
     "name": "宜婴云柔丝滑",
     "images": [
       "1 (135)_003.jpg",
       "1 (135)_004.jpg",
-      "1 (135)_014.jpg"
+      "1 (135)_014.jpg",
+      "1 (135)_006.jpg",
+      "1 (135)_007.jpg",
+      "1 (135)_008.jpg",
+      "1 (135)_009.jpg",
+      "1 (135)_010.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 8
   },
   "000004": {
     "name": "BUYDEEM北鼎",
     "images": [
-      "1 (140)_003.jpg"
+      "1 (140)_003.jpg",
+      "1 (140)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 2
   },
   "000005": {
     "name": "欧慕便携式多功能锅（分体锅）",
     "images": [
-      "1 (143)_004.jpg"
+      "1 (143)_004.jpg",
+      "1 (143)_001.jpg",
+      "1 (143)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 3
   },
   "000006": {
     "name": "BEABA婴儿纸尿裤",
     "images": [
       "1 (147)_001.jpg",
-      "1 (147)_002.jpg"
+      "1 (147)_002.jpg",
+      "1 (147)_006.jpg",
+      "1 (147)_007.jpg",
+      "1 (147)_010.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 5
   },
   "000007": {
     "name": "格兰仕电烤箱",
     "images": [
       "1 (154)_001.jpg",
-      "2 (18)_004.jpg"
+      "2 (18)_004.jpg",
+      "2 (15)_003.jpg",
+      "2 (15)_004.jpg",
+      "2 (15)_006.jpg",
+      "2 (18)_001.jpg",
+      "2 (18)_002.jpg",
+      "2 (19)_004.jpg",
+      "2 (2)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 9
   },
   "000008": {
     "name": "帮宝适超薄干爽拉拉裤",
     "images": [
       "1 (159)_001.jpg",
-      "1 (159)_005.jpg"
+      "1 (159)_005.jpg",
+      "1 (159)_003.jpg",
+      "2 (118)_001.jpg",
+      "2 (118)_003.jpg",
+      "2 (118)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 6
   },
   "000009": {
     "name": "拜洁电动压面机（红）",
@@ -80,35 +106,41 @@
     "name": "Daddy baby温暖宝宝高级装纸尿裤M码",
     "images": [
       "1 (251)_002.jpg",
-      "1 (251)_005.jpg"
+      "1 (251)_005.jpg",
+      "1 (251)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 3
   },
   "000011": {
     "name": "motorola数字无绳电话",
     "images": [
-      "1 (287)_003.jpg"
+      "1 (287)_003.jpg",
+      "1 (287)_002.jpg",
+      "1 (287)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 3
   },
   "000012": {
     "name": "中诺H801",
     "images": [
       "1 (309)_001.jpg",
-      "1 (309)_007.jpg"
+      "1 (309)_007.jpg",
+      "1 (309)_006.jpg",
+      "1 (309)_012.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 4
   },
   "000013": {
     "name": "佰分爱",
     "images": [
-      "1 (312)_001.jpg"
+      "1 (312)_001.jpg",
+      "1 (312)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 2
   },
   "000014": {
     "name": "乐互宜成人纸尿裤L",
@@ -121,9 +153,15 @@
   },
   "000015": {
     "name": "好爸爸Kispa天然亲肤洗衣液套装",
-    "images": [],
+    "images": [
+      "1 (342)_002.jpg",
+      "1 (342)_005.jpg",
+      "1 (342)_007.jpg",
+      "1 (342)_010.jpg",
+      "1 (342)_011.jpg"
+    ],
     "feature_mean": [],
-    "image_count": 0
+    "image_count": 5
   },
   "000016": {
     "name": "蓝月亮洗衣液500gx12袋",
@@ -137,74 +175,96 @@
     "name": "利得一次性圆形打包盒",
     "images": [
       "1 (372)_001.jpg",
-      "1 (372)_006.jpg"
+      "1 (372)_006.jpg",
+      "1 (372)_002.jpg",
+      "1 (372)_004.jpg",
+      "1 (372)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 5
   },
   "000018": {
     "name": "三只小猫纸尿裤S",
     "images": [
-      "2 (106)_001.jpg"
+      "2 (106)_001.jpg",
+      "2 (107)_002.jpg",
+      "2 (106)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 3
   },
   "000019": {
     "name": "美的电热水壶（养生壶）",
     "images": [
-      "2 (108)_003.jpg"
+      "2 (108)_003.jpg",
+      "2 (108)_004.jpg",
+      "2 (108)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 3
   },
   "000020": {
     "name": "Pampers36枚x1 L",
     "images": [
-      "2 (124)_003.jpg"
+      "2 (124)_003.jpg",
+      "2 (124)_002.jpg",
+      "2 (124)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 3
   },
   "000021": {
     "name": "澳柯玛面包机",
     "images": [
-      "2 (127)_002.jpg"
+      "2 (127)_002.jpg",
+      "2 (127)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 2
   },
   "000022": {
     "name": "德玛仕开水桶",
     "images": [
-      "2 (129)_003.jpg"
+      "2 (129)_003.jpg",
+      "2 (129)_001.jpg",
+      "2 (129)_002.jpg",
+      "2 (129)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 4
   },
   "000023": {
     "name": "德玛仕破壁料理机",
     "images": [
-      "2 (140)_001.jpg"
+      "2 (140)_001.jpg",
+      "2 (140)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 2
   },
   "000024": {
     "name": "moony腰贴型婴儿纸尿裤",
     "images": [
-      "2 (159)_002.jpg"
+      "2 (159)_002.jpg",
+      "2 (159)_001.jpg",
+      "2 (159)_003.jpg",
+      "2 (159)_004.jpg",
+      "2 (159)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 5
   },
   "000025": {
     "name": "(Daddy baby温暖宝宝高级装纸尿裤XL码",
     "images": [
-      "2 (161)_001.jpg"
+      "2 (161)_001.jpg",
+      "2 (161)_002.jpg",
+      "2 (161)_003.jpg",
+      "2 (161)_004.jpg",
+      "2 (161)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 5
   },
   "000026": {
     "name": "光羽短裤式纸尿裤XL28片",
@@ -262,5 +322,358 @@
     ],
     "feature_mean": [],
     "image_count": 1
+  },
+  "000033": {
+    "name": "小儿康颗粒",
+    "images": [
+      "01_001.jpg",
+      "01_003.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000034": {
+    "name": "Merries",
+    "images": [
+      "1 (112)_003.jpg",
+      "1 (112)_005.jpg",
+      "1 (112)_007.jpg",
+      "1 (112)_008.jpg",
+      "1 (112)_011.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 5
+  },
+  "000035": {
+    "name": "",
+    "images": [
+      "1 (135)_005.jpg",
+      "1 (135)_012.jpg",
+      "1 (135)_015.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000036": {
+    "name": "gigaset",
+    "images": [
+      "1 (136)_001.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1
+  },
+  "000037": {
+    "name": "BEABA",
+    "images": [
+      "1 (145)_002.jpg",
+      "1 (145)_003.jpg",
+      "1 (145)_004.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000038": {
+    "name": "TIGER虎牌",
+    "images": [
+      "1 (147)_003.jpg",
+      "1 (147)_004.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000039": {
+    "name": "ASD爱仕达",
+    "images": [
+      "1 (153)_001.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1
+  },
+  "000040": {
+    "name": "DCTG 160D",
+    "images": [
+      "1 (170)_002.jpg",
+      "1 (170)_004.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000041": {
+    "name": "PETRUS",
+    "images": [
+      "1 (170)_001.jpg",
+      "1 (170)_003.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000042": {
+    "name": "SUPOR",
+    "images": [
+      "1 (171)_001.jpg",
+      "1 (171)_002.jpg",
+      "1 (171)_003.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000043": {
+    "name": "Shark",
+    "images": [
+      "1 (198)_001.jpg",
+      "1 (198)_002.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000044": {
+    "name": "VISIONS",
+    "images": [
+      "1 (214)_001.jpg",
+      "1 (214)_002.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000045": {
+    "name": "北欧家庭生活馆",
+    "images": [
+      "1 (221)_001.jpg",
+      "1 (221)_002.jpg",
+      "1 (221)_011.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000046": {
+    "name": "BRAUN",
+    "images": [
+      "1 (266)_001.jpg",
+      "1 (273)_003.jpg",
+      "1 (273)_006.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000047": {
+    "name": "BWT",
+    "images": [
+      "1 (273)_002.jpg",
+      "1 (273)_005.jpg",
+      "1 (273)_008.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000048": {
+    "name": "TCL通讯电话机",
+    "images": [
+      "1 (29)_001.jpg",
+      "1 (29)_005.jpg",
+      "1 (29)_007.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000049": {
+    "name": "36片 x 2包",
+    "images": [
+      "1 (296)_001.jpg",
+      "1 (296)_002.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000050": {
+    "name": "美菱MELNG",
+    "images": [
+      "1 (309)_004.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1
+  },
+  "000051": {
+    "name": "DKS-301",
+    "images": [
+      "1 (318)_001.jpg",
+      "1 (318)_003.jpg",
+      "1 (318)_004.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000052": {
+    "name": "TRULIVA净水器",
+    "images": [
+      "1 (331)_001.jpg",
+      "1 (331)_002.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000053": {
+    "name": "三鼎SNANDING",
+    "images": [
+      "1 (34)_002.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1
+  },
+  "000054": {
+    "name": "电热开水器支承座",
+    "images": [
+      "1 (34)_001.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1
+  },
+  "000055": {
+    "name": "Haier",
+    "images": [
+      "1 (360)_001.jpg",
+      "1 (360)_002.jpg",
+      "1 (360)_004.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3
+  },
+  "000056": {
+    "name": "Sitoo斯图",
+    "images": [
+      "1 (370)_002.jpg",
+      "1 (370)_005.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000057": {
+    "name": "U优利洁",
+    "images": [
+      "1 (374)_006.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1
+  },
+  "000058": {
+    "name": "",
+    "images": [
+      "1 (379)_001.jpg",
+      "1 (379)_003.jpg",
+      "1 (379)_004.jpg",
+      "1 (379)_005.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4
+  },
+  "000059": {
+    "name": "美丽雅平板拖",
+    "images": [
+      "1 (398)_001.jpg",
+      "1 (398)_002.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000060": {
+    "name": "威露士健康洗手液",
+    "images": [
+      "1 (5)_002.jpg",
+      "1 (5)_004.jpg",
+      "1 (5)_005.jpg",
+      "1 (5)_007.jpg",
+      "1 (5)_018.jpg",
+      "1 (5)_025.jpg",
+      "1 (5)_026.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 7
+  },
+  "000061": {
+    "name": "Blueair中国",
+    "images": [
+      "1 (62)_001.jpg",
+      "1 (62)_003.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000062": {
+    "name": "Midea饮水机",
+    "images": [
+      "1 (7)_002.jpg",
+      "1 (7)_004.jpg",
+      "1 (7)_005.jpg",
+      "1 (7)_007.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4
+  },
+  "000063": {
+    "name": "BONECO",
+    "images": [
+      "1 (76)_001.jpg",
+      "1 (76)_003.jpg",
+      "1 (76)_005.jpg",
+      "1 (76)_006.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4
+  },
+  "000064": {
+    "name": "帮宝适拉拉裤M",
+    "images": [
+      "1 (79)_001.jpg",
+      "1 (79)_003.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000065": {
+    "name": "",
+    "images": [
+      "2 (138)_001.jpg",
+      "2 (138)_005.jpg",
+      "2 (138)_009.jpg",
+      "2 (138)_017.jpg",
+      "2 (138)_019.jpg",
+      "2 (138)_020.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 6
+  },
+  "000066": {
+    "name": "Pampars",
+    "images": [
+      "2 (150)_001.jpg",
+      "2 (150)_005.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000067": {
+    "name": "EJK418SLV-I",
+    "images": [
+      "2 (170)_009.jpg",
+      "2 (170)_011.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
+  },
+  "000068": {
+    "name": "Hauswirt",
+    "images": [
+      "2 (175)_001.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1
+  },
+  "000069": {
+    "name": "Daday baby",
+    "images": [
+      "2 (200)_001.jpg",
+      "2 (200)_002.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2
   }
 }

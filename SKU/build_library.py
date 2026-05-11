@@ -248,22 +248,28 @@ def main():
         return 1
     print()
     
-    # 3. 提取特征
+    # 3. 提取特征（使用批量处理优化）
     print("[3/5] 提取特征...")
-    features_list = []
     
+    # 预加载所有图片到内存
+    print("  预加载图片...")
+    images = []
+    valid_indices = []
     for i, row in enumerate(csv_rows):
         img_path = Path(row['path'])
         try:
-            image = Image.open(img_path)
-            feat = extractor.extract(image)
-            features_list.append(feat)
-            print(f"  [{i+1}/{len(csv_rows)}] {row['image_name']}")
+            images.append(Image.open(img_path))
+            valid_indices.append(i)
         except Exception as e:
             print(f"  [!] 跳过 {row['image_name']}: {e}")
-            features_list.append(np.random.randn(384).astype(np.float32))
     
-    features_matrix = np.array(features_list)
+    print(f"  有效图片: {len(images)} 张")
+    
+    # 使用批量提取（CPU建议 batch_size=8）
+    batch_size = 8 if args.device == 'cpu' else 32
+    print(f"  批量处理中，批次大小: {batch_size}...")
+    
+    features_matrix = extractor.extract_batch(images, batch_size=batch_size)
     print(f"  ✓ 特征矩阵: {features_matrix.shape}")
     print()
     

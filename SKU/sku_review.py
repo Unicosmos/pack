@@ -76,27 +76,50 @@ def get_sku_items(db, keyword=""):
             sid = sku.get("sku_id", "")
             sname = sku.get("sku_name", sid)
             members = sku.get("members", [])
-            # 统计实际存在的图片
-            existing_imgs = [m for m in members if Path(m).exists()] if members else []
-            cnt = len(existing_imgs)
-            cover = existing_imgs[0] if existing_imgs else None
+            # 优先使用数据库中已有的 member_count
+            cnt = sku.get("member_count", 0)
+            cover = None
+            if members:
+                # 从数据库中获取 cover 图片，避免每次都遍历目录
+                for m in members:
+                    if Path(m).exists():
+                        cover = m
+                        break
+                # 如果数据库中没有找到可用的图片，才去读取目录
+                if not cover:
+                    sd = SKU_DIR / sid
+                    if sd.exists():
+                        fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
+                        cnt = len(fs)
+                        cover = str(sorted(fs)[0]) if fs else None
             out.append(dict(id=sid, name=sname, cover=cover, cnt=cnt))
     else:
         # 旧结构: {"sku_id": {...}}
         for sid, info in db.items():
-            sd = SKU_DIR / sid
-            if sd.exists():
-                fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
-                cnt = len(fs)
-                cover = str(sorted(fs)[0]) if fs else None
-            else:
-                cnt, cover = 0, None
+            # 优先使用数据库中已有的统计信息
+            cnt = info.get("image_count", 0)
+            cover = None
+            # 尝试从数据库中获取 cover 图片
+            if "images" in info and info["images"]:
+                first_img = info["images"][0]
+                img_path = SKU_DIR / sid / first_img
+                if img_path.exists():
+                    cover = str(img_path)
+            # 如果数据库中没有找到，才去读取目录
+            if not cover:
+                sd = SKU_DIR / sid
+                if sd.exists():
+                    fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
+                    cnt = len(fs)
+                    cover = str(sorted(fs)[0]) if fs else None
+                else:
+                    cnt, cover = 0, None
             out.append(dict(id=sid, name=info.get("name", sid), cover=cover, cnt=cnt))
     
     if keyword:
         k = keyword.lower()
         out = [o for o in out if k in o["id"].lower() or k in o["name"].lower()]
-    return out[:50]
+    return out[:200]
 
 
 def get_sku_images(sid):

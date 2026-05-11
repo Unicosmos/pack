@@ -8,40 +8,68 @@
 - ViT-S16 DINO base model: 384维
 - 与 core/matcher.py 中的 feature_dim=384 保持一致
 
+模型加载优先级：
+1. 传入的 model_path 参数
+2. 从 web/backend/config.py 自动读取 SKU_MODEL_PATH
+3. 使用 OML 预训练模型（备选）
+
 使用方法:
     from feature_extractor import FeatureExtractor
     
-    # 使用预训练模型
+    # 自动从 config.py 读取微调模型
     extractor = FeatureExtractor(device='cpu')
     
-    # 或加载微调模型
+    # 或手动指定微调模型
     extractor = FeatureExtractor(model_path='./models/sku_trained_vits16_dino.pth', device='cpu')
     
     image = Image.open('test.jpg')
     feature = extractor.extract(image)  # 返回 [384] 维特征向量
+    
+    # 批量处理
+    features = extractor.extract_batch([img1, img2, img3], batch_size=8)
 """
 
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import torch
 import numpy as np
 from PIL import Image
 
 
+def get_default_model_path() -> Optional[str]:
+    """从 config.py 获取默认模型路径"""
+    try:
+        backend_config_path = Path(__file__).parent.parent / "web" / "backend" / "config.py"
+        if backend_config_path.exists():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("config", backend_config_path)
+            config_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(config_module)
+            if hasattr(config_module, 'config') and config_module.config.paths.SKU_MODEL_PATH:
+                return str(config_module.config.paths.SKU_MODEL_PATH)
+    except Exception:
+        pass
+    return None
+
+
 class FeatureExtractor:
     """ViT-S16 DINO 特征提取器"""
     
-    def __init__(self, model_path: Optional[str] = None, device: str = 'cpu'):
+    def __init__(self, model_path: Optional[str] = None, device: str = 'cpu', num_threads: int = 1):
         """
         初始化特征提取器
         
         Args:
-            model_path: 微调模型路径 (.pth文件)，如果为None则使用预训练模型
+            model_path: 微调模型路径 (.pth文件)，如果为None则尝试从config.py读取
             device: 推理设备 ('cpu' 或 'cuda')
+            num_threads: 预留参数，保持接口兼容
         """
+        if model_path is None:
+            model_path = get_default_model_path()
         self.device = device
+        self.num_threads = num_threads
         self.model = None
         self.transform = None
         self._load_model(model_path)
@@ -57,6 +85,14 @@ class FeatureExtractor:
                 print(f"  加载微调模型: {model_path}")
                 self.model = ViTExtractor.from_pretrained("vits16_dino")
                 state_dict = torch.load(model_path, map_location=self.device)
+                # 适配不同格式的模型文件
+                if isinstance(state_dict, dict) and 'state_dict' in state_dict:
+                    state_dict = state_dict['state_dict']
+                if 'cls_token' in state_dict and 'model.cls_token' not in state_dict:
+                    new_state_dict = {}
+                    for k, v in state_dict.items():
+                        new_state_dict[f'model.{k}'] = v
+                    state_dict = new_state_dict
                 self.model.load_state_dict(state_dict)
                 print(f"  ✓ 微调模型加载成功")
             else:
@@ -70,11 +106,19 @@ class FeatureExtractor:
             
             self.transform, _ = get_transforms_for_pretrained("vits16_dino")
             print(f"  特征维度: 384")
+            if self.device == 'cpu':
+                print(f"  CPU线程数: {self.num_threads}")
         
         except Exception as e:
             print(f"  ⚠ 模型加载失败: {e}")
             print("  将使用随机特征作为替代")
             self.model = None
+    
+    def _preprocess_image(self, image: Image.Image) -> torch.Tensor:
+        """预处理单张图片"""
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        return self.transform(image)
     
     def extract(self, image: Image.Image) -> np.ndarray:
         """
@@ -90,10 +134,7 @@ class FeatureExtractor:
             return np.random.randn(384).astype(np.float32)
         
         try:
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            
-            tensor = self.transform(image).unsqueeze(0).to(self.device)
+            tensor = self._preprocess_image(image).unsqueeze(0).to(self.device)
             
             with torch.no_grad():
                 features = self.model(tensor)
@@ -110,22 +151,49 @@ class FeatureExtractor:
             print(f"  ⚠ 特征提取失败: {e}")
             return np.random.randn(384).astype(np.float32)
     
-    def extract_batch(self, images) -> np.ndarray:
+    def extract_batch(self, images: List[Image.Image], batch_size: int = 8) -> np.ndarray:
         """
-        批量提取特征
+        批量提取特征（CPU优化版）
         
         Args:
             images: PIL Image对象列表
+            batch_size: 批处理大小，CPU建议8-16
         
         Returns:
             特征矩阵 [N, 384]
         """
-        features = []
-        for img in images:
-            feat = self.extract(img)
-            features.append(feat)
+        if self.model is None or self.transform is None:
+            return np.random.randn(len(images), 384).astype(np.float32)
         
-        return np.array(features)
+        try:
+            all_features = []
+            
+            # 单线程预处理图片
+            tensors = [self._preprocess_image(img) for img in images]
+            
+            # 批量推理
+            for i in range(0, len(tensors), batch_size):
+                batch_tensors = torch.stack(tensors[i:i+batch_size]).to(self.device)
+                
+                with torch.no_grad():
+                    batch_features = self.model(batch_tensors)
+                
+                batch_features = batch_features.cpu().numpy().astype(np.float32)
+                all_features.append(batch_features)
+            
+            # 合并结果并归一化
+            features = np.vstack(all_features)
+            
+            # L2归一化
+            norms = np.linalg.norm(features, axis=1, keepdims=True)
+            norms[norms == 0] = 1
+            features = features / norms
+            
+            return features
+        
+        except Exception as e:
+            print(f"  ⚠ 批量特征提取失败: {e}")
+            return np.random.randn(len(images), 384).astype(np.float32)
 
 
 def extract_features_from_directory(

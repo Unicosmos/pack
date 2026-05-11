@@ -63,23 +63,10 @@ class Config:
         backend_dir = Path(__file__).parent
         base_dir = backend_dir.parent.parent
         
-        # 查找微调模型
-        sku_model_path = None
-        # 先在 SKU/models/ 下查找
-        candidate = base_dir / "SKU" / "models"
-        if candidate.exists():
-            for f in candidate.iterdir():
-                if f.suffix == ".pth" and "sku" in f.name.lower():
-                    sku_model_path = f
-                    break
-        if not sku_model_path:
-            # 在 SKU/ 下直接查找
-            sku_dir = Path(base_dir / "SKU")
-            if sku_dir.exists():
-                for f in sku_dir.iterdir():
-                    if f.suffix == ".pth" and "sku" in f.name.lower():
-                        sku_model_path = f
-                        break
+        # SKU微调模型路径 - 手动指定，None则不使用微调模型
+        sku_model_path = base_dir / "SKU" / "models" / "vits16_dino.pth"
+        if not sku_model_path.exists():
+            sku_model_path = None
         
         self.paths = PathConfig(
             BASE_DIR=base_dir,

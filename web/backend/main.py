@@ -10,9 +10,6 @@ from pathlib import Path
 from typing import List, Optional
 from contextlib import asynccontextmanager
 
-import io
-import base64
-
 from PIL import Image
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,11 +41,20 @@ from models.schemas import (
     ErrorResponse,
 )
 from core.visualizer import draw_detection_result, draw_boxes_only
-from utils.image_utils import filter_small_boxes, crop_box, resize_with_padding, image_to_base64
+from utils.image_utils import (
+    filter_small_boxes, 
+    crop_box, 
+    resize_with_padding, 
+    image_to_base64,
+    process_uploaded_image,
+    generate_crops_base64,
+)
+from utils.logger import logger
 
 
 sys.path.insert(0, str(Path(__file__).parent / "core"))
-from matcher import SKUMatcher, BoxDetector
+from detector import BoxDetector
+from matcher import SKUMatcher
 
 
 detector: Optional[BoxDetector] = None
@@ -59,23 +65,23 @@ matcher: Optional[SKUMatcher] = None
 async def lifespan(app: FastAPI):
     global detector, matcher
 
-    print("=" * 50)
-    print("Pack Web API 启动中...")
+    logger.info("=" * 50)
+    logger.info("Pack Web API 启动中...")
 
     cfg = config
 
     if cfg.paths.MODEL_PATH.exists():
-        print(f"加载检测模型: {cfg.paths.MODEL_PATH}")
+        logger.info(f"加载检测模型: {cfg.paths.MODEL_PATH}")
         try:
             detector = BoxDetector(str(cfg.paths.MODEL_PATH), conf_threshold=cfg.model.CONF_THRESHOLD)
-            print("  BoxDetector加载成功")
+            logger.info("  BoxDetector加载成功")
         except Exception as e:
-            print(f"  BoxDetector加载失败: {e}")
+            logger.error(f"  BoxDetector加载失败: {e}")
     else:
-        print(f"  警告: 模型文件不存在: {cfg.paths.MODEL_PATH}")
+        logger.warning(f"  警告: 模型文件不存在: {cfg.paths.MODEL_PATH}")
 
     if cfg.paths.SKU_DIR.exists():
-        print(f"加载SKU库: {cfg.paths.SKU_DIR}")
+        logger.info(f"加载SKU库: {cfg.paths.SKU_DIR}")
         try:
             matcher = SKUMatcher(
                 str(cfg.paths.MODEL_PATH),
@@ -85,20 +91,20 @@ async def lifespan(app: FastAPI):
                 sku_model_path=str(cfg.paths.SKU_MODEL_PATH) if cfg.paths.SKU_MODEL_PATH else None
             )
             if matcher.is_ready():
-                print("  SKUMatcher加载成功")
+                logger.info("  SKUMatcher加载成功")
             else:
-                print("  SKUMatcher未就绪（可能缺少特征文件）")
+                logger.warning("  SKUMatcher未就绪（可能缺少特征文件）")
         except Exception as e:
-            print(f"  SKUMatcher加载失败: {e}")
+            logger.error(f"  SKUMatcher加载失败: {e}")
             matcher = None
     else:
-        print("  SKU库目录不存在，匹配功能将不可用")
+        logger.info("  SKU库目录不存在，匹配功能将不可用")
 
-    print("=" * 50)
+    logger.info("=" * 50)
 
     yield
 
-    print("Pack Web API 关闭")
+    logger.info("Pack Web API 关闭")
 
 
 app = FastAPI(
@@ -138,6 +144,7 @@ def get_sku_count() -> int:
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """请求参数验证错误处理"""
+    logger.warning(f"参数验证失败: {exc.errors()}")
     return JSONResponse(
         status_code=422,
         content={
@@ -151,6 +158,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     """HTTP异常处理"""
+    logger.warning(f"HTTP异常 {exc.status_code}: {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -164,6 +172,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """全局异常处理"""
+    logger.error(f"未捕获异常: {str(exc)}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={
@@ -216,10 +225,7 @@ async def detect_image(
 
     try:
         contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-
-        if image.mode != "RGB":
-            image = image.convert("RGB")
+        image = process_uploaded_image(contents)
 
         result = detector.detect_single_image(image, return_cropped=True, return_plot=True)
 
@@ -249,14 +255,7 @@ async def detect_image(
             result_image = draw_boxes_only(image, boxes)
         img_base64 = image_to_base64(result_image)
 
-        crops_base64 = []
-        for box in boxes:
-            cropped = crop_box(image, box.get("bbox", []))
-            if cropped:
-                resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
-                crops_base64.append(image_to_base64(resized))
-            else:
-                crops_base64.append(None)
+        crops_base64 = generate_crops_base64(image, boxes, target_size=config.model.INPUT_SIZE)
 
         box_infos = [
             BoxInfo(
@@ -292,10 +291,7 @@ async def match_image(
 
     try:
         contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-
-        if image.mode != "RGB":
-            image = image.convert("RGB")
+        image = process_uploaded_image(contents)
 
         resized = resize_with_padding(image, target_size=config.model.INPUT_SIZE)
         features = matcher.extract_feature(resized)
@@ -329,10 +325,7 @@ async def detect_and_match_image(
 
     try:
         contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-
-        if image.mode != "RGB":
-            image = image.convert("RGB")
+        image = process_uploaded_image(contents)
 
         result = detector.detect_single_image(image, return_cropped=True, return_plot=True)
 
@@ -401,15 +394,7 @@ async def detect_and_match_image(
         
         img_base64 = image_to_base64(result_image)
         
-        # 生成裁剪图
-        crops_base64 = []
-        for box in boxes:
-            cropped = crop_box(image, box.get("bbox", []))
-            if cropped:
-                resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
-                crops_base64.append(image_to_base64(resized))
-            else:
-                crops_base64.append(None)
+        crops_base64 = generate_crops_base64(image, boxes, target_size=config.model.INPUT_SIZE)
 
         box_infos = [
             BoxInfo(

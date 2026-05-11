@@ -219,23 +219,67 @@ def base64_to_image(base64_str: str) -> Optional[Image.Image]:
         return None
 
 
-def normalize_image_for_vit(image: Image.Image) -> np.ndarray:
+def process_uploaded_image(contents: bytes) -> Image.Image:
     """
-    对图像进行ImageNet标准归一化（用于ViT输入）
+    处理上传的图像数据，确保是RGB格式
 
     Args:
-        image: PIL Image对象
+        contents: 上传文件的字节内容
 
     Returns:
-        归一化后的numpy数组，形状为(3, H, W)
+        RGB格式的PIL Image对象
     """
-    import torchvision.transforms as transforms
+    import io
+    image = Image.open(io.BytesIO(contents))
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+    return image
 
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
 
-    tensor = transform(image)
-    return tensor.numpy()
+def generate_crops_base64(
+    image: Image.Image,
+    boxes: List[Dict[str, Any]],
+    target_size: int = 224
+) -> List[Optional[str]]:
+    """
+    为所有检测框生成裁剪图的Base64编码
+
+    Args:
+        image: 原始图像
+        boxes: 检测框列表
+        target_size: 裁剪图目标尺寸
+
+    Returns:
+        Base64编码的裁剪图列表
+    """
+    crops_base64 = []
+    for box in boxes:
+        cropped = crop_box(image, box.get("bbox", []))
+        if cropped:
+            resized = resize_with_padding(cropped, target_size=target_size)
+            crops_base64.append(image_to_base64(resized))
+        else:
+            crops_base64.append(None)
+    return crops_base64
+
+
+def build_box_info_list(boxes: List[Dict[str, Any]]) -> List[Any]:
+    """
+    从检测框列表构建BoxInfo对象列表
+
+    Args:
+        boxes: 检测框列表
+
+    Returns:
+        BoxInfo对象列表
+    """
+    # 这里返回字典格式，实际类型导入由调用方处理
+    return [
+        {
+            "bbox": b.get("bbox", []),
+            "confidence": b.get("confidence", 0.0),
+            "class_id": b.get("class_id", 0),
+            "class_name": b.get("class_name", "box")
+        }
+        for b in boxes
+    ]

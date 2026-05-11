@@ -1,4 +1,3 @@
-
 # SKU建库流程
 
 本目录包含 SKU 图片库的构建工具和流程脚本。
@@ -45,7 +44,7 @@ cd d:\A_pack\pack\SKU
 python sku_review.py
 ```
 
-- 打开浏览器访问 http://localhost:7860
+- 打开浏览器访问 <http://localhost:7860>
 - 将 `crops/` 中的图片分类到各个 SKU 文件夹
 - 审核完成后，`sku_output/` 目录包含初始 SKU 库
 
@@ -58,18 +57,19 @@ python sku_augmentation.py --input ./sku_output --output ./sku_auged
 ```
 
 **增强方案（10种）：**
-| 编号 | 增强类型 | 说明 |
-|-----|---------|------|
-| 001 | 左侧视角 | 透视变换模拟左侧拍摄 |
-| 002 | 右侧视角 | 透视变换模拟右侧拍摄 |
-| 003 | 暗光环境 | 亮度-25%，饱和度-15% |
-| 004 | 亮光环境 | 亮度+25%，饱和度+10% |
-| 005 | 轻微模糊 | 高斯模糊 |
-| 006 | 旋转90度 | 顺时针旋转 |
-| 007 | 旋转180度 | 倒置放置 |
-| 008 | 旋转270度 | 逆时针旋转 |
-| 009 | 对比度增强 | 对比度×1.15 |
-| 010 | 轻微噪声 | 高斯噪声 |
+
+| 编号  | 增强类型   | 说明             |
+| --- | ------ | -------------- |
+| 001 | 左侧视角   | 透视变换模拟左侧拍摄     |
+| 002 | 右侧视角   | 透视变换模拟右侧拍摄     |
+| 003 | 暗光环境   | 亮度-25%，饱和度-15% |
+| 004 | 亮光环境   | 亮度+25%，饱和度+10% |
+| 005 | 轻微模糊   | 高斯模糊           |
+| 006 | 旋转90度  | 顺时针旋转          |
+| 007 | 旋转180度 | 倒置放置           |
+| 008 | 旋转270度 | 逆时针旋转          |
+| 009 | 对比度增强  | 对比度×1.15       |
+| 010 | 轻微噪声   | 高斯噪声           |
 
 ### 步骤4：特征提取建库
 
@@ -80,7 +80,8 @@ python build_library.py --input ./sku_auged --output ../sku_library --use-aug-cs
 ```
 
 输出文件：
-- `sku_library/sku_features.npy` - [N, 384] 特征矩阵
+
+- `sku_library/sku_features.npy` - \[N, 384] 特征矩阵
 - `sku_library/sku_library.csv` - 图片索引文件
 - `sku_library/images/{sku_id}/` - 复制的图片文件
 
@@ -100,26 +101,26 @@ python sku_model_trainer.py --epochs 10 --lr 1e-5 --batch_size 4 --n_labels 4
 
 ## 📝 文件说明
 
-| 文件 | 用途 |
-|------|------|
-| `sku_review.py` | Gradio 人工审核界面 |
-| `sku_augmentation.py` | 数据增强（透视、光照、旋转等） |
-| `build_library.py` | 特征提取和库构建 |
-| `split_train_val.py` | 按 label 切分训练/验证集 |
-| `sku_model_trainer.py` | OML 度量学习微调 |
-| `feature_extractor.py` | ViT-S16 DINO 封装 |
+| 文件                     | 用途               |
+| ---------------------- | ---------------- |
+| `sku_review.py`        | Gradio 人工审核界面    |
+| `sku_augmentation.py`  | 数据增强（透视、光照、旋转等）  |
+| `build_library.py`     | 特征提取和库构建         |
+| `split_train_val.py`   | 按 label 切分训练/验证集 |
+| `sku_model_trainer.py` | OML 度量学习微调       |
+| `feature_extractor.py` | ViT-S16 DINO 封装  |
 
 ## 🔧 配置说明
 
 ### 路径配置
 
-| 路径 | 说明 |
-|------|------|
-| `source/` | 原始箱体图片输入 |
-| `crops/` | 剪切后的箱体图片 |
-| `sku_output/` | 人工审核后的初始库 |
-| `sku_auged/` | 数据增强后的库 |
-| `../sku_library/` | 最终特征库 |
+| 路径                | 说明        |
+| ----------------- | --------- |
+| `source/`         | 原始箱体图片输入  |
+| `crops/`          | 剪切后的箱体图片  |
+| `sku_output/`     | 人工审核后的初始库 |
+| `sku_auged/`      | 数据增强后的库   |
+| `../sku_library/` | 最终特征库     |
 
 ### 依赖安装
 
@@ -131,7 +132,7 @@ pip install open-metric-learning
 
 ## 📊 数据格式
 
-### sku_database.json 格式
+### sku\_database.json 格式
 
 ```json
 {
@@ -143,7 +144,7 @@ pip install open-metric-learning
 }
 ```
 
-### sku_library.csv 格式
+### sku\_library.csv 格式
 
 ```csv
 image_name,sku_id,label,sku_name
@@ -190,7 +191,7 @@ SKU数量: 32
 3. **特征维度**：ViT-S16 DINO 输出 384 维特征向量
 4. **图片格式**：支持 jpg, jpeg, png, bmp, webp 格式
 
----
+***
 
 *项目：毕设项目*
 *日期：2026年4月*

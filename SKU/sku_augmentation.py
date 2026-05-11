@@ -19,37 +19,28 @@ SKU图片库增强脚本
 输出目录结构：
     output_dir/
         000001/
-            IMG_001_001.jpg    # 左侧视角
-            IMG_001_002.jpg    # 右侧视角
-            IMG_001_003.jpg    # 暗光环境
-            IMG_001_004.jpg    # 亮光环境
-            IMG_001_005.jpg    # 轻微模糊
-            IMG_001_006.jpg    # 旋转90度
-            IMG_001_007.jpg    # 旋转180度
-            IMG_001_008.jpg    # 旋转270度
-            IMG_001_009.jpg    # 对比度增强
-            IMG_001_010.jpg    # 轻微噪声
-            IMG_002_001.jpg ~ IMG_002_010.jpg    # 第二张原图的增强
+            IMG_001_aug01.jpg    # 随机增强1
+            IMG_001_aug02.jpg    # 随机增强2
+            IMG_001_rot90.jpg    # 旋转90度
+            IMG_001_rot180.jpg   # 旋转180度
+            IMG_001_rot270.jpg   # 旋转270度
+            IMG_002_aug01.jpg ~ IMG_002_rot270.jpg  # 第二张原图的增强
             ...
         000002/
-            photo1_001.jpg ~ photo1_010.jpg
+            photo1_aug01.jpg ~ photo1_rot270.jpg
             ...
         metadata.json
 
-固定增强方案（10张/每面）：
+增强策略（5张/每面）：
 
-| 编号 | 增强类型     | 核心操作                          | 物理意义              |
-|-----|-------------|----------------------------------|---------------------|
-| 001 | 左侧视角     | perspective(左倾0.003)          | 左侧斜向拍摄视角       |
-| 002 | 右侧视角     | perspective(右倾0.003)          | 右侧斜向拍摄视角       |
-| 003 | 暗光环境     | hsv_v(-0.25), hsv_s(-0.15)       | 光线不足，颜色偏暗     |
-| 004 | 亮光环境     | hsv_v(+0.25), hsv_s(+0.10)       | 强光照射，颜色偏亮     |
-| 005 | 轻微模糊     | blur(5)                         | 轻微失焦              |
-| 006 | 旋转90度    | rotate(90)                      | 垂直放置（顺时针90度） |
-| 007 | 旋转180度   | rotate(180)                     | 倒置放置              |
-| 008 | 旋转270度   | rotate(270)                     | 垂直放置（逆时针90度）|
-| 009 | 对比度增强   | contrast(1.15)                  | 增强特征可见度         |
-| 010 | 轻微噪声     | noise(3)                        | 真实场景轻微噪声       |
+| 类型 | 数量 | 输出格式       | 核心操作                          | 物理意义                      |
+|-----|------|---------------|----------------------------------|-----------------------------|
+| 随机增强 | 2    | aug01, aug02  | 随机裁剪(50%) + 随机擦除(50%)    | 模拟检测框裁剪差异和遮挡      |
+| 旋转增强 | 3    | rot90, rot180, rot270 | 旋转90/180/270度            | 模拟箱体不同朝向              |
+
+随机增强说明：
+- random_crop_resize: 随机裁剪60%-95%区域后resize，模拟检测框裁剪比例差异
+- random_erasing: 随机擦除10%-20%区域（用周围均值填充），模拟遮挡
 
 使用方法：
     python sku_augmentation.py --input ./sku_raw --output ./sku_library
@@ -74,100 +65,21 @@ import cv2
 from tqdm import tqdm
 
 
-# ============ 固定增强方案定义 ============
+# ============ 增强策略 ============
+NUM_RANDOM_AUGS = 2  # 每张原图生成2次随机增强
+ROTATION_ANGLES = [90, 180, 270]  # 旋转增强（建库用，不参与训练）
 
-FIXED_AUGMENTATION_PLAN = [
-    {
-        'id': '001',
-        'name': 'left_perspective',
-        'name_cn': '左侧视角',
-        'description': '透视变换模拟左侧斜向拍摄',
-        'operations': [
-            {'type': 'perspective', 'direction': 'left', 'strength': 0.003}
-        ]
-    },
-    {
-        'id': '002',
-        'name': 'right_perspective',
-        'name_cn': '右侧视角',
-        'description': '透视变换模拟右侧斜向拍摄',
-        'operations': [
-            {'type': 'perspective', 'direction': 'right', 'strength': 0.003}
-        ]
-    },
-    {
-        'id': '003',
-        'name': 'dim_environment',
-        'name_cn': '暗光环境',
-        'description': 'HSV空间调整：亮度-25%，饱和度-15%',
-        'operations': [
-            {'type': 'hsv', 'h': 0, 's': -0.15, 'v': -0.25}
-        ]
-    },
-    {
-        'id': '004',
-        'name': 'bright_environment',
-        'name_cn': '亮光环境',
-        'description': 'HSV空间调整：亮度+25%，饱和度+10%',
-        'operations': [
-            {'type': 'hsv', 'h': 0, 's': 0.10, 'v': 0.25}
-        ]
-    },
-    {
-        'id': '005',
-        'name': 'mild_blur',
-        'name_cn': '轻微模糊',
-        'description': '高斯模糊模拟轻微失焦',
-        'operations': [
-            {'type': 'blur', 'kernel': 5}
-        ]
-    },
-    {
-        'id': '006',
-        'name': 'rotate_90',
-        'name_cn': '旋转90度',
-        'description': '顺时针旋转90度（垂直放置）',
-        'operations': [
-            {'type': 'rotate', 'angle': 90}
-        ]
-    },
-    {
-        'id': '007',
-        'name': 'rotate_180',
-        'name_cn': '旋转180度',
-        'description': '旋转180度（倒置放置）',
-        'operations': [
-            {'type': 'rotate', 'angle': 180}
-        ]
-    },
-    {
-        'id': '008',
-        'name': 'rotate_270',
-        'name_cn': '旋转270度',
-        'description': '顺时针旋转270度（逆时针90度）',
-        'operations': [
-            {'type': 'rotate', 'angle': 270}
-        ]
-    },
-    {
-        'id': '009',
-        'name': 'contrast_boost',
-        'name_cn': '对比度增强',
-        'description': '轻微增强对比度使特征更明显',
-        'operations': [
-            {'type': 'contrast', 'factor': 1.15}
-        ]
-    },
-    {
-        'id': '010',
-        'name': 'mild_noise',
-        'name_cn': '轻微噪声',
-        'description': '添加轻微高斯噪声模拟真实场景',
-        'operations': [
-            {'type': 'noise', 'std': 3}
-        ]
-    }
-]
+
+def apply_random_augmentation(image: np.ndarray) -> np.ndarray:
+    """随机组合增强：随机裁剪 + 随机擦除"""
+    result = image.copy()
+    # 50%概率做随机裁剪
+    if np.random.random() < 0.5:
+        result = random_crop_resize(result)
+    # 50%概率做随机擦除
+    if np.random.random() < 0.5:
+        result = random_erasing(result)
+    return result
 
 
 # ============ 增强函数 ============
@@ -292,6 +204,52 @@ def adjust_contrast(image: np.ndarray, factor: float) -> np.ndarray:
     return np.clip(adjusted, 0, 255).astype(np.uint8)
 
 
+def random_crop_resize(image: np.ndarray, min_area_ratio: float = 0.6, max_area_ratio: float = 0.95) -> np.ndarray:
+    """随机裁剪+resize，模拟检测框裁剪比例差异和局部可见"""
+    h, w = image.shape[:2]
+    area_ratio = np.random.uniform(min_area_ratio, max_area_ratio)
+    # 随机宽高比偏移
+    aspect_ratio = np.random.uniform(0.7, 1.3)
+    
+    crop_area = h * w * area_ratio
+    crop_h = int(np.sqrt(crop_area / aspect_ratio))
+    crop_w = int(np.sqrt(crop_area * aspect_ratio))
+    
+    crop_h = min(crop_h, h)
+    crop_w = min(crop_w, w)
+    
+    y = np.random.randint(0, h - crop_h + 1)
+    x = np.random.randint(0, w - crop_w + 1)
+    
+    cropped = image[y:y+crop_h, x:x+crop_w]
+    return cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
+
+
+def random_erasing(image: np.ndarray, min_area: float = 0.1, max_area: float = 0.2) -> np.ndarray:
+    """随机擦除，模拟遮挡和局部残缺，迫使模型学全局语义"""
+    result = image.copy()
+    h, w = image.shape[:2]
+    
+    erase_area = np.random.uniform(min_area, max_area) * h * w
+    aspect_ratio = np.random.uniform(0.5, 2.0)
+    
+    erase_h = int(np.sqrt(erase_area / aspect_ratio))
+    erase_w = int(np.sqrt(erase_area * aspect_ratio))
+    
+    erase_h = min(erase_h, h)
+    erase_w = min(erase_w, w)
+    
+    y = np.random.randint(0, h - erase_h + 1)
+    x = np.random.randint(0, w - erase_w + 1)
+    
+    # 用周围区域均值填充（比随机噪声更真实）
+    patch = image[max(0,y-5):y+erase_h+5, max(0,x-5):x+erase_w+5]
+    fill_value = patch.mean(axis=(0,1)).astype(np.uint8)
+    result[y:y+erase_h, x:x+erase_w] = fill_value
+    
+    return result
+
+
 def apply_single_operation(image: np.ndarray, operation: Dict) -> np.ndarray:
     """应用单个增强操作"""
     op_type = operation['type']
@@ -355,7 +313,7 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
     sku_folders = sorted([d for d in input_path.iterdir() if d.is_dir()], 
                          key=lambda x: x.name)
     
-    images_per_face = len(FIXED_AUGMENTATION_PLAN)
+    images_per_face = NUM_RANDOM_AUGS + len(ROTATION_ANGLES)
     
     print("=" * 70)
     print("SKU图片库建设")
@@ -363,11 +321,11 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
     print(f"输入目录: {input_dir}")
     print(f"输出目录: {output_dir}")
     print(f"SKU文件夹数: {len(sku_folders)}")
-    print(f"每面增强数量: {images_per_face} 张")
+    print(f"每面增强数量: {images_per_face} 张 ({NUM_RANDOM_AUGS}随机 + {len(ROTATION_ANGLES)}旋转)")
     print("=" * 70)
-    print("\n固定增强方案:")
-    for plan in FIXED_AUGMENTATION_PLAN:
-        print(f"  [{plan['id']}] {plan['name_cn']}: {plan['description']}")
+    print("\n增强策略:")
+    print(f"  - 随机增强: {NUM_RANDOM_AUGS}次/图（随机裁剪+随机擦除）")
+    print(f"  - 旋转增强: {ROTATION_ANGLES}度")
     print("=" * 70)
     
     # 读取 sku_database.json 获取 sku_name 映射
@@ -389,7 +347,11 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
     # 元数据
     metadata = {
         'created_at': datetime.now().isoformat(),
-        'augmentation_plan': FIXED_AUGMENTATION_PLAN,
+        'augmentation_plan': {
+            'num_random_augs': NUM_RANDOM_AUGS,
+            'rotation_angles': ROTATION_ANGLES,
+            'description': '随机增强(随机裁剪+随机擦除) + 旋转增强'
+        },
         'reference': 'YOLOv8/YOLO11 augmentation strategy',
         'total_skus': len(sku_folders),
         'images_per_face': images_per_face,
@@ -440,21 +402,32 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
             
             # 对该面应用所有增强
             face_augmentations = []
-            for plan in FIXED_AUGMENTATION_PLAN:
-                aug_image = apply_augmentation_plan(image, plan)
-
-                # 生成输出文件名：原图名_增强编号.jpg，保存到SKU文件夹
-                # 例如：IMG_001_001.jpg, IMG_001_002.jpg, ...
-                output_name = f"{face_stem}_{plan['id']}.jpg"
+            aug_idx = 0
+            # 随机增强（用于训练）
+            for i in range(NUM_RANDOM_AUGS):
+                aug_image = apply_random_augmentation(image)
+                aug_idx += 1
+                output_name = f"{face_stem}_aug{aug_idx:02d}.jpg"
                 sku_output_dir = output_path / sku_id
                 sku_output_dir.mkdir(parents=True, exist_ok=True)
-                output_path_file = sku_output_dir / output_name
-                cv2.imwrite(str(output_path_file), aug_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
-                
+                cv2.imwrite(str(sku_output_dir / output_name), aug_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
                 stats['total_images'] += 1
                 face_augmentations.append({
-                    'aug_id': plan['id'],
-                    'aug_name': plan['name_cn'],
+                    'aug_id': f'aug{aug_idx:02d}',
+                    'aug_name': '随机增强',
+                    'output_file': output_name
+                })
+
+            # 旋转增强（用于建库匹配）
+            for angle in ROTATION_ANGLES:
+                aug_image = rotate_image(image, angle)
+                aug_idx += 1
+                output_name = f"{face_stem}_rot{angle}.jpg"
+                cv2.imwrite(str(sku_output_dir / output_name), aug_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+                stats['total_images'] += 1
+                face_augmentations.append({
+                    'aug_id': f'rot{angle}',
+                    'aug_name': f'旋转{angle}度',
                     'output_file': output_name
                 })
             
@@ -474,14 +447,13 @@ def build_sku_library(input_dir: str, output_dir: str) -> Dict:
     
     # 生成 sku_library.csv 索引文件
     # 字段: image_name,sku_id,label,sku_name
-    # label格式: 原图名（去扩展名），每个原图对应一个label，该原图的所有增强图共享这个label
+    # label格式: SKU编号，同一SKU不同面共享label
     csv_rows = []
     for sku_metadata in metadata['skus']:
         sku_id = sku_metadata['sku_id']
         sku_name = sku_metadata['sku_name']
+        label = sku_id  # label = SKU编号，同一SKU不同面共享label
         for face in sku_metadata['faces']:
-            face_stem = face.get('source_stem', face['face_id'])
-            label = face_stem  # label = 原图名（去扩展名）
             for aug in face['augmentations']:
                 image_name = f"{sku_id}/{aug['output_file']}"
                 csv_rows.append({

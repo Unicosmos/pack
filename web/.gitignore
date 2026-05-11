@@ -29,7 +29,6 @@ Thumbs.db
 *.onnx
 *.h5
 
-# Data
-*.csv
-*.json
-!package.json
+# Data - ONLY ignore data files in specific directories
+# Keep package.json and config files in version control
+# !package.json - removed, no longer needed

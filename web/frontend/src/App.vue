@@ -511,18 +511,6 @@ onMounted(() => {
   overflow-y: auto;
 }
 
-.detection-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.detection-item:hover {
-  background: #fafafa;
-}
-
 .thumb {
   width: 60px;
   height: 60px;
