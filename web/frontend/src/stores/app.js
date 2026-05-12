@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getSystemHealth } from '../api/detector'
+import { detector } from '../api/client'
 
 export const useAppStore = defineStore('app', () => {
   const states = ['IDLE', 'UPLOADED', 'PROCESSING', 'SUCCESS', 'ERROR', 'SYSTEM_INIT']
@@ -12,6 +12,10 @@ export const useAppStore = defineStore('app', () => {
   const error = ref(null)
   const skuCount = ref(0)
   const systemStatus = ref('ready')
+  const currentPage = ref('home')
+
+  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
+  const isLoggedIn = computed(() => !!localStorage.getItem('token'))
 
   const isIdle = computed(() => currentState.value === 'IDLE')
   const isUploaded = computed(() => currentState.value === 'UPLOADED')
@@ -24,6 +28,21 @@ export const useAppStore = defineStore('app', () => {
     if (states.includes(status)) {
       currentState.value = status
     }
+  }
+
+  function setUser(userData) {
+    user.value = userData
+  }
+
+  function setPage(page) {
+    currentPage.value = page
+  }
+
+  function logout() {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    user.value = null
+    currentPage.value = 'home'
   }
 
   function uploadImage(file) {
@@ -67,16 +86,20 @@ export const useAppStore = defineStore('app', () => {
 
   async function fetchSystemHealth() {
     try {
-      const res = await getSystemHealth()
+      const res = await detector.health()
+      console.log('Health check response:', res)
       systemStatus.value = res.status
       skuCount.value = res.sku_count || 0
 
       if (res.status === 'init') {
         setStatus('SYSTEM_INIT')
-      } else if (!res.detector_ready) {
+      } else if (!res.matcher_ready) {
         systemStatus.value = 'no-sku'
+      } else {
+        systemStatus.value = 'ready'
       }
     } catch (err) {
+      console.error('Health check error:', err)
       systemStatus.value = 'error'
       setStatus('SYSTEM_INIT')
     }
@@ -90,6 +113,9 @@ export const useAppStore = defineStore('app', () => {
     error,
     skuCount,
     systemStatus,
+    currentPage,
+    user,
+    isLoggedIn,
     isIdle,
     isUploaded,
     isProcessing,
@@ -97,6 +123,9 @@ export const useAppStore = defineStore('app', () => {
     hasError,
     isSystemInit,
     setStatus,
+    setUser,
+    setPage,
+    logout,
     uploadImage,
     startProcessing,
     completeSuccess,

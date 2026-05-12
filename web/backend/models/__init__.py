@@ -1,27 +1,5 @@
-"""Models package"""
+from models.user import User
+from models.task import Task
+from models.sku import SKU
 
-from .schemas import (
-    BoxInfo,
-    MatchInfo,
-    TopLabel,
-    HealthResponse,
-    DetectResponse,
-    DetectAndMatchResponse,
-    MatchResponse,
-    SKUInfo,
-    SKUListResponse,
-    ErrorResponse,
-)
-
-__all__ = [
-    "BoxInfo",
-    "MatchInfo",
-    "TopLabel",
-    "HealthResponse",
-    "DetectResponse",
-    "DetectAndMatchResponse",
-    "MatchResponse",
-    "SKUInfo",
-    "SKUListResponse",
-    "ErrorResponse",
-]
+__all__ = ["User", "Task", "SKU"]

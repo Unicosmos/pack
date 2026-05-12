@@ -103,3 +103,4 @@ sku_library/**/*.png
 compare.md
 utils/start_mlflow.sh
 nn/
+old/

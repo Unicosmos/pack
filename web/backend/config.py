@@ -29,10 +29,13 @@ class MatchConfig:
 @dataclass
 class PathConfig:
     BASE_DIR: Path
+    CORE_DIR: Path
+    DATA_DIR: Path
     MODEL_PATH: Path
     SKU_DIR: Path
     SKU_FEATURES: Path
     SKU_INDEX: Path
+    SKU_IMAGES_DIR: Path
     SKU_MODEL_PATH: Optional[Path]
     ULTRALYTICS_DIR: Path
     YOLO_CONFIG_DIR: Path
@@ -62,21 +65,27 @@ class Config:
         """加载路径配置"""
         backend_dir = Path(__file__).parent
         base_dir = backend_dir.parent.parent
-        
-        # SKU微调模型路径 - 手动指定，None则不使用微调模型
-        sku_model_path = base_dir / "SKU" / "models" / "vits16_dino.pth"
+
+        data_dir = base_dir / "data"
+        models_dir = data_dir / "models"
+        sku_library_dir = data_dir / "sku_library"
+
+        sku_model_path = models_dir / "sku" / "vits16_dino.pth"
         if not sku_model_path.exists():
             sku_model_path = None
-        
+
         self.paths = PathConfig(
             BASE_DIR=base_dir,
-            MODEL_PATH=base_dir / "models" / "best.pt",
-            SKU_DIR=base_dir / "sku_library",
-            SKU_FEATURES=base_dir / "sku_library" / "sku_features.npy",
-            SKU_INDEX=base_dir / "sku_library" / "sku_library.csv",
+            CORE_DIR=base_dir / "core",
+            DATA_DIR=data_dir,
+            MODEL_PATH=models_dir / "yolo" / "best.pt",
+            SKU_DIR=sku_library_dir,
+            SKU_FEATURES=sku_library_dir / "sku_features.npy",
+            SKU_INDEX=sku_library_dir / "sku_library.csv",
+            SKU_IMAGES_DIR=sku_library_dir / "images",
             SKU_MODEL_PATH=sku_model_path,
-            ULTRALYTICS_DIR=backend_dir / ".ultralytics",
-            YOLO_CONFIG_DIR=backend_dir / ".yolo"
+            ULTRALYTICS_DIR=data_dir / ".ultralytics",
+            YOLO_CONFIG_DIR=data_dir / ".yolo"
         )
 
         os.environ["ULTRALYTICS_CONFIG_DIR"] = str(self.paths.ULTRALYTICS_DIR)

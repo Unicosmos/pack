@@ -1,11 +1,10 @@
 """
 Pack Web API - 重构版
 基于FastAPI的图片检测和SKU匹配服务
-集成新模块：config, models, core, utils
+集成核心模块：core, config, models, utils
 """
 
 import sys
-import os
 from pathlib import Path
 from typing import List, Optional
 from contextlib import asynccontextmanager
@@ -17,18 +16,13 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "SKU"))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "utils"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-try:
-    from box_detector import BoxDetector as OriginalBoxDetector
-    HAS_ORIGINAL_MODULES = True
-except ImportError as e:
-    HAS_ORIGINAL_MODULES = False
-    print(f"警告: 原始SKU模块导入失败: {e}")
+from core.utils.pytorch_utils import init_pytorch_env
+init_pytorch_env()
 
 from config import config
-from models.schemas import (
+from schemas.schemas import (
     HealthResponse,
     DetectResponse,
     DetectAndMatchResponse,
@@ -41,20 +35,24 @@ from models.schemas import (
     ErrorResponse,
 )
 from core.visualizer import draw_detection_result, draw_boxes_only
-from utils.image_utils import (
-    filter_small_boxes, 
-    crop_box, 
-    resize_with_padding, 
+from core.utils.image_utils import (
+    filter_small_boxes,
+    crop_box,
+    resize_with_padding,
     image_to_base64,
     process_uploaded_image,
     generate_crops_base64,
 )
-from utils.logger import logger
+from core.utils.logger import logger
 
+from core.detector import BoxDetector
+from core.matcher import SKUMatcher
 
-sys.path.insert(0, str(Path(__file__).parent / "core"))
-from detector import BoxDetector
-from matcher import SKUMatcher
+from database import init_db, SessionLocal, get_db
+from auth import create_default_admin
+from api.auth import router as auth_router
+from api.task import router as task_router
+from api.sku import router as sku_router
 
 
 detector: Optional[BoxDetector] = None
@@ -68,23 +66,36 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 50)
     logger.info("Pack Web API 启动中...")
 
+    logger.info("初始化数据库...")
+    init_db()
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        create_default_admin(db)
+    finally:
+        db.close()
+
     cfg = config
 
     if cfg.paths.MODEL_PATH.exists():
         logger.info(f"加载检测模型: {cfg.paths.MODEL_PATH}")
         try:
             detector = BoxDetector(str(cfg.paths.MODEL_PATH), conf_threshold=cfg.model.CONF_THRESHOLD)
-            logger.info("  BoxDetector加载成功")
+            if detector.is_ready():
+                logger.info("  BoxDetector加载成功")
+            else:
+                logger.error("  BoxDetector加载失败: 检测器未就绪")
+                detector = None
         except Exception as e:
             logger.error(f"  BoxDetector加载失败: {e}")
+            detector = None
     else:
-        logger.warning(f"  警告: 模型文件不存在: {cfg.paths.MODEL_PATH}")
+        logger.error(f"  错误: 模型文件不存在: {cfg.paths.MODEL_PATH}")
 
     if cfg.paths.SKU_DIR.exists():
         logger.info(f"加载SKU库: {cfg.paths.SKU_DIR}")
         try:
             matcher = SKUMatcher(
-                str(cfg.paths.MODEL_PATH),
                 str(cfg.paths.SKU_DIR),
                 match_threshold=cfg.match.MATCH_THRESHOLD,
                 ratio_threshold=cfg.match.RATIO_THRESHOLD,
@@ -122,13 +133,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
+app.include_router(task_router)
+app.include_router(sku_router)
+
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-sku_images_dir = Path(__file__).parent.parent.parent / "sku_library" / "images"
-if sku_images_dir.exists():
-    app.mount("/static/sku_images", StaticFiles(directory=str(sku_images_dir)), name="sku_images")
+if config.paths.SKU_IMAGES_DIR.exists():
+    app.mount("/static/sku_images", StaticFiles(directory=str(config.paths.SKU_IMAGES_DIR)), name="sku_images")
 
 
 def get_sku_count() -> int:
@@ -231,7 +245,7 @@ async def detect_image(
 
         boxes = result.get("detections", [])
         plot_image = result.get("plot_image", None)
-        
+
         if not boxes:
             return DetectResponse(
                 success=True,
@@ -248,7 +262,6 @@ async def detect_image(
             min_pixel_area=config.model.MIN_PIXEL_AREA
         )
 
-        # 优先使用YOLO自带的可视化
         if plot_image:
             result_image = plot_image
         else:
@@ -331,7 +344,7 @@ async def detect_and_match_image(
 
         boxes = result.get("detections", [])
         plot_image = result.get("plot_image", None)
-        
+
         if not boxes:
             return DetectAndMatchResponse(
                 success=True,
@@ -386,14 +399,13 @@ async def detect_and_match_image(
         if not sku_matcher_enabled:
             match_results = [None] * len(boxes)
 
-        # 优先使用YOLO自带的可视化图片，如果没有则使用自定义绘制
         if plot_image:
             result_image = plot_image
         else:
             result_image, _ = draw_detection_result(image, boxes, match_results)
-        
+
         img_base64 = image_to_base64(result_image)
-        
+
         crops_base64 = generate_crops_base64(image, boxes, target_size=config.model.INPUT_SIZE)
 
         box_infos = [
@@ -482,23 +494,24 @@ async def get_sku_list():
 @app.get("/api/sku-image/{sku_id}/{image_name}")
 async def get_sku_image(sku_id: str, image_name: str):
     """获取SKU图片"""
-    sku_images_dir = Path(__file__).parent.parent.parent / "sku_library" / "images"
-    image_path = sku_images_dir / sku_id / image_name
-    
+    from urllib.parse import unquote
+    image_name = unquote(image_name)
+    image_path = config.paths.SKU_IMAGES_DIR / sku_id / image_name
+
     if not image_path.exists():
-        return JSONResponse(status_code=404, content={"detail": "图片不存在"})
-    
+        return JSONResponse(status_code=404, content={"detail": f"图片不存在: {image_path}"})
+
     try:
         with open(image_path, "rb") as f:
             content = f.read()
-        
+
         if image_name.lower().endswith(".jpg") or image_name.lower().endswith(".jpeg"):
             media_type = "image/jpeg"
         elif image_name.lower().endswith(".png"):
             media_type = "image/png"
         else:
             media_type = "application/octet-stream"
-        
+
         return Response(content=content, media_type=media_type)
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
@@ -519,4 +532,4 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
