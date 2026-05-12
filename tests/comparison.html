@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型预测结果对比</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .stats {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 0 auto 30px;
+            max-width: 800px;
+            color: white;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 10px;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .comparison-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .image-pair {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .image-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .image-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            background: #e0e0e0;
+        }
+        
+        .image-wrapper {
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .image-label {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        .image-label.model1 {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .image-label.model2 {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .image-wrapper img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .image-wrapper img:hover {
+            transform: scale(1.02);
+        }
+        
+        .nav-buttons {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .nav-button {
+            background: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .lightbox.active {
+            display: flex;
+        }
+        
+        .lightbox img {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+            box-shadow: 0 0 50px rgba(255,255,255,0.2);
+        }
+        
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .lightbox-close:hover {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 模型预测结果对比</h1>
+        <p>比较两个模型在同一数据集上的预测差异</p>
+    </div>
+    
+    <div class="stats">
+        <h2>📊 统计信息</h2>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">97</div>
+                <div class="stat-label">有差异的图片</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="comparison-container">
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (474).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (474).jpg" alt="2 (474).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (474).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (474).jpg" alt="2 (474).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (474).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (360).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (360).jpg" alt="1 (360).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (360).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (360).jpg" alt="1 (360).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (360).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (234).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (234).jpg" alt="1 (234).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (234).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (234).jpg" alt="1 (234).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (234).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (106).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (106).jpg" alt="2 (106).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (106).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (106).jpg" alt="2 (106).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (106).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (317).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (317).jpg" alt="2 (317).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (317).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (317).jpg" alt="2 (317).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (317).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (2).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (2).jpg" alt="2 (2).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (2).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (2).jpg" alt="2 (2).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (2).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (302).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (302).jpg" alt="2 (302).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (302).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (302).jpg" alt="2 (302).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (302).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (230).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (230).jpg" alt="1 (230).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (230).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (230).jpg" alt="1 (230).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (230).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (266).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (266).jpg" alt="1 (266).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (266).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (266).jpg" alt="1 (266).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (266).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (136).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (136).jpg" alt="1 (136).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (136).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (136).jpg" alt="1 (136).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (136).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (345).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (345).jpg" alt="2 (345).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (345).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (345).jpg" alt="2 (345).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (345).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (135).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (135).jpg" alt="1 (135).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (135).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (135).jpg" alt="1 (135).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (135).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (331).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (331).jpg" alt="1 (331).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (331).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (331).jpg" alt="1 (331).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (331).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (159).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (159).jpg" alt="2 (159).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (159).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (159).jpg" alt="2 (159).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (159).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (113).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (113).jpg" alt="1 (113).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (113).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (113).jpg" alt="1 (113).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (113).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (332).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (332).jpg" alt="2 (332).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (332).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (332).jpg" alt="2 (332).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (332).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (36).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (36).jpg" alt="2 (36).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (36).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (36).jpg" alt="2 (36).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (36).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (221).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (221).jpg" alt="1 (221).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (221).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (221).jpg" alt="1 (221).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (221).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (283).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (283).jpg" alt="2 (283).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (283).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (283).jpg" alt="2 (283).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (283).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (226).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (226).jpg" alt="1 (226).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (226).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (226).jpg" alt="1 (226).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (226).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (406).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (406).jpg" alt="1 (406).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (406).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (406).jpg" alt="1 (406).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (406).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (138).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (138).jpg" alt="2 (138).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (138).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (138).jpg" alt="2 (138).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (138).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (40).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (40).jpg" alt="2 (40).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (40).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (40).jpg" alt="2 (40).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (40).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (341).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (341).jpg" alt="2 (341).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (341).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (341).jpg" alt="2 (341).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (341).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (15).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (15).jpg" alt="2 (15).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (15).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (15).jpg" alt="2 (15).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (15).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (361).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (361).jpg" alt="2 (361).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (361).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (361).jpg" alt="2 (361).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (361).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (403).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (403).jpg" alt="1 (403).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (403).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (403).jpg" alt="1 (403).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (403).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (150).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (150).jpg" alt="2 (150).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (150).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (150).jpg" alt="2 (150).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (150).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (29).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (29).jpg" alt="2 (29).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (29).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (29).jpg" alt="2 (29).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (29).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (289).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (289).jpg" alt="2 (289).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (289).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (289).jpg" alt="2 (289).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (289).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (263).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (263).jpg" alt="2 (263).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (263).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (263).jpg" alt="2 (263).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (263).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (269).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (269).jpg" alt="2 (269).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (269).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (269).jpg" alt="2 (269).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (269).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (76).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (76).jpg" alt="2 (76).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (76).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (76).jpg" alt="2 (76).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (76).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (112).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (112).jpg" alt="1 (112).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (112).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (112).jpg" alt="1 (112).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (112).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (5).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (5).jpg" alt="1 (5).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (5).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (5).jpg" alt="1 (5).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (5).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (29).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (29).jpg" alt="1 (29).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (29).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (29).jpg" alt="1 (29).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (29).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (214).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (214).jpg" alt="1 (214).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (214).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (214).jpg" alt="1 (214).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (214).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (494).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (494).jpg" alt="2 (494).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (494).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (494).jpg" alt="2 (494).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (494).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (175).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (175).jpg" alt="2 (175).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (175).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (175).jpg" alt="2 (175).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (175).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (229).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (229).jpg" alt="2 (229).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (229).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (229).jpg" alt="2 (229).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (229).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (394).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (394).jpg" alt="2 (394).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (394).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (394).jpg" alt="2 (394).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (394).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (76).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (76).jpg" alt="1 (76).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (76).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (76).jpg" alt="1 (76).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (76).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (374).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (374).jpg" alt="1 (374).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (374).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (374).jpg" alt="1 (374).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (374).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (201).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (201).jpg" alt="2 (201).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (201).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (201).jpg" alt="2 (201).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (201).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (489).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (489).jpg" alt="2 (489).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (489).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (489).jpg" alt="2 (489).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (489).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (277).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (277).jpg" alt="2 (277).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (277).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (277).jpg" alt="2 (277).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (277).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 01.jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\01.jpg" alt="01.jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\01.jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\01.jpg" alt="01.jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\01.jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (140).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (140).jpg" alt="2 (140).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (140).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (140).jpg" alt="2 (140).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (140).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (379).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (379).jpg" alt="1 (379).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (379).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (379).jpg" alt="1 (379).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (379).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (129).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (129).jpg" alt="2 (129).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (129).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (129).jpg" alt="2 (129).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (129).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (367).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (367).jpg" alt="1 (367).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (367).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (367).jpg" alt="1 (367).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (367).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (143).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (143).jpg" alt="1 (143).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (143).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (143).jpg" alt="1 (143).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (143).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (39).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (39).jpg" alt="2 (39).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (39).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (39).jpg" alt="2 (39).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (39).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (243).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (243).jpg" alt="2 (243).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (243).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (243).jpg" alt="2 (243).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (243).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (140).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (140).jpg" alt="1 (140).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (140).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (140).jpg" alt="1 (140).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (140).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (161).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (161).jpg" alt="2 (161).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (161).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (161).jpg" alt="2 (161).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (161).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (388).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (388).jpg" alt="2 (388).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (388).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (388).jpg" alt="2 (388).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (388).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (251).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (251).jpg" alt="1 (251).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (251).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (251).jpg" alt="1 (251).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (251).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (108).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (108).jpg" alt="2 (108).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (108).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (108).jpg" alt="2 (108).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (108).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (443).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (443).jpg" alt="2 (443).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (443).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (443).jpg" alt="2 (443).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (443).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (307).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (307).jpg" alt="2 (307).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (307).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (307).jpg" alt="2 (307).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (307).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (299).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (299).jpg" alt="2 (299).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (299).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (299).jpg" alt="2 (299).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (299).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (373).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (373).jpg" alt="2 (373).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (373).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (373).jpg" alt="2 (373).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (373).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (107).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (107).jpg" alt="2 (107).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (107).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (107).jpg" alt="2 (107).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (107).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (171).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (171).jpg" alt="1 (171).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (171).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (171).jpg" alt="1 (171).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (171).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (218).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (218).jpg" alt="2 (218).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (218).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (218).jpg" alt="2 (218).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (218).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (19).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (19).jpg" alt="2 (19).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (19).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (19).jpg" alt="2 (19).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (19).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (198).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (198).jpg" alt="1 (198).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (198).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (198).jpg" alt="1 (198).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (198).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (287).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (287).jpg" alt="2 (287).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (287).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (287).jpg" alt="2 (287).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (287).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (7).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (7).jpg" alt="1 (7).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (7).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (7).jpg" alt="1 (7).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (7).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (207).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (207).jpg" alt="1 (207).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (207).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (207).jpg" alt="1 (207).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (207).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (159).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (159).jpg" alt="1 (159).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (159).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (159).jpg" alt="1 (159).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (159).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (360).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (360).jpg" alt="2 (360).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (360).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (360).jpg" alt="2 (360).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (360).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (342).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (342).jpg" alt="1 (342).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (342).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (342).jpg" alt="1 (342).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (342).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (280).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (280).jpg" alt="2 (280).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (280).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (280).jpg" alt="2 (280).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (280).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (356).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (356).jpg" alt="1 (356).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (356).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (356).jpg" alt="1 (356).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (356).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (273).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (273).jpg" alt="1 (273).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (273).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (273).jpg" alt="1 (273).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (273).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (61).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (61).jpg" alt="2 (61).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (61).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (61).jpg" alt="2 (61).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (61).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (455).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (455).jpg" alt="2 (455).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (455).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (455).jpg" alt="2 (455).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (455).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (398).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (398).jpg" alt="1 (398).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (398).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (398).jpg" alt="1 (398).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (398).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (287).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (287).jpg" alt="1 (287).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (287).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (287).jpg" alt="1 (287).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (287).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (318).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (318).jpg" alt="1 (318).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (318).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (318).jpg" alt="1 (318).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (318).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (202).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (202).jpg" alt="2 (202).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (202).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (202).jpg" alt="2 (202).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (202).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (475).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (475).jpg" alt="2 (475).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (475).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (475).jpg" alt="2 (475).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (475).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (247).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (247).jpg" alt="2 (247).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (247).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (247).jpg" alt="2 (247).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (247).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (436).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (436).jpg" alt="2 (436).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (436).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (436).jpg" alt="2 (436).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (436).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (309).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (309).jpg" alt="1 (309).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (309).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (309).jpg" alt="1 (309).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (309).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (57).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (57).jpg" alt="2 (57).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (57).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (57).jpg" alt="2 (57).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (57).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (434).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (434).jpg" alt="2 (434).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (434).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (434).jpg" alt="2 (434).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (434).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (118).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (118).jpg" alt="2 (118).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (118).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (118).jpg" alt="2 (118).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (118).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (206).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (206).jpg" alt="1 (206).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (206).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (206).jpg" alt="1 (206).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (206).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (451).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (451).jpg" alt="2 (451).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (451).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (451).jpg" alt="2 (451).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (451).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (18).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (18).jpg" alt="2 (18).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (18).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (18).jpg" alt="2 (18).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (18).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (79).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (79).jpg" alt="1 (79).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (79).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (79).jpg" alt="1 (79).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (79).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 1 (62).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\1 (62).jpg" alt="1 (62).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\1 (62).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\1 (62).jpg" alt="1 (62).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\1 (62).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (321).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (321).jpg" alt="2 (321).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (321).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (321).jpg" alt="2 (321).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (321).jpg')">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-pair">
+            <div class="image-header">📁 2 (413).jpg</div>
+            <div class="image-grid">
+                <div class="image-wrapper">
+                    <div class="image-label model1">Model 1: lscd_predict_202605121912042</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121912042\2 (413).jpg" alt="2 (413).jpg - Model 1" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121912042\2 (413).jpg')">
+                </div>
+                <div class="image-wrapper">
+                    <div class="image-label model2">Model 2: lscd_predict_202605121913322</div>
+                    <img src="..\YOLO\runs\predict\lscd_predict_202605121913322\2 (413).jpg" alt="2 (413).jpg - Model 2" onclick="openLightbox('..\YOLO\runs\predict\lscd_predict_202605121913322\2 (413).jpg')">
+                </div>
+            </div>
+        </div>
+
+    </div>
+    
+    <div class="nav-buttons">
+        <button class="nav-button" onclick="scrollToTop()">↑</button>
+        <button class="nav-button" onclick="scrollToBottom()">↓</button>
+    </div>
+    
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img id="lightbox-img" src="" alt="">
+    </div>
+    
+    <script>
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function scrollToBottom() {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }
+        
+        function openLightbox(src) {
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox').classList.add('active');
+        }
+        
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+        }
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -41,26 +41,21 @@ def process_single_result(result, save_dir, result_index):
         bool: 是否成功保存
     """
     try:
-        # 获取检测结果
         detections = []
         
-        if hasattr(result, 'boxes') and result.boxes is not None:
+        if hasattr(result, 'boxes') and result.boxes is not None and len(result.boxes) > 0:
             for i in range(len(result.boxes)):
                 detection = {}
                 
-                # 获取置信度
                 if hasattr(result.boxes, 'conf') and result.boxes.conf is not None:
                     detection['confidence'] = result.boxes.conf[i].item()
                 
-                # 获取类别ID
                 if hasattr(result.boxes, 'cls') and result.boxes.cls is not None:
                     detection['class_id'] = int(result.boxes.cls[i].item())
                 
-                # 获取类别名称
                 if hasattr(result, 'names') and result.names:
                     detection['name'] = result.names.get(detection.get('class_id', 0), 'object')
                 
-                # 获取边界框坐标
                 if hasattr(result.boxes, 'xyxy') and result.boxes.xyxy is not None:
                     box = result.boxes.xyxy[i].cpu().numpy()
                     detection['box'] = {
@@ -71,6 +66,31 @@ def process_single_result(result, save_dir, result_index):
                     }
                 
                 detections.append(detection)
+        elif hasattr(result, 'masks') and result.masks is not None and len(result.masks) > 0:
+            if hasattr(result.masks, 'boxes') and result.masks.boxes is not None:
+                for i in range(len(result.masks)):
+                    detection = {}
+                    
+                    if hasattr(result.boxes, 'conf') and result.boxes.conf is not None:
+                        detection['confidence'] = result.boxes.conf[i].item()
+                    
+                    if hasattr(result.boxes, 'cls') and result.boxes.cls is not None:
+                        detection['class_id'] = int(result.boxes.cls[i].item())
+                    else:
+                        detection['class_id'] = 0
+                    
+                    if hasattr(result, 'names') and result.names:
+                        detection['name'] = result.names.get(detection.get('class_id', 0), 'object')
+                    
+                    box = result.masks.boxes[i].cpu().numpy()
+                    detection['box'] = {
+                        'x1': float(box[0]),
+                        'y1': float(box[1]),
+                        'x2': float(box[2]),
+                        'y2': float(box[3])
+                    }
+                    
+                    detections.append(detection)
         
         # 确定文件名
         if hasattr(result, 'path') and result.path:
@@ -115,43 +135,52 @@ def process_single_result_yolo(result, save_dir, result_index):
         bool: 是否成功保存
     """
     try:
-        # 确定文件名
         if hasattr(result, 'path') and result.path:
             source_name = Path(result.path).stem
             txt_file = save_dir / f"{source_name}.txt"
         else:
             txt_file = save_dir / f"result_{result_index}.txt"
         
-        # 获取图片尺寸
         original_width = result.orig_shape[1] if hasattr(result, 'orig_shape') else 640
         original_height = result.orig_shape[0] if hasattr(result, 'orig_shape') else 640
         
-        # 准备YOLO格式标注
         yolo_lines = []
         
-        if hasattr(result, 'boxes') and result.boxes is not None:
+        if hasattr(result, 'boxes') and result.boxes is not None and len(result.boxes) > 0:
             for i in range(len(result.boxes)):
-                # 获取类别ID
                 if hasattr(result.boxes, 'cls') and result.boxes.cls is not None:
                     class_id = int(result.boxes.cls[i].item())
                 else:
                     continue
                 
-                # 获取边界框坐标（xyxy格式）
                 if hasattr(result.boxes, 'xyxy') and result.boxes.xyxy is not None:
                     box = result.boxes.xyxy[i].cpu().numpy()
                     x1, y1, x2, y2 = box
                     
-                    # 转换为YOLO格式（中心点坐标+宽高，归一化到0-1）
                     x_center = (x1 + x2) / 2 / original_width
                     y_center = (y1 + y2) / 2 / original_height
                     width = (x2 - x1) / original_width
                     height = (y2 - y1) / original_height
                     
-                    # 格式：class_id x_center y_center width height
+                    yolo_lines.append(f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}")
+        elif hasattr(result, 'masks') and result.masks is not None and len(result.masks) > 0:
+            if hasattr(result.masks, 'boxes') and result.masks.boxes is not None:
+                for i in range(len(result.masks)):
+                    if hasattr(result.boxes, 'cls') and result.boxes.cls is not None:
+                        class_id = int(result.boxes.cls[i].item())
+                    else:
+                        class_id = 0
+                    
+                    box = result.masks.boxes[i].cpu().numpy()
+                    x1, y1, x2, y2 = box
+                    
+                    x_center = (x1 + x2) / 2 / original_width
+                    y_center = (y1 + y2) / 2 / original_height
+                    width = (x2 - x1) / original_width
+                    height = (y2 - y1) / original_height
+                    
                     yolo_lines.append(f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}")
         
-        # 保存YOLO格式文件
         with open(txt_file, 'w') as f:
             f.write('\n'.join(yolo_lines))
         
@@ -220,7 +249,7 @@ def load_configuration(config_path, args):
     
     # 如果提供了配置文件，则加载它
     if config_path and Path(config_path).exists():
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         logger.info(f"加载配置文件: {config_path}")
     else:
@@ -399,12 +428,19 @@ def main():
         for result in results:
             processed_count += 1
             
-            # 统计检测结果
-            if hasattr(result, 'boxes') and result.boxes is not None:
+            if hasattr(result, 'boxes') and result.boxes is not None and len(result.boxes) > 0:
                 num_detections = len(result.boxes)
                 total_detections += num_detections
                 
-                # 统计每个类别的检测数量
+                if hasattr(result.boxes, 'cls') and result.boxes.cls is not None:
+                    for cls_id in result.boxes.cls:
+                        cls_id = int(cls_id.item())
+                        cls_name = result.names.get(cls_id, f"class_{cls_id}")
+                        detection_summary[cls_name] = detection_summary.get(cls_name, 0) + 1
+            elif hasattr(result, 'masks') and result.masks is not None and len(result.masks) > 0:
+                num_detections = len(result.masks)
+                total_detections += num_detections
+                
                 if hasattr(result.boxes, 'cls') and result.boxes.cls is not None:
                     for cls_id in result.boxes.cls:
                         cls_id = int(cls_id.item())

@@ -130,11 +130,11 @@ export const tasks = {
 }
 
 export const sku = {
-  async list(page = 1, pageSize = 20, search = '') {
+  async list(page = 1, pageSize = 20, search = '', category = '', status = '') {
     let url = `/api/skus?page=${page}&page_size=${pageSize}`
-    if (search) {
-      url += `&search=${search}`
-    }
+    if (search) url += `&search=${encodeURIComponent(search)}`
+    if (category) url += `&category=${encodeURIComponent(category)}`
+    if (status) url += `&status=${encodeURIComponent(status)}`
     const response = await request(url)
     return response.json()
   },
@@ -149,13 +149,177 @@ export const sku = {
     return response.json()
   },
 
-  async export() {
-    const response = await request('/api/skus/export')
+  async create(data) {
+    const response = await request('/api/skus', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    return response.json()
+  },
+
+  async update(skuId, data) {
+    const response = await request(`/api/skus/${skuId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return response.json()
+  },
+
+  async delete(skuId) {
+    const response = await request(`/api/skus/${skuId}`, {
+      method: 'DELETE',
+    })
+    return response.json()
+  },
+
+  async batchDelete(skuIds) {
+    const response = await request('/api/skus/batch-delete', {
+      method: 'POST',
+      body: JSON.stringify(skuIds),
+    })
+    return response.json()
+  },
+
+  async getCategories() {
+    const response = await request('/api/skus/categories')
+    return response.json()
+  },
+
+  async importCsv(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await fetch('/api/skus/import', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    return response.json()
+  },
+
+  async exportCsv() {
+    const response = await request('/api/skus/export/download')
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'sku_library.csv'
+    a.download = 'sku_export.csv'
     a.click()
+  },
+
+  async syncFromCsv() {
+    const response = await request('/api/skus/sync-from-csv', {
+      method: 'POST',
+    })
+    return response.json()
+  },
+
+  async getImages(skuId) {
+    const response = await request(`/api/skus/${skuId}/images`)
+    return response.json()
+  },
+
+  async uploadImages(skuId, files) {
+    const formData = new FormData()
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+    const response = await fetch(`/api/skus/${skuId}/images/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    return response.json()
+  },
+
+  async deleteImage(skuId, filename) {
+    const response = await request(`/api/skus/${skuId}/images/${filename}`, {
+      method: 'DELETE',
+    })
+    return response.json()
+  },
+
+  async listImages(skuId) {
+    const response = await request(`/api/skus/${skuId}/list-images`)
+    return response.json()
+  }
+}
+
+// SKU审核 API
+export const skuReview = {
+  async getFolders() {
+    const response = await request('/api/sku-review/folders')
+    return response.json()
+  },
+
+  async getFolderImages(folderName) {
+    const response = await request(`/api/sku-review/folder-images/${encodeURIComponent(folderName)}`)
+    return response.json()
+  },
+
+  async getSkus(keyword = '') {
+    const params = new URLSearchParams()
+    if (keyword) params.set('keyword', keyword)
+    const response = await request('/api/sku-review/skus?' + params.toString())
+    return response.json()
+  },
+
+  async getSkuImages(skuId) {
+    const response = await request(`/api/sku-review/sku-images/${encodeURIComponent(skuId)}`)
+    return response.json()
+  },
+
+  async assignImages(skuId, imagePaths) {
+    const response = await request('/api/sku-review/assign-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sku_id: skuId, image_paths: imagePaths })
+    })
+    return response.json()
+  },
+
+  async recallImages(skuId, imagePaths) {
+    const response = await request('/api/sku-review/recall-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sku_id: skuId, image_paths: imagePaths })
+    })
+    return response.json()
+  },
+
+  async createSku(name) {
+    const params = new URLSearchParams()
+    if (name) params.set('name', name)
+    const response = await request('/api/sku-review/create-sku?' + params.toString(), {
+      method: 'POST'
+    })
+    return response.json()
+  },
+
+  async renameSku(oldId, newName) {
+    const params = new URLSearchParams()
+    params.set('old_id', oldId)
+    params.set('new_name', newName)
+    const response = await request('/api/sku-review/rename-sku?' + params.toString(), {
+      method: 'PUT'
+    })
+    return response.json()
+  },
+
+  async deleteSku(skuId) {
+    const response = await request(`/api/sku-review/delete-sku/${encodeURIComponent(skuId)}`, {
+      method: 'DELETE'
+    })
+    return response.json()
+  },
+
+  async saveDatabase() {
+    const response = await request('/api/sku-review/save-database', {
+      method: 'POST'
+    })
+    return response.json()
   }
 }

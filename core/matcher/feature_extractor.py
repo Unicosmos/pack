@@ -10,11 +10,11 @@
 
 模型加载优先级：
 1. 传入的 model_path 参数
-2. 从 web/backend/config.py 自动读取 SKU_MODEL_PATH
+2. 从 config.py (pack/) 读取 SKU_MODEL_PATH
 3. 使用 OML 预训练模型（备选）
 
 使用方法:
-    from feature_extractor import FeatureExtractor
+    from core.matcher.feature_extractor import FeatureExtractor
     
     # 自动从 config.py 读取微调模型
     extractor = FeatureExtractor(device='cpu')
@@ -37,21 +37,7 @@ import torch
 import numpy as np
 from PIL import Image
 
-
-def get_default_model_path() -> Optional[str]:
-    """从 config.py 获取默认模型路径"""
-    try:
-        backend_config_path = Path(__file__).parent.parent / "web" / "backend" / "config.py"
-        if backend_config_path.exists():
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("config", backend_config_path)
-            config_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(config_module)
-            if hasattr(config_module, 'config') and config_module.config.paths.SKU_MODEL_PATH:
-                return str(config_module.config.paths.SKU_MODEL_PATH)
-    except Exception:
-        pass
-    return None
+from config import config
 
 
 class FeatureExtractor:
@@ -67,7 +53,7 @@ class FeatureExtractor:
             num_threads: 预留参数，保持接口兼容
         """
         if model_path is None:
-            model_path = get_default_model_path()
+            model_path = config.paths.SKU_MODEL_PATH
         self.device = device
         self.num_threads = num_threads
         self.model = None
@@ -81,11 +67,9 @@ class FeatureExtractor:
             from oml.registry import get_transforms_for_pretrained
             
             if model_path and Path(model_path).exists():
-                # 加载微调后的模型
                 print(f"  加载微调模型: {model_path}")
                 self.model = ViTExtractor.from_pretrained("vits16_dino")
                 state_dict = torch.load(model_path, map_location=self.device)
-                # 适配不同格式的模型文件
                 if isinstance(state_dict, dict) and 'state_dict' in state_dict:
                     state_dict = state_dict['state_dict']
                 if 'cls_token' in state_dict and 'model.cls_token' not in state_dict:
@@ -96,7 +80,6 @@ class FeatureExtractor:
                 self.model.load_state_dict(state_dict)
                 print(f"  ✓ 微调模型加载成功")
             else:
-                # 使用预训练模型
                 print(f"  使用预训练模型: vits16_dino")
                 self.model = ViTExtractor.from_pretrained("vits16_dino")
                 print(f"  ✓ 预训练模型加载成功")
@@ -168,10 +151,8 @@ class FeatureExtractor:
         try:
             all_features = []
             
-            # 单线程预处理图片
             tensors = [self._preprocess_image(img) for img in images]
             
-            # 批量推理
             for i in range(0, len(tensors), batch_size):
                 batch_tensors = torch.stack(tensors[i:i+batch_size]).to(self.device)
                 
@@ -181,10 +162,8 @@ class FeatureExtractor:
                 batch_features = batch_features.cpu().numpy().astype(np.float32)
                 all_features.append(batch_features)
             
-            # 合并结果并归一化
             features = np.vstack(all_features)
             
-            # L2归一化
             norms = np.linalg.norm(features, axis=1, keepdims=True)
             norms[norms == 0] = 1
             features = features / norms

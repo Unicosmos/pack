@@ -32,10 +32,10 @@ from PIL import Image
 
 # 导入特征提取器
 try:
-    from feature_extractor import FeatureExtractor
+    from core.matcher.feature_extractor import FeatureExtractor
 except ImportError:
-    sys.path.insert(0, str(Path(__file__).parent))
-    from feature_extractor import FeatureExtractor
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from core.matcher.feature_extractor import FeatureExtractor
 
 
 def parse_args():

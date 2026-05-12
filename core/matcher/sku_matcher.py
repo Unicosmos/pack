@@ -15,7 +15,7 @@ except ImportError as e:
     raise
 
 try:
-    from SKU.feature_extractor import FeatureExtractor
+    from .feature_extractor import FeatureExtractor
     HAS_FEATURE_EXTRACTOR = True
 except ImportError as e:
     HAS_FEATURE_EXTRACTOR = False

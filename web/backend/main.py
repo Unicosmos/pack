@@ -53,6 +53,7 @@ from auth import create_default_admin
 from api.auth import router as auth_router
 from api.task import router as task_router
 from api.sku import router as sku_router
+from api.sku_review import router as sku_review_router
 
 
 detector: Optional[BoxDetector] = None
@@ -136,6 +137,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(task_router)
 app.include_router(sku_router)
+app.include_router(sku_review_router)
 
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
@@ -143,6 +145,14 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 if config.paths.SKU_IMAGES_DIR.exists():
     app.mount("/static/sku_images", StaticFiles(directory=str(config.paths.SKU_IMAGES_DIR)), name="sku_images")
+
+# 挂载 SKU 审核用到的文件夹
+sku_root = Path("d:/A_pack/pack/SKU")
+if (sku_root / "crops").exists():
+    app.mount("/static/crops", StaticFiles(directory=str(sku_root / "crops")), name="crops")
+
+if (sku_root / "sku_output").exists():
+    app.mount("/static/sku_output", StaticFiles(directory=str(sku_root / "sku_output")), name="sku_output")
 
 
 def get_sku_count() -> int:
@@ -204,6 +214,8 @@ async def health_check():
     matcher_ready = matcher is not None and matcher.is_ready()
     sku_count_val = get_sku_count()
 
+    logger.info(f"Health check - detector: {detector}, detector_ready: {detector_ready}, matcher: {matcher}, matcher_ready: {matcher_ready}")
+
     if detector is None:
         status = "init"
         message = "系统初始化中，检测模型未加载"
@@ -211,10 +223,10 @@ async def health_check():
         status = "error"
         message = "检测模型加载失败"
     elif matcher is None or not matcher_ready:
-        status = "partial"
-        message = "检测就绪，但SKU匹配功能不可用"
+        status = "ready"
+        message = "检测就绪，SKU匹配功能未配置"
     else:
-        status = "ok"
+        status = "ready"
         message = "系统正常运行"
 
     return HealthResponse(
@@ -234,6 +246,7 @@ async def detect_image(
     conf_threshold: float = 0.5
 ):
     """仅检测接口（不进行SKU匹配）"""
+    logger.info(f"detect_image called - detector: {detector}, is_ready: {detector.is_ready() if detector else None}")
     if detector is None or not detector.is_ready():
         raise HTTPException(status_code=503, detail="检测模型未加载，请检查模型文件是否存在")
 
@@ -333,6 +346,7 @@ async def detect_and_match_image(
     match_threshold: float = 0.85
 ):
     """检测+匹配接口（主接口）"""
+    logger.info(f"detect_and_match_image called - detector: {detector}, is_ready: {detector.is_ready() if detector else None}")
     if detector is None or not detector.is_ready():
         raise HTTPException(status_code=503, detail="检测模型未加载，请检查模型文件是否存在")
 

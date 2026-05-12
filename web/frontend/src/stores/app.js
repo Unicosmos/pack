@@ -88,15 +88,23 @@ export const useAppStore = defineStore('app', () => {
     try {
       const res = await detector.health()
       console.log('Health check response:', res)
-      systemStatus.value = res.status
       skuCount.value = res.sku_count || 0
 
       if (res.status === 'init') {
+        systemStatus.value = 'init'
+        setStatus('SYSTEM_INIT')
+      } else if (res.status === 'error') {
+        systemStatus.value = 'error'
+        setStatus('SYSTEM_INIT')
+      } else if (!res.detector_ready) {
+        systemStatus.value = 'error'
         setStatus('SYSTEM_INIT')
       } else if (!res.matcher_ready) {
         systemStatus.value = 'no-sku'
+        setStatus('IDLE')
       } else {
         systemStatus.value = 'ready'
+        setStatus('IDLE')
       }
     } catch (err) {
       console.error('Health check error:', err)

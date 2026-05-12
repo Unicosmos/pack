@@ -14,6 +14,12 @@
           <button :class="{ active: store.currentPage === 'tasks' }" @click="store.setPage('tasks')">
             📋 任务列表
           </button>
+          <button :class="{ active: store.currentPage === 'skus' }" @click="store.setPage('skus')">
+            📦 SKU管理
+          </button>
+          <button :class="{ active: store.currentPage === 'skuReview' }" @click="store.setPage('skuReview')">
+            🔍 SKU审核
+          </button>
         </div>
         <div class="nav-right">
           <span class="user-info">{{ store.user?.username || '用户' }}</span>
@@ -24,6 +30,8 @@
       <div class="main-wrapper">
         <HomePage v-if="store.currentPage === 'home'" />
         <TaskListPage v-else-if="store.currentPage === 'tasks'" />
+        <SkuListPage v-else-if="store.currentPage === 'skus'" />
+        <SkuReviewPage v-else-if="store.currentPage === 'skuReview'" />
       </div>
     </template>
   </div>
@@ -35,6 +43,8 @@ import { useAppStore } from './stores/app'
 import Login from './components/Login.vue'
 import HomePage from './components/HomePage.vue'
 import TaskListPage from './components/TaskListPage.vue'
+import SkuListPage from './components/SkuListPage.vue'
+import SkuReviewPage from './components/SkuReviewPage.vue'
 
 const store = useAppStore()
 

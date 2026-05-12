@@ -69,7 +69,7 @@ def load_configuration(config_path, args):
     
     # 如果提供了配置文件，则加载它
     if config_path and Path(config_path).exists():
-        with open(config_path, 'r') as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
         logger.info(f"加载配置文件: {config_path}")
     else:

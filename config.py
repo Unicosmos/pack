@@ -1,6 +1,10 @@
 """
 Pack Web 配置管理模块
 集中管理所有配置参数
+
+路径说明：
+- 所有路径基于本配置文件所在目录 (pack/) 计算
+- data/ 目录包含 models/ 和 sku_library/
 """
 
 import os
@@ -29,7 +33,6 @@ class MatchConfig:
 @dataclass
 class PathConfig:
     BASE_DIR: Path
-    CORE_DIR: Path
     DATA_DIR: Path
     MODEL_PATH: Path
     SKU_DIR: Path
@@ -42,8 +45,6 @@ class PathConfig:
 
 
 class Config:
-    """单例配置类"""
-
     _instance: Optional['Config'] = None
 
     def __new__(cls):
@@ -62,10 +63,7 @@ class Config:
         self.match = MatchConfig()
 
     def _load_paths(self):
-        """加载路径配置"""
-        backend_dir = Path(__file__).parent
-        base_dir = backend_dir.parent.parent
-
+        base_dir = Path(__file__).parent
         data_dir = base_dir / "data"
         models_dir = data_dir / "models"
         sku_library_dir = data_dir / "sku_library"
@@ -76,7 +74,6 @@ class Config:
 
         self.paths = PathConfig(
             BASE_DIR=base_dir,
-            CORE_DIR=base_dir / "core",
             DATA_DIR=data_dir,
             MODEL_PATH=models_dir / "yolo" / "best.pt",
             SKU_DIR=sku_library_dir,
@@ -92,7 +89,6 @@ class Config:
         os.environ["YOLO_CONFIG_DIR"] = str(self.paths.YOLO_CONFIG_DIR)
 
     def reload(self):
-        """重新加载配置"""
         self._initialized = False
         self.__init__()
 
