@@ -3,7 +3,7 @@
 存储检测任务记录
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON
 from datetime import datetime
 from database import Base
 
@@ -12,11 +12,14 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     task_name = Column(String(200), nullable=True)
     image_name = Column(String(500), nullable=False)
     image_path = Column(String(1000), nullable=False)
     status = Column(String(20), default="pending")
+
+    detection_status = Column(String(20), default="pending")
+    review_status = Column(String(20), default="pending")
+
     result = Column(JSON, nullable=True)
     box_count = Column(Integer, default=0)
     matched_count = Column(Integer, default=0)

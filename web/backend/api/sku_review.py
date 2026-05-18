@@ -13,22 +13,29 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from pydantic import BaseModel
+from fastapi.responses import Response, JSONResponse
 
 from config import config
 
 router = APIRouter(prefix="/api/sku-review", tags=["SKU审核"])
 
+class AssignImagesRequest(BaseModel):
+    sku_id: str
+    image_paths: List[str]
+
 # 配置路径 - 从config获取基础路径，避免硬编码
 BASE_DIR = config.paths.BASE_DIR
 CROPS_DIR = BASE_DIR / "SKU" / "crops"
 SKU_DIR = BASE_DIR / "SKU" / "sku_output"
+SKU_IMAGES_DIR = SKU_DIR / "images"  # SKU图片存放目录
 DB_PATH = SKU_DIR / "sku_database.json"
 CANDIDATES_DIR = SKU_DIR / "new_candidates"
 EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 def ensure_dirs():
     """初始化所需目录与空文件"""
-    for d in [CROPS_DIR, SKU_DIR, CANDIDATES_DIR]:
+    for d in [CROPS_DIR, SKU_DIR, SKU_IMAGES_DIR, CANDIDATES_DIR]:
         d.mkdir(parents=True, exist_ok=True)
     if not DB_PATH.exists():
         DB_PATH.write_text(json.dumps({}, ensure_ascii=False, indent=2), "utf-8")
@@ -46,12 +53,6 @@ def read_db():
 
 def write_db(db):
     """写入数据库，并添加时间戳"""
-    now = datetime.now().isoformat()
-    for sku_id, info in db.items():
-        if isinstance(info, dict):
-            if "created_at" not in info:
-                info["created_at"] = now
-            info["updated_at"] = now
     DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), "utf-8")
 
 def get_crop_folders():
@@ -87,7 +88,7 @@ def get_sku_items(db, keyword=""):
                         cover = m
                         break
                 if not cover:
-                    sd = SKU_DIR / sid
+                    sd = SKU_IMAGES_DIR / sid
                     if sd.exists():
                         fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
                         cnt = len(fs)
@@ -100,11 +101,11 @@ def get_sku_items(db, keyword=""):
             cover = None
             if "images" in info and info["images"]:
                 first_img = info["images"][0]
-                img_path = SKU_DIR / sid / first_img
+                img_path = SKU_IMAGES_DIR / sid / first_img
                 if img_path.exists():
                     cover = str(img_path)
             if not cover:
-                sd = SKU_DIR / sid
+                sd = SKU_IMAGES_DIR / sid
                 if sd.exists():
                     fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
                     cnt = len(fs)
@@ -120,7 +121,7 @@ def get_sku_items(db, keyword=""):
 
 def get_sku_images(sid):
     """获取某 SKU 目录下所有图片路径"""
-    sd = SKU_DIR / sid
+    sd = SKU_IMAGES_DIR / sid
     if not sd.exists():
         return []
     return sorted(str(f) for f in sd.iterdir() if f.suffix.lower() in EXTS)
@@ -146,18 +147,14 @@ def get_folders():
 def get_folder_images(folder_name: str):
     """获取指定文件夹下的图片"""
     images = get_crop_images(folder_name)
-    # 转换为相对于项目根目录的路径
+    # 构建API代理URL
     image_urls = []
     for img_path in images:
         path_obj = Path(img_path)
-        if path_obj.is_absolute():
-            rel_path = path_obj.relative_to("d:/A_pack/pack")
-            url_path = str(rel_path).replace("\\", "/")
-        else:
-            url_path = str(img_path).replace("\\", "/")
+        # 构建URL：/api/sku-review/crops-image/{folder_name}/{filename}
         image_urls.append({
             "path": img_path,
-            "url": f"/static/{url_path}",
+            "url": f"/api/sku-review/crops-image/{folder_name}/{path_obj.name}",
             "name": path_obj.name
         })
     return {"success": True, "images": image_urls}
@@ -168,17 +165,12 @@ def get_skus(keyword: str = ""):
     """获取 SKU 列表"""
     db = read_db()
     skus = get_sku_items(db, keyword)
-    # 转换封面图片为可访问的URL
+    # 转换封面图片为可访问的URL - 使用API代理方式
     for sku in skus:
         if sku.get("cover"):
             path_obj = Path(sku["cover"])
-            if path_obj.is_absolute():
-                rel_path = str(path_obj.relative_to("d:/A_pack/pack"))
-                url_path = rel_path.replace("\\", "/")
-                sku["cover_url"] = f"/static/{url_path}"
-            else:
-                url_path = sku["cover"].replace("\\", "/")
-                sku["cover_url"] = f"/static/{url_path}"
+            # 构建URL：/api/sku-review/sku-image/{sku_id}/{filename}
+            sku["cover_url"] = f"/api/sku-review/sku-image/{sku['id']}/{path_obj.name}"
     return {"success": True, "skus": skus}
 
 
@@ -189,26 +181,24 @@ def get_sku_images_api(sku_id: str):
     image_urls = []
     for img_path in images:
         path_obj = Path(img_path)
-        if path_obj.is_absolute():
-            rel_path = path_obj.relative_to("d:/A_pack/pack")
-            url_path = str(rel_path).replace("\\", "/")
-        else:
-            url_path = str(img_path).replace("\\", "/")
+        # 构建URL：/api/sku-review/sku-image/{sku_id}/{filename}
         image_urls.append({
             "path": img_path,
-            "url": f"/static/{url_path}",
+            "url": f"/api/sku-review/sku-image/{sku_id}/{path_obj.name}",
             "name": path_obj.name
         })
     return {"success": True, "images": image_urls}
 
 
 @router.post("/assign-images")
-def assign_images(sku_id: str, image_paths: List[str]):
+def assign_images(request: AssignImagesRequest):
+    sku_id = request.sku_id
+    image_paths = request.image_paths
     """将图片归类到指定SKU"""
     db = read_db()
     now = datetime.now().isoformat()
     
-    sku_subdir = SKU_DIR / sku_id
+    sku_subdir = SKU_IMAGES_DIR / sku_id
     sku_subdir.mkdir(exist_ok=True)
     
     copied = []
@@ -237,6 +227,7 @@ def assign_images(sku_id: str, image_paths: List[str]):
             existing.append(name)
     db[sku_id]["images"] = existing
     db[sku_id]["image_count"] = len(existing)
+    db[sku_id]["updated_at"] = datetime.now().isoformat()
     write_db(db)
     
     return {
@@ -252,7 +243,7 @@ def recall_images(sku_id: str, image_paths: List[str]):
         return {"success": False, "message": "参数不全"}
     
     db = read_db()
-    sku_subdir = SKU_DIR / sku_id
+    sku_subdir = SKU_IMAGES_DIR / sku_id
     
     removed = []
     for img_path in image_paths:
@@ -273,6 +264,7 @@ def recall_images(sku_id: str, image_paths: List[str]):
                 existing.remove(name)
         db[sku_id]["images"] = existing
         db[sku_id]["image_count"] = len(existing)
+        db[sku_id]["updated_at"] = datetime.now().isoformat()
         write_db(db)
     
     return {
@@ -304,7 +296,7 @@ def create_sku(name: str = "", sku_id: str = ""):
         "updated_at": datetime.now().isoformat()
     }
     
-    (SKU_DIR / sku_id).mkdir(exist_ok=True)
+    (SKU_IMAGES_DIR / sku_id).mkdir(exist_ok=True)
     write_db(db)
     
     return {"success": True, "message": f"创建 SKU {sku_id} 成功", "sku_id": sku_id}
@@ -319,6 +311,7 @@ def rename_sku(old_id: str, new_name: str):
         return {"success": False, "message": f"SKU {old_id} 不存在"}
     
     db[old_id]["name"] = new_name
+    db[old_id]["updated_at"] = datetime.now().isoformat()
     write_db(db)
     
     return {"success": True, "message": f"SKU {old_id} 重命名为 {new_name}"}
@@ -332,7 +325,7 @@ def delete_sku(sku_id: str):
     if sku_id not in db:
         return {"success": False, "message": f"SKU {sku_id} 不存在"}
     
-    sku_subdir = SKU_DIR / sku_id
+    sku_subdir = SKU_IMAGES_DIR / sku_id
     if sku_subdir.exists():
         imgs = [f for f in sku_subdir.iterdir() if f.suffix.lower() in EXTS]
         if imgs:
@@ -353,25 +346,86 @@ def delete_sku(sku_id: str):
 def save_database():
     """同步数据库与实际文件"""
     db = read_db()
+    now = datetime.now().isoformat()
+    has_changes = False
     
     if "skus" in db:
-        # 新结构
         for sku in db["skus"]:
             sid = sku.get("sku_id", "")
             if sid:
-                sd = SKU_DIR / sid
+                sd = SKU_IMAGES_DIR / sid
                 if sd.exists():
                     fs = [f for f in sd.iterdir() if f.suffix.lower() in EXTS]
-                    sku["member_count"] = len(fs)
-                    sku["members"] = [str(f) for f in sorted(fs)]
+                    member_count = len(fs)
+                    members = [str(f) for f in sorted(fs)]
+                    if sku.get("member_count") != member_count or sku.get("members") != members:
+                        sku["member_count"] = member_count
+                        sku["members"] = members
+                        sku["updated_at"] = now
+                        has_changes = True
     else:
-        # 旧结构
         for sid in list(db.keys()):
-            sd = SKU_DIR / sid
+            sd = SKU_IMAGES_DIR / sid
             if sd.exists():
                 cnt = len([f for f in sd.iterdir() if f.suffix.lower() in EXTS])
-                db[sid]["image_count"] = cnt
+                if db[sid].get("image_count") != cnt:
+                    db[sid]["image_count"] = cnt
+                    db[sid]["updated_at"] = now
+                    has_changes = True
     
-    write_db(db)
+    if has_changes:
+        write_db(db)
     
     return {"success": True, "message": "数据库同步完成"}
+
+
+@router.get("/crops-image/{folder_name}/{image_name}")
+async def get_crops_image(folder_name: str, image_name: str):
+    """获取待审核图片（API代理方式）"""
+    from urllib.parse import unquote
+    image_name = unquote(image_name)
+    image_path = CROPS_DIR / folder_name / image_name
+
+    if not image_path.exists():
+        return JSONResponse(status_code=404, content={"detail": f"图片不存在: {image_path}"})
+
+    try:
+        with open(image_path, "rb") as f:
+            content = f.read()
+
+        if image_name.lower().endswith(".jpg") or image_name.lower().endswith(".jpeg"):
+            media_type = "image/jpeg"
+        elif image_name.lower().endswith(".png"):
+            media_type = "image/png"
+        else:
+            media_type = "application/octet-stream"
+
+        return Response(content=content, media_type=media_type)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})
+
+
+@router.get("/sku-image/{sku_id}/{image_name}")
+async def get_sku_review_image(sku_id: str, image_name: str):
+    """获取SKU图片（API代理方式）"""
+    from urllib.parse import unquote
+    image_name = unquote(image_name)
+    image_path = SKU_IMAGES_DIR / sku_id / image_name
+
+    if not image_path.exists():
+        return JSONResponse(status_code=404, content={"detail": f"图片不存在: {image_path}"})
+
+    try:
+        with open(image_path, "rb") as f:
+            content = f.read()
+
+        if image_name.lower().endswith(".jpg") or image_name.lower().endswith(".jpeg"):
+            media_type = "image/jpeg"
+        elif image_name.lower().endswith(".png"):
+            media_type = "image/png"
+        else:
+            media_type = "application/octet-stream"
+
+        return Response(content=content, media_type=media_type)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"detail": str(e)})

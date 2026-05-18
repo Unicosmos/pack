@@ -1,60 +1,43 @@
 <template>
   <div class="app-container">
-    <Login v-if="!store.isLoggedIn" @login-success="handleLoginSuccess" />
-
-    <template v-else>
-      <div class="nav-bar">
-        <div class="nav-left">
-          <h1>📦 Pack Web</h1>
-        </div>
-        <div class="nav-menu">
-          <button :class="{ active: store.currentPage === 'home' }" @click="store.setPage('home')">
-            🏠 首页
-          </button>
-          <button :class="{ active: store.currentPage === 'tasks' }" @click="store.setPage('tasks')">
-            📋 任务列表
-          </button>
-          <button :class="{ active: store.currentPage === 'skus' }" @click="store.setPage('skus')">
-            📦 SKU管理
-          </button>
-          <button :class="{ active: store.currentPage === 'skuReview' }" @click="store.setPage('skuReview')">
-            🔍 SKU审核
-          </button>
-        </div>
-        <div class="nav-right">
-          <span class="user-info">{{ store.user?.username || '用户' }}</span>
-          <button class="btn-logout" @click="handleLogout">退出</button>
-        </div>
+    <div class="nav-bar">
+      <div class="nav-left">
+        <h1>📦 Pack Web</h1>
       </div>
-
-      <div class="main-wrapper">
-        <HomePage v-if="store.currentPage === 'home'" />
-        <TaskListPage v-else-if="store.currentPage === 'tasks'" />
-        <SkuListPage v-else-if="store.currentPage === 'skus'" />
-        <SkuReviewPage v-else-if="store.currentPage === 'skuReview'" />
+      <div class="nav-menu">
+        <button :class="{ active: store.currentPage === 'home' }" @click="store.setPage('home')">
+          🏠 首页
+        </button>
+        <button :class="{ active: store.currentPage === 'tasks' }" @click="store.setPage('tasks')">
+          📋 任务列表
+        </button>
+        <button :class="{ active: store.currentPage === 'skus' }" @click="store.setPage('skus')">
+          📦 SKU管理
+        </button>
+        <button :class="{ active: store.currentPage === 'skuReview' }" @click="store.setPage('skuReview')">
+          🔍 SKU审核
+        </button>
       </div>
-    </template>
+    </div>
+
+    <div class="main-wrapper">
+      <HomePage v-if="store.currentPage === 'home'" />
+      <TaskListPage v-else-if="store.currentPage === 'tasks'" />
+      <SkuListPage v-else-if="store.currentPage === 'skus'" />
+      <SkuReviewPage v-else-if="store.currentPage === 'skuReview'" />
+    </div>
   </div>
 </template>
 
 <script setup>
 import { onMounted } from 'vue'
 import { useAppStore } from './stores/app'
-import Login from './components/Login.vue'
 import HomePage from './components/HomePage.vue'
 import TaskListPage from './components/TaskListPage.vue'
 import SkuListPage from './components/SkuListPage.vue'
 import SkuReviewPage from './components/SkuReviewPage.vue'
 
 const store = useAppStore()
-
-const handleLoginSuccess = (user) => {
-  store.setUser(user)
-}
-
-const handleLogout = () => {
-  store.logout()
-}
 
 onMounted(() => {
   store.fetchSystemHealth()
@@ -106,31 +89,6 @@ onMounted(() => {
 .nav-menu button.active {
   background: #667eea;
   color: white;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.user-info {
-  color: #666;
-  font-size: 14px;
-}
-
-.btn-logout {
-  padding: 6px 16px;
-  background: #f56c6c;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn-logout:hover {
-  background: #f78989;
 }
 
 .main-wrapper {

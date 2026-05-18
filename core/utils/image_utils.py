@@ -148,6 +148,23 @@ def base64_to_image(base64_str: str) -> Optional[Image.Image]:
 
 def process_uploaded_image(contents: bytes) -> Image.Image:
     image = Image.open(io.BytesIO(contents))
+    
+    # 处理EXIF方向信息
+    try:
+        exif = image._getexif()
+        if exif:
+            orientation_tag = 0x0112
+            if orientation_tag in exif:
+                orientation = exif[orientation_tag]
+                if orientation == 3:
+                    image = image.rotate(180, expand=True)
+                elif orientation == 6:
+                    image = image.rotate(270, expand=True)
+                elif orientation == 8:
+                    image = image.rotate(90, expand=True)
+    except (AttributeError, KeyError, IndexError):
+        pass
+    
     if image.mode != "RGB":
         image = image.convert("RGB")
     return image

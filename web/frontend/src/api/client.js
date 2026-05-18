@@ -1,13 +1,44 @@
 const API_BASE = ''
 
+function getImageUrl(type, id, filename) {
+  const encodedFilename = encodeURIComponent(filename)
+  switch (type) {
+    case 'sku_library':
+      return `/static/sku_images/${id}/${encodedFilename}`
+    case 'sku_review_crop':
+      return `/api/sku-review/crops-image/${id}/${encodedFilename}`
+    case 'sku_review_output':
+      return `/api/sku-review/sku-image/${id}/${encodedFilename}`
+    default:
+      return ''
+  }
+}
+
+function getImageUrlFromPath(path) {
+  if (!path) return ''
+  // 处理对象类型的路径（{url: ..., filename: ...}）
+  if (typeof path === 'object') {
+    if (path.url) {
+      return path.url
+    }
+    if (path.path) {
+      return getImageUrlFromPath(path.path)
+    }
+    return ''
+  }
+  // 处理字符串类型的路径
+  const pathStr = String(path)
+  // 如果已经是完整URL（以 /static/ 或 /api/ 开头），直接返回
+  if (pathStr.startsWith('/static/') || pathStr.startsWith('/api/')) {
+    return pathStr
+  }
+  // 否则通过 /api/sku-image 端点处理
+  return `/api/sku-image?path=${encodeURIComponent(pathStr)}`
+}
+
 async function request(url, options = {}) {
-  const token = localStorage.getItem('token')
   const headers = {
     ...options.headers,
-  }
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
   }
 
   if (!(options.body instanceof FormData)) {
@@ -19,52 +50,7 @@ async function request(url, options = {}) {
     headers,
   })
 
-  if (response.status === 401) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    window.location.href = '/#/login'
-    return null
-  }
-
   return response
-}
-
-export const auth = {
-  async login(username, password) {
-    const response = await request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password }),
-    })
-    if (!response) return null
-    const data = await response.json()
-    if (data.access_token) {
-      localStorage.setItem('token', data.access_token)
-    }
-    return data
-  },
-
-  async register(username, password, email) {
-    const response = await request('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ username, password, email }),
-    })
-    return response.json()
-  },
-
-  async getMe() {
-    const response = await request('/api/auth/me')
-    if (!response) return null
-    return response.json()
-  },
-
-  logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-  },
-
-  isLoggedIn() {
-    return !!localStorage.getItem('token')
-  }
 }
 
 export const detector = {
@@ -82,9 +68,6 @@ export const detector = {
     const response = await fetch('/api/detect-and-match', {
       method: 'POST',
       body: formData,
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
     })
     return response.json()
   }
@@ -99,6 +82,32 @@ export const tasks = {
       method: 'POST',
       body: formData,
     })
+
+    if (!response.ok) {
+      let errorMsg = '上传失败'
+      try {
+        const errorData = await response.json()
+        errorMsg = errorData.detail || errorMsg
+      } catch (e) {
+        errorMsg = response.statusText || errorMsg
+      }
+      throw new Error(errorMsg)
+    }
+
+    return response.json()
+  },
+
+  async batchUpload(formData) {
+    const response = await request('/api/tasks/batch', {
+      method: 'POST',
+      body: formData,
+    })
+    return response.json()
+  },
+
+  async getBatchStatus(taskIds) {
+    const ids = taskIds.join(',')
+    const response = await request(`/api/tasks/batch/${ids}`)
     return response.json()
   },
 
@@ -125,6 +134,41 @@ export const tasks = {
 
   async stats() {
     const response = await request('/api/tasks/stats/summary')
+    return response.json()
+  },
+
+  async detect(taskId) {
+    const response = await request(`/api/tasks/${taskId}/detect`, {
+      method: 'POST',
+    })
+    return response.json()
+  },
+
+  async getDetections(taskId) {
+    const response = await request(`/api/tasks/${taskId}/detections`)
+    return response.json()
+  },
+
+  async reviewTask(taskId, boxes) {
+    const response = await request(`/api/tasks/${taskId}/review`, {
+      method: 'PUT',
+      body: JSON.stringify({ boxes }),
+    })
+    return response.json()
+  },
+
+  async matchTask(taskId, matchThreshold = 0.85) {
+    const response = await request(`/api/tasks/${taskId}/match?match_threshold=${matchThreshold}`, {
+      method: 'POST',
+    })
+    return response.json()
+  },
+
+  async update(taskId, data) {
+    const response = await request(`/api/tasks/${taskId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
     return response.json()
   }
 }
@@ -191,9 +235,6 @@ export const sku = {
     const response = await fetch('/api/skus/import', {
       method: 'POST',
       body: formData,
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
     })
     return response.json()
   },
@@ -228,9 +269,6 @@ export const sku = {
     const response = await fetch(`/api/skus/${skuId}/images/upload`, {
       method: 'POST',
       body: formData,
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
     })
     return response.json()
   },
@@ -320,6 +358,28 @@ export const skuReview = {
     const response = await request('/api/sku-review/save-database', {
       method: 'POST'
     })
+    return response.json()
+  }
+}
+
+export { getImageUrl, getImageUrlFromPath }
+
+// 操作日志 API
+export const logs = {
+  async list(params = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.entity_type) searchParams.set('entity_type', params.entity_type)
+    if (params.entity_id) searchParams.set('entity_id', params.entity_id)
+    if (params.action) searchParams.set('action', params.action)
+    if (params.page) searchParams.set('page', params.page)
+    if (params.page_size) searchParams.set('page_size', params.page_size)
+
+    const response = await request('/api/logs?' + searchParams.toString())
+    return response.json()
+  },
+
+  async get(id) {
+    const response = await request(`/api/logs/${id}`)
     return response.json()
   }
 }

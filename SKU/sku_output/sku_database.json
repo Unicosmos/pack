@@ -5,7 +5,9 @@
       "1 (112)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000002": {
     "name": "澳柯玛电热杯",
@@ -17,7 +19,9 @@
       "1 (113)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 5
+    "image_count": 5,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000003": {
     "name": "宜婴云柔丝滑",
@@ -32,7 +36,9 @@
       "1 (135)_010.jpg"
     ],
     "feature_mean": [],
-    "image_count": 8
+    "image_count": 8,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000004": {
     "name": "BUYDEEM北鼎",
@@ -41,7 +47,9 @@
       "1 (140)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000005": {
     "name": "欧慕便携式多功能锅（分体锅）",
@@ -51,7 +59,9 @@
       "1 (143)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000006": {
     "name": "BEABA婴儿纸尿裤",
@@ -63,7 +73,9 @@
       "1 (147)_010.jpg"
     ],
     "feature_mean": [],
-    "image_count": 5
+    "image_count": 5,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000007": {
     "name": "格兰仕电烤箱",
@@ -76,10 +88,15 @@
       "2 (18)_001.jpg",
       "2 (18)_002.jpg",
       "2 (19)_004.jpg",
-      "2 (2)_002.jpg"
+      "2 (2)_002.jpg",
+      "2 (23)_0.jpg",
+      "2 (23)_1.jpg",
+      "2 (23)_2.jpg"
     ],
     "feature_mean": [],
-    "image_count": 9
+    "image_count": 12,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-16T16:54:22.780595"
   },
   "000008": {
     "name": "帮宝适超薄干爽拉拉裤",
@@ -92,15 +109,20 @@
       "2 (118)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 6
+    "image_count": 6,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000009": {
     "name": "拜洁电动压面机（红）",
     "images": [
-      "1 (226)_001.jpg"
+      "1 (226)_001.jpg",
+      "1 (226)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:55:27.133289"
   },
   "000010": {
     "name": "Daddy baby温暖宝宝高级装纸尿裤M码",
@@ -110,7 +132,9 @@
       "1 (251)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000011": {
     "name": "motorola数字无绳电话",
@@ -120,7 +144,9 @@
       "1 (287)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000012": {
     "name": "中诺H801",
@@ -131,7 +157,9 @@
       "1 (309)_012.jpg"
     ],
     "feature_mean": [],
-    "image_count": 4
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000013": {
     "name": "佰分爱",
@@ -140,16 +168,20 @@
       "1 (312)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000014": {
     "name": "乐互宜成人纸尿裤L",
     "images": [
       "1 (34)_003.jpg",
-      "1 (342)_003.jpg"
+      "1 (34)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T12:13:47.895892"
   },
   "000015": {
     "name": "好爸爸Kispa天然亲肤洗衣液套装",
@@ -158,18 +190,29 @@
       "1 (342)_005.jpg",
       "1 (342)_007.jpg",
       "1 (342)_010.jpg",
-      "1 (342)_011.jpg"
+      "1 (342)_011.jpg",
+      "2 (434)_0.jpg"
     ],
     "feature_mean": [],
-    "image_count": 5
+    "image_count": 6,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-16T17:53:54.217964"
   },
   "000016": {
     "name": "蓝月亮洗衣液500gx12袋",
     "images": [
-      "1 (356)_003.jpg"
+      "1 (356)_003.jpg",
+      "1 (356)_002.jpg",
+      "1 (356)_004.jpg",
+      "1 (356)_005.jpg",
+      "1 (356)_006.jpg",
+      "1 (356)_008.jpg",
+      "1 (356)_018.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 7,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T13:18:42.576801"
   },
   "000017": {
     "name": "利得一次性圆形打包盒",
@@ -181,7 +224,9 @@
       "1 (372)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 5
+    "image_count": 5,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000018": {
     "name": "三只小猫纸尿裤S",
@@ -191,7 +236,9 @@
       "2 (106)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000019": {
     "name": "美的电热水壶（养生壶）",
@@ -201,7 +248,9 @@
       "2 (108)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000020": {
     "name": "Pampers36枚x1 L",
@@ -211,7 +260,9 @@
       "2 (124)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000021": {
     "name": "澳柯玛面包机",
@@ -220,7 +271,9 @@
       "2 (127)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000022": {
     "name": "德玛仕开水桶",
@@ -231,7 +284,9 @@
       "2 (129)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 4
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000023": {
     "name": "德玛仕破壁料理机",
@@ -240,7 +295,9 @@
       "2 (140)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000024": {
     "name": "moony腰贴型婴儿纸尿裤",
@@ -252,7 +309,9 @@
       "2 (159)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 5
+    "image_count": 5,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000025": {
     "name": "(Daddy baby温暖宝宝高级装纸尿裤XL码",
@@ -264,32 +323,46 @@
       "2 (161)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 5
+    "image_count": 5,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000026": {
     "name": "光羽短裤式纸尿裤XL28片",
     "images": [
-      "2 (201)_002.jpg"
+      "2 (201)_002.jpg",
+      "2 (201)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-16T10:24:33.016842"
   },
   "000027": {
     "name": "科顺蒸煮器",
     "images": [
-      "2 (202)_005.jpg"
+      "2 (202)_005.jpg",
+      "2 (202)_003.jpg",
+      "2 (202)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-16T10:26:28.774879"
   },
   "000028": {
     "name": "格之格激光碳粉盒",
     "images": [
       "2 (277)_004.jpg",
-      "2 (336)_001.jpg"
+      "2 (336)_001.jpg",
+      "2 (277)_0.jpg",
+      "2 (277)_1.jpg",
+      "2 (336)_0.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 5,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-16T17:26:16.498857"
   },
   "000029": {
     "name": "AVR-X550BT",
@@ -297,15 +370,22 @@
       "2 (321)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000030": {
     "name": "deli碎纸机",
     "images": [
-      "2 (340)_002.jpg"
+      "2 (340)_002.jpg",
+      "2 (340)_0.jpg",
+      "2 (340)_1.jpg",
+      "2 (340)_3.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-16T17:26:56.003457"
   },
   "000031": {
     "name": "妙洁平底垃圾袋15卷装",
@@ -313,7 +393,9 @@
       "2 (443)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000032": {
     "name": "泰迪熊呼吸特薄纸尿裤",
@@ -321,7 +403,9 @@
       "2 (455)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000033": {
     "name": "小儿康颗粒",
@@ -330,7 +414,9 @@
       "01_003.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000034": {
     "name": "Merries",
@@ -342,7 +428,9 @@
       "1 (112)_011.jpg"
     ],
     "feature_mean": [],
-    "image_count": 5
+    "image_count": 5,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000035": {
     "name": "",
@@ -352,7 +440,9 @@
       "1 (135)_015.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000036": {
     "name": "gigaset",
@@ -360,7 +450,9 @@
       "1 (136)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000037": {
     "name": "BEABA",
@@ -370,7 +462,9 @@
       "1 (145)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000038": {
     "name": "TIGER虎牌",
@@ -379,7 +473,9 @@
       "1 (147)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000039": {
     "name": "ASD爱仕达",
@@ -387,7 +483,9 @@
       "1 (153)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000040": {
     "name": "DCTG 160D",
@@ -396,7 +494,9 @@
       "1 (170)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000041": {
     "name": "PETRUS",
@@ -405,7 +505,9 @@
       "1 (170)_003.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000042": {
     "name": "SUPOR",
@@ -415,7 +517,9 @@
       "1 (171)_003.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000043": {
     "name": "Shark",
@@ -424,7 +528,9 @@
       "1 (198)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000044": {
     "name": "VISIONS",
@@ -433,7 +539,9 @@
       "1 (214)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000045": {
     "name": "北欧家庭生活馆",
@@ -443,7 +551,9 @@
       "1 (221)_011.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000046": {
     "name": "BRAUN",
@@ -453,7 +563,9 @@
       "1 (273)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000047": {
     "name": "BWT",
@@ -463,7 +575,9 @@
       "1 (273)_008.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000048": {
     "name": "TCL通讯电话机",
@@ -473,7 +587,9 @@
       "1 (29)_007.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000049": {
     "name": "36片 x 2包",
@@ -482,7 +598,9 @@
       "1 (296)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000050": {
     "name": "美菱MELNG",
@@ -490,7 +608,9 @@
       "1 (309)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000051": {
     "name": "DKS-301",
@@ -500,7 +620,9 @@
       "1 (318)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000052": {
     "name": "TRULIVA净水器",
@@ -509,7 +631,9 @@
       "1 (331)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000053": {
     "name": "三鼎SNANDING",
@@ -517,7 +641,9 @@
       "1 (34)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000054": {
     "name": "电热开水器支承座",
@@ -525,7 +651,9 @@
       "1 (34)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000055": {
     "name": "Haier",
@@ -535,7 +663,9 @@
       "1 (360)_004.jpg"
     ],
     "feature_mean": [],
-    "image_count": 3
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000056": {
     "name": "Sitoo斯图",
@@ -544,7 +674,9 @@
       "1 (370)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000057": {
     "name": "U优利洁",
@@ -552,7 +684,9 @@
       "1 (374)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000058": {
     "name": "",
@@ -563,7 +697,9 @@
       "1 (379)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 4
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000059": {
     "name": "美丽雅平板拖",
@@ -572,7 +708,9 @@
       "1 (398)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 3,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:56:26.013424"
   },
   "000060": {
     "name": "威露士健康洗手液",
@@ -586,7 +724,9 @@
       "1 (5)_026.jpg"
     ],
     "feature_mean": [],
-    "image_count": 7
+    "image_count": 7,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000061": {
     "name": "Blueair中国",
@@ -595,7 +735,9 @@
       "1 (62)_003.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000062": {
     "name": "Midea饮水机",
@@ -606,7 +748,9 @@
       "1 (7)_007.jpg"
     ],
     "feature_mean": [],
-    "image_count": 4
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000063": {
     "name": "BONECO",
@@ -617,7 +761,9 @@
       "1 (76)_006.jpg"
     ],
     "feature_mean": [],
-    "image_count": 4
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000064": {
     "name": "帮宝适拉拉裤M",
@@ -626,7 +772,9 @@
       "1 (79)_003.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000065": {
     "name": "",
@@ -639,7 +787,9 @@
       "2 (138)_020.jpg"
     ],
     "feature_mean": [],
-    "image_count": 6
+    "image_count": 6,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000066": {
     "name": "Pampars",
@@ -648,7 +798,9 @@
       "2 (150)_005.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000067": {
     "name": "EJK418SLV-I",
@@ -657,7 +809,9 @@
       "2 (170)_011.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:56:26.013424"
   },
   "000068": {
     "name": "Hauswirt",
@@ -665,7 +819,9 @@
       "2 (175)_001.jpg"
     ],
     "feature_mean": [],
-    "image_count": 1
+    "image_count": 1,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
   },
   "000069": {
     "name": "Daday baby",
@@ -674,6 +830,402 @@
       "2 (200)_002.jpg"
     ],
     "feature_mean": [],
-    "image_count": 2
+    "image_count": 2,
+    "created_at": "2026-05-13T11:41:22.404387",
+    "updated_at": "2026-05-13T11:43:41.106453"
+  },
+  "000070": {
+    "name": "空气净化器滤",
+    "images": [
+      "1 (207)_003.jpg",
+      "1 (207)_008.jpg",
+      "1 (207)_009.jpg",
+      "1 (207)_010.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-13T11:41:22.402259",
+    "updated_at": "2026-05-13T11:43:41.106453"
+  },
+  "000071": {
+    "name": "FRAGILE",
+    "images": [
+      "2 (216)_001.jpg",
+      "2 (216)_002.jpg",
+      "2 (216)_005.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3,
+    "created_at": "2026-05-16T10:28:33.144361",
+    "updated_at": "2026-05-16T10:28:47.118261"
+  },
+  "000072": {
+    "name": "VG27A",
+    "images": [
+      "2 (218)_0.jpg",
+      "2 (218)_1.jpg",
+      "2 (218)_10.jpg",
+      "2 (218)_11.jpg",
+      "2 (218)_2.jpg",
+      "2 (218)_3.jpg",
+      "2 (218)_4.jpg",
+      "2 (218)_5.jpg",
+      "2 (218)_6.jpg",
+      "2 (218)_7.jpg",
+      "2 (218)_8.jpg",
+      "2 (218)_9.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 12,
+    "created_at": "2026-05-16T16:52:44.248761",
+    "updated_at": "2026-05-16T16:52:50.075881"
+  },
+  "000073": {
+    "name": "PHILIPS人民币鉴别仪",
+    "images": [
+      "2 (243)_0.jpg",
+      "2 (243)_1.jpg",
+      "2 (243)_2.jpg",
+      "2 (289)_0.jpg",
+      "2 (289)_1.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 5,
+    "created_at": "2026-05-16T16:54:55.389655",
+    "updated_at": "2026-05-16T17:11:28.562194"
+  },
+  "000074": {
+    "name": "P2319H",
+    "images": [
+      "2 (247)_0.jpg",
+      "2 (247)_1.jpg",
+      "2 (247)_2.jpg",
+      "2 (247)_3.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:02:44.520048",
+    "updated_at": "2026-05-16T17:02:47.868616"
+  },
+  "000075": {
+    "name": "FLYCO飞科烫发器",
+    "images": [
+      "2 (263)_0.jpg",
+      "2 (263)_2.jpg",
+      "2 (263)_3.jpg",
+      "2 (263)_4.jpg",
+      "2 (263)_5.jpg",
+      "2 (263)_6.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 6,
+    "created_at": "2026-05-16T17:03:30.918240",
+    "updated_at": "2026-05-16T17:03:33.436982"
+  },
+  "000076": {
+    "name": "绘威激光打印机硒鼓",
+    "images": [
+      "2 (269)_0.jpg",
+      "2 (269)_12.jpg",
+      "2 (269)_22.jpg",
+      "2 (269)_9.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:04:02.911890",
+    "updated_at": "2026-05-16T17:06:15.458989"
+  },
+  "000077": {
+    "name": "GEPU戈普气弹式显示支架",
+    "images": [
+      "2 (280)_3.jpg",
+      "2 (280)_4.jpg",
+      "2 (280)_5.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3,
+    "created_at": "2026-05-16T17:08:04.202498",
+    "updated_at": "2026-05-16T17:08:12.942050"
+  },
+  "000078": {
+    "name": "IPASON攀升",
+    "images": [
+      "2 (283)_0.jpg",
+      "2 (283)_1.jpg",
+      "2 (283)_2.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3,
+    "created_at": "2026-05-16T17:09:10.212052",
+    "updated_at": "2026-05-16T17:09:25.886258"
+  },
+  "000079": {
+    "name": "Sprocket plus惠普小印",
+    "images": [
+      "2 (287)_0.jpg",
+      "2 (287)_1.jpg",
+      "2 (287)_2.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3,
+    "created_at": "2026-05-16T17:10:23.657983",
+    "updated_at": "2026-05-16T17:10:30.210914"
+  },
+  "000080": {
+    "name": "美的电压力锅",
+    "images": [
+      "2 (29)_0.jpg",
+      "2 (29)_5.jpg",
+      "2 (29)_6.jpg",
+      "2 (29)_7.jpg",
+      "2 (29)_8.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 5,
+    "created_at": "2026-05-16T17:12:13.693024",
+    "updated_at": "2026-05-16T17:12:29.848126"
+  },
+  "000081": {
+    "name": "RECORDING MICROPHONE",
+    "images": [
+      "2 (299)_3.jpg",
+      "2 (299)_4.jpg",
+      "2 (299)_5.jpg",
+      "2 (299)_6.jpg",
+      "2 (299)_7.jpg",
+      "2 (299)_8.jpg",
+      "2 (299)_9.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 7,
+    "created_at": "2026-05-16T17:18:01.450465",
+    "updated_at": "2026-05-16T17:18:08.546114"
+  },
+  "000082": {
+    "name": "7834白板擦",
+    "images": [
+      "2 (302)_0.jpg",
+      "2 (302)_1.jpg",
+      "2 (302)_2.jpg",
+      "2 (302)_3.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:20:05.332751",
+    "updated_at": "2026-05-16T17:20:11.784605"
+  },
+  "000083": {
+    "name": "PHILIPS E line",
+    "images": [
+      "2 (307)_0.jpg",
+      "2 (307)_1.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2,
+    "created_at": "2026-05-16T17:20:49.672078",
+    "updated_at": "2026-05-16T17:20:54.935229"
+  },
+  "000084": {
+    "name": "POVOS奔腾电饭煲",
+    "images": [
+      "2 (31)_0.jpg",
+      "2 (31)_1.jpg",
+      "2 (31)_2.jpg",
+      "2 (31)_4.jpg",
+      "2 (31)_5.jpg",
+      "2 (31)_7.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 6,
+    "created_at": "2026-05-16T17:21:37.266850",
+    "updated_at": "2026-05-16T17:21:39.954367"
+  },
+  "000085": {
+    "name": "北恩按键电话机",
+    "images": [
+      "2 (310)_0.jpg",
+      "2 (310)_1.jpg",
+      "2 (310)_2.jpg",
+      "2 (310)_3.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:22:12.860587",
+    "updated_at": "2026-05-16T17:22:24.588262"
+  },
+  "000086": {
+    "name": "长虹CZ-6即热式电热水器",
+    "images": [
+      "2 (317)_0.jpg",
+      "2 (317)_1.jpg",
+      "2 (317)_10.jpg",
+      "2 (317)_17.jpg",
+      "2 (317)_18.jpg",
+      "2 (317)_19.jpg",
+      "2 (317)_2.jpg",
+      "2 (317)_20.jpg",
+      "2 (317)_21.jpg",
+      "2 (317)_9.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 10,
+    "created_at": "2026-05-16T17:23:28.303050",
+    "updated_at": "2026-05-16T17:24:25.126173"
+  },
+  "000087": {
+    "name": "DENON",
+    "images": [
+      "2 (321)_0.jpg",
+      "2 (321)_1.jpg",
+      "2 (321)_2.jpg",
+      "2 (321)_3.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:24:51.756063",
+    "updated_at": "2026-05-16T17:25:16.920670"
+  },
+  "000088": {
+    "name": "宁美",
+    "images": [
+      "2 (332)_0.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1,
+    "created_at": "2026-05-16T17:25:37.988004",
+    "updated_at": "2026-05-16T17:25:43.346869"
+  },
+  "000089": {
+    "name": "WHIST惠斯特",
+    "images": [
+      "2 (341)_0.jpg",
+      "2 (341)_1.jpg",
+      "2 (341)_10.jpg",
+      "2 (341)_11.jpg",
+      "2 (341)_12.jpg",
+      "2 (341)_4.jpg",
+      "2 (341)_6.jpg",
+      "2 (341)_8.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 8,
+    "created_at": "2026-05-16T17:27:33.585277",
+    "updated_at": "2026-05-16T17:28:55.574865"
+  },
+  "000090": {
+    "name": "MONITOR DESK MOUNT",
+    "images": [
+      "2 (345)_0.jpg",
+      "2 (345)_1.jpg",
+      "2 (345)_2.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3,
+    "created_at": "2026-05-16T17:29:36.892537",
+    "updated_at": "2026-05-16T17:29:45.748038"
+  },
+  "000091": {
+    "name": "PHILIPS无尘袋吸尘器",
+    "images": [
+      "2 (36)_2.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1,
+    "created_at": "2026-05-16T17:30:40.825292",
+    "updated_at": "2026-05-16T17:30:49.610855"
+  },
+  "000092": {
+    "name": "Deerma德尔玛",
+    "images": [
+      "2 (36)_0.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1,
+    "created_at": "2026-05-16T17:31:50.639529",
+    "updated_at": "2026-05-16T17:31:53.081218"
+  },
+  "000093": {
+    "name": "SKYWORTH T320F",
+    "images": [
+      "2 (360)_0.jpg",
+      "2 (360)_1.jpg",
+      "2 (360)_2.jpg",
+      "2 (360)_3.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:33:07.913507",
+    "updated_at": "2026-05-16T17:33:10.563765"
+  },
+  "000094": {
+    "name": "智能4In1机器人",
+    "images": [
+      "2 (373)_0.jpg",
+      "2 (373)_1.jpg",
+      "2 (373)_2.jpg",
+      "2 (373)_3.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:34:11.718966",
+    "updated_at": "2026-05-16T17:34:16.108869"
+  },
+  "000095": {
+    "name": "安而康成人护理卫生湿巾",
+    "images": [
+      "2 (39)_3.jpg",
+      "2 (39)_4.jpg",
+      "2 (39)_5.jpg",
+      "2 (39)_6.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 4,
+    "created_at": "2026-05-16T17:35:34.594366",
+    "updated_at": "2026-05-16T17:36:00.070068"
+  },
+  "000096": {
+    "name": "坚果智能影院",
+    "images": [
+      "2 (394)_0.jpg",
+      "2 (394)_1.jpg",
+      "2 (394)_2.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3,
+    "created_at": "2026-05-16T17:36:31.234109",
+    "updated_at": "2026-05-16T17:36:34.291923"
+  },
+  "000097": {
+    "name": "ALIENWARE",
+    "images": [
+      "2 (398)_0.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 1,
+    "created_at": "2026-05-16T17:37:09.777697",
+    "updated_at": "2026-05-16T17:37:13.023607"
+  },
+  "000098": {
+    "name": "babycare皇室弱酸纸尿裤",
+    "images": [
+      "2 (40)_1.jpg",
+      "2 (40)_3.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 2,
+    "created_at": "2026-05-16T17:52:42.540663",
+    "updated_at": "2026-05-16T17:53:16.895227"
+  },
+  "000099": {
+    "name": "美丽雅乐享平板拖把",
+    "images": [
+      "2 (489)_0.jpg",
+      "2 (489)_1.jpg",
+      "2 (489)_2.jpg"
+    ],
+    "feature_mean": [],
+    "image_count": 3,
+    "created_at": "2026-05-16T17:56:35.381452",
+    "updated_at": "2026-05-16T17:56:37.522952"
   }
 }

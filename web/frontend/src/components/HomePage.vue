@@ -5,32 +5,20 @@
     <div class="header">
       <h1>📦 箱货检测与SKU匹配</h1>
       <p>上传图片，自动检测箱体并匹配SKU</p>
+      <div class="header-tip">
+        💡 检测结果可在<a href="#" @click.prevent="goToTasks">任务列表</a>中进行审核和匹配
+      </div>
     </div>
 
     <div class="section">
-      <div class="upload-area" :class="{ dragover: isDragover }" @click="triggerUpload" @dragover.prevent="isDragover = true" @dragleave.prevent="isDragover = false" @drop.prevent="handleDrop">
-        <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" style="display: none">
-        <div class="upload-icon">📤</div>
-        <div class="upload-text">点击或拖拽上传图片</div>
-        <div class="upload-hint">支持 JPG、PNG 格式</div>
-      </div>
-
-      <div v-if="store.selectedFile" class="preview-container show">
-        <div class="preview-box">
-          <img :src="store.previewUrl" class="preview-img" alt="预览">
-          <div class="preview-info">
-            <div class="preview-name">{{ store.selectedFile.name }}</div>
-            <div class="preview-size">{{ formatFileSize(store.selectedFile.size) }}</div>
-          </div>
-          <button class="preview-remove" @click="store.removeFile">移除</button>
-        </div>
-      </div>
+      <UploadArea @files-selected="handleFilesSelected" />
+      <FileList :files="store.selectedFiles" @remove="handleFileRemove" @clear="handleClearFiles" />
 
       <div class="btn-group">
-        <button class="btn btn-success" :disabled="!store.selectedFile || store.isProcessing" @click="processImage">
-          {{ store.isProcessing ? '处理中...' : '🔍 开始检测' }}
+        <button class="btn btn-success" :disabled="store.selectedFiles.length === 0 || isProcessing" @click="handleUpload">
+          {{ isProcessing ? '上传中...' : (store.selectedFiles.length > 1 ? '📦 批量上传' : '🔍 上传图片') }}
         </button>
-        <button class="btn btn-default" @click="store.reset">🔄 重置</button>
+        <button class="btn btn-default" @click="handleReset">🔄 重置</button>
       </div>
     </div>
 
@@ -39,189 +27,165 @@
       <div class="error-text">{{ store.error }}</div>
     </div>
 
-    <div v-if="store.isProcessing" class="section loading">
-      <div class="loading-spinner"></div>
-      <div>正在处理中，请稍候...</div>
-    </div>
-
-    <div v-if="store.result && !store.isProcessing" class="section">
+    <div v-if="store.batchResults.length > 0" class="section">
       <div class="result-title">
         <h2>📊 检测结果</h2>
+        <span class="result-count">共 {{ store.batchResults.length }} 张图片</span>
       </div>
 
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-num">{{ store.result.count || 0 }}</div>
-          <div class="stat-label">检测数量</div>
-        </div>
-        <div class="stat">
-          <div class="stat-num" style="color: #67c23a;">{{ store.result.matched_count || 0 }}</div>
-          <div class="stat-label">已匹配</div>
-        </div>
-        <div class="stat">
-          <div class="stat-num" style="color: #e6a23c;">{{ store.result.unmatched_count || 0 }}</div>
-          <div class="stat-label">未匹配</div>
-        </div>
-        <div class="stat">
-          <div class="stat-num" style="color: #909399;">{{ store.skuCount }}</div>
-          <div class="stat-label">SKU库总数</div>
-        </div>
-      </div>
+      <DetectionList :results="store.batchResults" :mode="store.currentMode" @review="handleReview" />
 
-      <div class="images">
-        <div class="image-box">
-          <h3 style="margin-bottom: 10px;">检测结果</h3>
-          <div class="image-wrapper">
-            <img v-if="store.result.image_with_boxes" :src="'data:image/jpeg;base64,' + store.result.image_with_boxes" class="result-image">
-            <div v-else class="empty-result">
-              <div class="empty-icon">📭</div>
-              <p>未检测到目标</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top: 25px;">
-        <h3 style="font-size: 16px; font-weight: 600; color: #333; margin-bottom: 15px;">📋 检测详情</h3>
-        <div class="detection-list">
-          <div v-for="(box, idx) in store.result.boxes" :key="idx" class="detection-item-container">
-            <div class="detection-item">
-              <img v-if="store.result.crops && store.result.crops[idx]" :src="'data:image/jpeg;base64,' + store.result.crops[idx]" class="thumb" alt="缩略图">
-              <div v-else class="thumb" style="background: #f0f0f0; display: flex; align-items: center; justify-content: center;">N/A</div>
-
-              <div class="item-info">
-                <div>
-                  <strong>箱体 {{ idx + 1 }}</strong>
-                  <span style="margin-left: 10px; color: #666;">置信度: {{ (box.confidence * 100).toFixed(1) }}%</span>
-                </div>
-                <div style="font-size: 12px; color: #999;">位置: [{{ box.bbox.join(', ') }}]</div>
-              </div>
-
-              <div v-if="store.result.matches && store.result.matches[idx]">
-                <span :class="store.result.matches[idx].status === 'matched' ? 'tag-success' : 'tag-warning'">
-                  {{ store.result.matches[idx].sku_id }} ({{ (store.result.matches[idx].similarity * 100).toFixed(1) }}%)
-                </span>
-              </div>
-              <div v-else>
-                <span class="tag-info">待匹配</span>
-              </div>
-            </div>
-
-            <div v-if="store.result.matches && store.result.matches[idx] && store.result.matches[idx].top5_labels && store.result.matches[idx].top5_labels.length > 0" class="top5-section">
-              <div class="top5-header">
-                <span class="top5-title">Top-5 匹配候选</span>
-                <span class="top5-status" :class="store.result.matches[idx].status">
-                  {{ store.result.matches[idx].status === 'matched' ? '✓ 已匹配' : store.result.matches[idx].status === 'low_conf' ? '⚠️ 低置信' : '✗ 未匹配' }}
-                </span>
-              </div>
-              <div class="top5-grid">
-                <div
-                  v-for="(label, labelIdx) in store.result.matches[idx].top5_labels"
-                  :key="labelIdx"
-                  class="top5-item"
-                  :class="{ 'top1': labelIdx === 0, 'selected': labelIdx === 0 && store.result.matches[idx].status === 'matched' }"
-                >
-                  <div class="top5-thumb">
-                    <img
-                      v-if="label.image_name && label.sku_id"
-                      :src="`/api/sku-image/${label.sku_id}/${encodeURIComponent(label.image_name)}`"
-                      :alt="label.sku_name || label.label"
-                      @error="(e) => e.target.style.display = 'none'"
-                    />
-                    <div v-show="!label.image_name || !label.sku_id" class="top5-placeholder">
-                      <span class="top5-rank">{{ labelIdx + 1 }}</span>
-                    </div>
-                  </div>
-                  <div class="top5-info">
-                    <div class="top5-sku-id">{{ label.sku_id || label.label }}</div>
-                    <div class="top5-sku-name">{{ label.sku_name }}</div>
-                    <div class="top5-similarity">相似度: {{ (label.similarity * 100).toFixed(1) }}%</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div class="result-actions">
+        <button class="btn btn-primary" @click="goToTasks">📋 前往任务列表进行审核和匹配</button>
+        <button class="btn btn-default" @click="clearBatchResults">清空结果</button>
       </div>
     </div>
 
-    <div v-if="store.isIdle && !store.error" class="section empty">
+    <div v-if="showEmptyState" class="section empty">
       <div class="empty-icon">📷</div>
       <p>请上传图片开始检测</p>
+      <p class="empty-tip">检测完成后请前往<a href="#" @click.prevent="goToTasks">任务列表</a>进行审核和匹配</p>
     </div>
+
+    <ReviewDialog
+      v-model="reviewDialogVisible"
+      :task="currentTask"
+      @submit="handleReviewSubmit"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { detector } from '../api/client'
+import { detector, tasks } from '../api/client'
 import { useAppStore } from '../stores/app'
 import StatusBanner from './StatusBanner.vue'
+import UploadArea from './upload/UploadArea.vue'
+import FileList from './upload/FileList.vue'
+import DetectionList from './result/DetectionList.vue'
+import ReviewDialog from './result/ReviewDialog.vue'
 
 const store = useAppStore()
-const fileInput = ref(null)
-const isDragover = ref(false)
+const isProcessing = ref(false)
 
-const triggerUpload = () => {
-  fileInput.value?.click()
+const reviewDialogVisible = ref(false)
+const currentTask = ref(null)
+
+const showEmptyState = computed(() => {
+  return store.batchResults.length === 0 && store.isIdle && !store.error && store.batchTaskIds.length === 0
+})
+
+const handleFilesSelected = (files) => {
+  store.addFiles(files)
 }
 
-const handleFileSelect = (e) => {
-  const file = e.target.files[0]
-  if (file) {
-    handleFile(file)
+const handleFileRemove = (idx) => {
+  const file = store.selectedFiles[idx]
+  if (file.preview) {
+    URL.revokeObjectURL(file.preview)
   }
+  store.removeFileAt(idx)
 }
 
-const handleDrop = (e) => {
-  isDragover.value = false
-  const file = e.dataTransfer.files[0]
-  if (file && file.type.startsWith('image/')) {
-    handleFile(file)
-  } else {
-    ElMessage.warning('请上传图片文件')
-  }
+const handleClearFiles = () => {
+  store.clearFiles()
 }
 
-const handleFile = (file) => {
-  store.uploadImage(file)
+const handleReset = () => {
+  store.clearFiles()
+  store.reset()
 }
 
-const formatFileSize = (bytes) => {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-}
-
-const processImage = async () => {
-  if (!store.selectedFile) {
+const handleUpload = async () => {
+  if (store.selectedFiles.length === 0) {
     ElMessage.warning('请先选择图片')
     return
   }
 
-  store.startProcessing()
+  isProcessing.value = true
 
   try {
-    console.log('开始检测，文件:', store.selectedFile.name)
-    const result = await detector.detectAndMatch(store.selectedFile, 0.5, 0.85)
-    console.log('检测结果:', result)
-    
-    if (result.success) {
-      store.completeSuccess(result)
-      console.log('结果已保存到 store')
-      ElMessage.success('检测完成')
+    const uploadedTasks = []
+
+    for (let i = 0; i < store.selectedFiles.length; i++) {
+      const fileWrapper = store.selectedFiles[i]
+      const file = fileWrapper.file || fileWrapper
+
+      try {
+        const task = await tasks.upload(file)
+        uploadedTasks.push({
+          taskId: task.id,
+          fileName: fileWrapper.name,
+          status: task.status
+        })
+        ElMessage.success(`已上传 ${i + 1}/${store.selectedFiles.length}: ${fileWrapper.name}`)
+      } catch (err) {
+        console.error('Upload error for', fileWrapper.name, err)
+        ElMessage.error(`上传失败 ${fileWrapper.name}: ${err.message || err.detail || '未知错误'}`)
+      }
+    }
+
+    if (uploadedTasks.length > 0) {
+      store.clearFiles()
+      ElMessage.success(`上传完成！共 ${uploadedTasks.length} 个任务已添加到任务列表，请前往任务列表进行检测`)
+      store.setPage('tasks')
     } else {
-      const errorMsg = result.detail || '检测失败'
-      store.completeError(errorMsg)
-      ElMessage.error(errorMsg)
+      ElMessage.warning('没有任务上传成功')
     }
   } catch (err) {
-    console.error('检测异常:', err)
+    console.error('上传异常:', err)
     const errorMsg = err.detail || err.message || '处理失败'
     store.completeError(errorMsg)
     ElMessage.error(errorMsg)
+  } finally {
+    isProcessing.value = false
   }
+}
+
+const handleReview = (result, idx) => {
+  if (!result.success) return
+
+  const boxesWithMatch = result.boxes?.map((box, boxIdx) => ({
+    ...box,
+    match_result: result.matches?.[String(boxIdx)] || result.matches?.[boxIdx]
+  })) || []
+
+  currentTask.value = {
+    id: idx,
+    image_name: result.fileName,
+    image_path: null,
+    result: {
+      ...result,
+      detections: { boxes: boxesWithMatch },
+      image_with_boxes: result.image_with_boxes
+    }
+  }
+  reviewDialogVisible.value = true
+}
+
+const handleReviewSubmit = async ({ task, boxes, approvedCount, rejectedCount }) => {
+  reviewDialogVisible.value = false
+  
+  if (task.result.taskId) {
+    try {
+      await tasks.reviewTask(task.result.taskId, boxes)
+      ElMessage.success(`审核成功：通过 ${approvedCount} 个，拒绝 ${rejectedCount} 个，已保存到数据库`)
+    } catch (err) {
+      ElMessage.error('保存审核结果失败: ' + (err.message || '未知错误'))
+    }
+  } else {
+    ElMessage.success(`审核成功：通过 ${approvedCount} 个，拒绝 ${rejectedCount} 个`)
+  }
+}
+
+const clearBatchResults = () => {
+  store.batchResults = []
+  store.clearFiles()
+}
+
+const goToTasks = () => {
+  store.setPage('tasks')
 }
 </script>
 
@@ -259,98 +223,10 @@ const processImage = async () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.upload-area {
-  border: 2px dashed #667eea;
-  border-radius: 10px;
-  padding: 40px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.upload-area:hover {
-  background: #f0f5ff;
-  border-color: #764ba2;
-}
-
-.upload-area.dragover {
-  background: #e8f0fe;
-  border-color: #667eea;
-  border-style: solid;
-}
-
-.upload-icon {
-  font-size: 48px;
-  color: #667eea;
-  margin-bottom: 15px;
-}
-
-.upload-text {
-  color: #667eea;
-  font-size: 18px;
-  margin-bottom: 8px;
-}
-
-.upload-hint {
-  color: #999;
-  font-size: 14px;
-}
-
-.preview-container {
+.btn-group {
   margin-top: 20px;
-  display: none;
-}
-
-.preview-container.show {
-  display: block;
-}
-
-.preview-box {
   display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 15px;
-  background: #f9f9f9;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-}
-
-.preview-img {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-}
-
-.preview-info {
-  flex: 1;
-}
-
-.preview-name {
-  font-size: 16px;
-  color: #333;
-  margin-bottom: 5px;
-  word-break: break-all;
-}
-
-.preview-size {
-  font-size: 13px;
-  color: #999;
-}
-
-.preview-remove {
-  padding: 8px 16px;
-  background: #ff4d4f;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.preview-remove:hover {
-  background: #ff7875;
+  gap: 10px;
 }
 
 .btn {
@@ -359,7 +235,6 @@ const processImage = async () => {
   border-radius: 8px;
   font-size: 16px;
   cursor: pointer;
-  margin-right: 10px;
   transition: all 0.3s ease;
 }
 
@@ -387,12 +262,6 @@ const processImage = async () => {
   cursor: not-allowed;
 }
 
-.btn-group {
-  margin-top: 20px;
-  display: flex;
-  gap: 10px;
-}
-
 .error {
   background: #fef0f0;
   border: 1px solid #fde2e2;
@@ -412,87 +281,15 @@ const processImage = async () => {
   font-size: 14px;
 }
 
-.loading {
+.empty {
   text-align: center;
-  padding: 40px;
-  font-size: 18px;
-  color: #667eea;
+  padding: 60px;
+  color: #999;
 }
 
-.loading-spinner {
-  display: inline-block;
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.empty-icon {
+  font-size: 48px;
   margin-bottom: 15px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.stats {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-
-.stat {
-  flex: 1;
-  min-width: 150px;
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  border: 1px solid #f0f0f0;
-}
-
-.stat-num {
-  font-size: 32px;
-  font-weight: bold;
-  color: #667eea;
-}
-
-.stat-label {
-  color: #666;
-  margin-top: 5px;
-}
-
-.images {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.image-box {
-  flex: 1;
-  min-width: 300px;
-}
-
-.image-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #f9f9f9;
-  border-radius: 8px;
-  padding: 10px;
-  min-height: 200px;
-}
-
-.result-image {
-  max-width: 100%;
-  max-height: 500px;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
 }
 
 .result-title {
@@ -506,218 +303,52 @@ const processImage = async () => {
   margin: 0;
 }
 
-.detection-list {
-  max-height: 800px;
-  overflow-y: auto;
-}
-
-.thumb {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid #e0e0e0;
-}
-
-.item-info {
-  flex: 1;
-}
-
-.tag-success {
-  background: #e1f3d8;
-  color: #67c23a;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.tag-warning {
-  background: #faecd8;
-  color: #e6a23c;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.tag-info {
-  background: #e6f1f6;
-  color: #909399;
-  padding: 4px 12px;
-  border-radius: 4px;
-}
-
-.detection-item-container {
-  margin-bottom: 16px;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.detection-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px;
-  background: #fafafa;
-}
-
-.detection-item:hover {
-  background: #f5f5f5;
-}
-
-.top5-section {
-  padding: 16px;
-  background: #fff;
-  border-top: 1px solid #f0f0f0;
-}
-
-.top5-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.top5-title {
+.result-count {
   font-size: 14px;
-  font-weight: 600;
-  color: #333;
+  color: #999;
+  margin-left: 10px;
+  font-weight: normal;
 }
 
-.top5-status {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 4px;
+.header-tip {
+  font-size: 13px;
+  margin-top: 10px;
+  opacity: 0.9;
 }
 
-.top5-status.matched {
-  background: #e1f3d8;
-  color: #67c23a;
+.header-tip a {
+  color: white;
+  text-decoration: underline;
 }
 
-.top5-status.low_conf {
-  background: #faecd8;
-  color: #e6a23c;
-}
-
-.top5-status.unmatched {
-  background: #fef0f0;
-  color: #f56c6c;
-}
-
-.top5-grid {
+.result-actions {
+  margin-top: 20px;
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
-.top5-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #e0e0e0;
-  width: calc(20% - 8px);
-  min-width: 120px;
-  transition: all 0.2s ease;
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
-.top5-item:hover {
-  border-color: #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.top5-item.top1 {
-  border-color: #67c23a;
-  background: #f0f9eb;
-}
-
-.top5-item.selected {
-  border-width: 2px;
-  border-color: #67c23a;
-}
-
-.top5-thumb {
-  width: 80px;
-  height: 80px;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #f0f0f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-
-.top5-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.top5-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #e0e0e0;
-}
-
-.top5-rank {
-  font-size: 24px;
-  font-weight: bold;
+.empty-tip {
+  font-size: 13px;
   color: #999;
+  margin-top: 10px;
 }
 
-.top5-info {
-  text-align: center;
-  width: 100%;
+.empty-tip a {
+  color: #667eea;
+  text-decoration: none;
 }
 
-.top5-sku-id {
-  font-size: 12px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 3px;
-}
-
-.top5-sku-name {
-  font-size: 11px;
-  color: #666;
-  margin-bottom: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-.top5-similarity {
-  font-size: 11px;
-  color: #999;
-}
-
-.empty {
-  text-align: center;
-  padding: 60px;
-  color: #999;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 15px;
-}
-
-.empty-result {
-  text-align: center;
-  padding: 40px;
-  color: #999;
-}
-
-.empty-result .empty-icon {
-  font-size: 36px;
+.empty-tip a:hover {
+  text-decoration: underline;
 }
 </style>

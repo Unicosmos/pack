@@ -18,8 +18,6 @@ from pydantic import BaseModel, validator
 from config import config
 from database import get_db
 from models.sku import SKU
-from models.user import User
-from auth import get_current_user_required
 
 router = APIRouter(prefix="/api/skus", tags=["SKU管理"])
 
@@ -118,7 +116,6 @@ async def list_skus(
     search: Optional[str] = None,
     category: Optional[str] = None,
     status: Optional[str] = None,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """获取SKU列表（支持分页、搜索、筛选）"""
@@ -154,7 +151,6 @@ async def list_skus(
 
 @router.get("/categories")
 async def list_categories(
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """获取所有分类列表"""
@@ -172,7 +168,6 @@ async def list_categories(
 
 @router.get("/stats", response_model=SKUStatsResponse)
 async def get_sku_stats(
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """获取SKU统计信息"""
@@ -193,7 +188,6 @@ async def get_sku_stats(
 @router.get("/{sku_id}", response_model=SKUResponse)
 async def get_sku(
     sku_id: str,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """获取单个SKU详情"""
@@ -211,7 +205,6 @@ async def get_sku(
 @router.post("", response_model=SKUResponse)
 async def create_sku(
     sku_data: SKUCreate,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """创建新SKU"""
@@ -229,7 +222,7 @@ async def create_sku(
         description=sku_data.description,
         category=sku_data.category,
         tags=sku_data.tags,
-        created_by=current_user.id
+        created_by=1
     )
 
     db.add(sku)
@@ -243,7 +236,6 @@ async def create_sku(
 async def update_sku(
     sku_id: str,
     sku_data: SKUUpdate,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """更新SKU信息"""
@@ -268,7 +260,6 @@ async def update_sku(
 @router.delete("/{sku_id}", response_model=MessageResponse)
 async def delete_sku(
     sku_id: str,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """删除SKU（软删除）"""
@@ -289,7 +280,6 @@ async def delete_sku(
 @router.post("/batch-delete", response_model=MessageResponse)
 async def batch_delete_skus(
     sku_ids: List[str],
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """批量删除SKU"""
@@ -309,7 +299,6 @@ async def batch_delete_skus(
 @router.post("/import")
 async def import_skus_csv(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """从CSV文件导入SKU"""
@@ -359,7 +348,7 @@ async def import_skus_csv(
                     description=row.get('description'),
                     category=row.get('category'),
                     tags=row.get('tags'),
-                    created_by=current_user.id
+                    created_by=1
                 )
                 db.add(sku)
                 imported += 1
@@ -378,7 +367,6 @@ async def import_skus_csv(
 
 @router.get("/export/download")
 async def export_skus_csv(
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """导出SKU为CSV"""
@@ -413,7 +401,6 @@ async def export_skus_csv(
 
 @router.post("/sync-from-csv")
 async def sync_from_sku_csv(
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """从现有的sku_library.csv同步SKU到数据库"""
@@ -446,7 +433,7 @@ async def sync_from_sku_csv(
                 sku_id=sku_id,
                 sku_name=info['sku_name'],
                 category=info.get('category'),
-                created_by=current_user.id
+                created_by=1
             )
             db.add(sku)
             imported += 1
@@ -462,7 +449,6 @@ async def sync_from_sku_csv(
 @router.get("/{sku_id}/images")
 async def get_sku_images(
     sku_id: str,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """获取SKU的所有图片"""
@@ -497,7 +483,6 @@ async def get_sku_images(
 async def upload_sku_images(
     sku_id: str,
     files: List[UploadFile] = File(...),
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """上传SKU图片"""
@@ -539,7 +524,6 @@ async def upload_sku_images(
 async def delete_sku_image(
     sku_id: str,
     filename: str,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """删除SKU的单张图片"""
@@ -571,7 +555,6 @@ async def delete_sku_image(
 @router.get("/{sku_id}/list-images")
 async def list_sku_images(
     sku_id: str,
-    current_user: User = Depends(get_current_user_required),
     db: Session = Depends(get_db)
 ):
     """获取SKU的图片列表（简化版，用于画廊显示）"""

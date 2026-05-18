@@ -44,5 +44,5 @@ def get_db():
 def init_db():
     """初始化数据库"""
     _init_engine()
-    from models import user, task, sku
+    from models import Task, SKU, DetectionBox, MatchResult, OperationLog
     Base.metadata.create_all(bind=engine)

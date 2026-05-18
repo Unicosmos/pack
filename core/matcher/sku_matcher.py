@@ -96,7 +96,7 @@ class SKUMatcher:
         try:
             self.sku_info = []
             self.sku_labels = []
-            with open(index_path, 'r', encoding='utf-8') as f:
+            with open(index_path, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     self.sku_info.append(row)
@@ -161,10 +161,11 @@ class SKUMatcher:
         for i, idx in enumerate(top_indices):
             label = self.sku_labels[idx]
             info = self.sku_info[idx] if idx < len(self.sku_info) else {}
+            
             top5_labels.append({
                 "label": label,
                 "similarity": float(top_similarities[i]),
-                "image_name": info.get("image_name", ""),
+                "image_path": info.get("path", ""),
                 "sku_id": info.get("sku_id", ""),
                 "sku_name": info.get("sku_name", "")
             })

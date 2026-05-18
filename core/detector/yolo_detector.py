@@ -20,19 +20,76 @@ except ImportError as e:
     logger.warning(f"ultralytics模块导入失败: {e}")
 
 
+def apply_exif_orientation(image: Image.Image) -> Image.Image:
+    """
+    应用EXIF方向信息旋转图片
+
+    Args:
+        image: PIL Image对象
+
+    Returns:
+        应用了正确方向的图片
+    """
+    try:
+        exif = image.getexif()
+        if exif is not None:
+            orientation = exif.get(0x0112)
+
+            if orientation == 2:
+                image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            elif orientation == 3:
+                image = image.rotate(180)
+            elif orientation == 4:
+                image = image.rotate(180).transpose(Image.FLIP_LEFT_RIGHT)
+            elif orientation == 5:
+                image = image.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+            elif orientation == 6:
+                image = image.rotate(-90, expand=True)
+            elif orientation == 7:
+                image = image.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
+            elif orientation == 8:
+                image = image.rotate(90, expand=True)
+    except Exception as e:
+        logger.debug(f"处理EXIF方向失败: {e}")
+
+    return image
+
+
 class BoxDetector:
     """YOLO目标检测器封装"""
 
-    def __init__(self, model_path: str, conf_threshold: float = 0.5):
+    def __init__(
+        self,
+        model_path: str,
+        conf_threshold: float = 0.4,
+        iou_threshold: float = 0.5,
+        imgsz: int = 640,
+        device: str = None,
+        half: bool = False,
+        max_det: int = 100,
+        classes: List[int] = None
+    ):
         """
         初始化检测器
 
         Args:
             model_path: YOLO模型路径
             conf_threshold: 置信度阈值
+            iou_threshold: IOU阈值（用于NMS非极大值抑制）
+            imgsz: 推理图像尺寸（默认640）
+            device: 运行设备，如 'cpu', '0', '0,1,2,3' 等（默认自动选择）
+            half: 是否使用半精度推理（GPU加速，需GPU环境）
+            max_det: 最大检测数量（默认300）
+            classes: 只检测指定类别ID列表，如 [0, 2] 表示只检测第1和第3类（默认None，检测所有类）
         """
         self.model_path = model_path
         self.conf_threshold = conf_threshold
+        self.iou_threshold = iou_threshold
+        self.imgsz = imgsz
+        self.device = device
+        self.half = half
+        self.max_det = max_det
+        self.classes = classes
         self.detector = None
         self._ready = False
         self._load_model()
@@ -55,6 +112,13 @@ class BoxDetector:
                 self.detector = YOLO(self.model_path)
             self._ready = True
             logger.info(f"BoxDetector已加载: {self.model_path}")
+            logger.info(f"  - 置信度阈值: {self.conf_threshold}")
+            logger.info(f"  - IOU阈值: {self.iou_threshold}")
+            logger.info(f"  - 图像尺寸: {self.imgsz}")
+            logger.info(f"  - 设备: {self.device if self.device else 'auto'}")
+            logger.info(f"  - 半精度: {self.half}")
+            logger.info(f"  - 最大检测数: {self.max_det}")
+            logger.info(f"  - 类别过滤: {self.classes if self.classes else '所有类别'}")
         except Exception as e:
             logger.error(f"加载BoxDetector失败: {e}")
 
@@ -83,9 +147,17 @@ class BoxDetector:
             return {"detections": [], "image": image}
 
         try:
+            image = apply_exif_orientation(image)
+
             results = self.detector.predict(
                 source=image,
                 conf=self.conf_threshold,
+                iou=self.iou_threshold,
+                imgsz=self.imgsz,
+                device=self.device,
+                half=self.half,
+                max_det=self.max_det,
+                classes=self.classes,
                 verbose=False
             )
 

@@ -49,11 +49,10 @@ from core.detector import BoxDetector
 from core.matcher import SKUMatcher
 
 from database import init_db, SessionLocal, get_db
-from auth import create_default_admin
-from api.auth import router as auth_router
 from api.task import router as task_router
 from api.sku import router as sku_router
 from api.sku_review import router as sku_review_router
+from api.logs import router as logs_router
 
 
 detector: Optional[BoxDetector] = None
@@ -69,12 +68,6 @@ async def lifespan(app: FastAPI):
 
     logger.info("初始化数据库...")
     init_db()
-    from database import SessionLocal
-    db = SessionLocal()
-    try:
-        create_default_admin(db)
-    finally:
-        db.close()
 
     cfg = config
 
@@ -134,25 +127,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router)
 app.include_router(task_router)
 app.include_router(sku_router)
 app.include_router(sku_review_router)
+app.include_router(logs_router)
+
+# 先挂载子路径，再挂载父路径
+if config.paths.SKU_IMAGES_DIR.exists():
+    app.mount("/static/sku_images", StaticFiles(directory=str(config.paths.SKU_IMAGES_DIR)), name="sku_images")
 
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-if config.paths.SKU_IMAGES_DIR.exists():
-    app.mount("/static/sku_images", StaticFiles(directory=str(config.paths.SKU_IMAGES_DIR)), name="sku_images")
-
-# 挂载 SKU 审核用到的文件夹
+# 挂载 SKU 审核用到的文件夹 - 挂载整个 SKU 目录（使用不冲突的路径）
 sku_root = Path("d:/A_pack/pack/SKU")
-if (sku_root / "crops").exists():
-    app.mount("/static/crops", StaticFiles(directory=str(sku_root / "crops")), name="crops")
-
-if (sku_root / "sku_output").exists():
-    app.mount("/static/sku_output", StaticFiles(directory=str(sku_root / "sku_output")), name="sku_output")
+if sku_root.exists():
+    app.mount("/sku-static", StaticFiles(directory=str(sku_root)), name="sku_root")
 
 
 def get_sku_count() -> int:
@@ -165,6 +156,21 @@ def get_sku_count() -> int:
     return 0
 
 
+def serialize_value(value):
+    """递归序列化值，处理不可序列化的对象"""
+    if isinstance(value, (ValueError, Exception)):
+        return str(value)
+    elif isinstance(value, dict):
+        return {k: serialize_value(v) for k, v in value.items()}
+    elif isinstance(value, (list, tuple)):
+        return [serialize_value(v) for v in value]
+    else:
+        return value
+
+def serialize_errors(errors):
+    """序列化错误信息，处理不可序列化的对象"""
+    return [serialize_value(error) for error in errors]
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """请求参数验证错误处理"""
@@ -174,7 +180,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={
             "success": False,
             "detail": "请求参数验证失败",
-            "errors": exc.errors()
+            "errors": serialize_errors(exc.errors())
         }
     )
 
@@ -324,7 +330,7 @@ async def match_image(
 
         result = matcher.match_sku(features, threshold=match_threshold, ratio_threshold=ratio_threshold)
 
-        top5_labels = [TopLabel(label=t['label'], similarity=t['similarity'], image_name=t.get('image_name', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in result.top5_labels] if result.top5_labels else []
+        top5_labels = [TopLabel(label=t['label'], similarity=t['similarity'], image_path=t.get('image_path', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in result.top5_labels] if result.top5_labels else []
 
         return MatchResponse(
             success=True,
@@ -442,7 +448,7 @@ async def detect_and_match_image(
                 match_infos.append(None)
                 unmatched_count += 1
             else:
-                top5 = [TopLabel(label=t['label'], similarity=t['similarity'], image_name=t.get('image_name', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in mr.top5_labels] if mr.top5_labels else []
+                top5 = [TopLabel(label=t['label'], similarity=t['similarity'], image_path=t.get('image_path', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in mr.top5_labels] if mr.top5_labels else []
                 match_infos.append(MatchInfo(
                     sku_id=mr.sku_id,
                     similarity=mr.similarity,
@@ -457,6 +463,48 @@ async def detect_and_match_image(
                 else:
                     unmatched_count += 1
 
+        from models.task import Task
+        from database import SessionLocal
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            unique_id = str(uuid.uuid4())[:8]
+            filename = f"{unique_id}_{file.filename}"
+            upload_dir = config.paths.DATA_DIR / "uploads"
+            upload_dir.mkdir(exist_ok=True)
+            file_path = upload_dir / filename
+            
+            with open(file_path, "wb") as f:
+                f.write(contents)
+            
+            task = Task(
+                task_name=file.filename,
+                image_name=file.filename,
+                image_path=str(file_path),
+                status="detected",
+                detection_status="detected",
+                review_status="pending",
+                result={
+                    "detections": {
+                        "boxes": [b.dict() for b in box_infos]
+                    },
+                    "matches": match_infos,
+                    "image_with_boxes": img_base64
+                },
+                box_count=len(boxes),
+                created_at=datetime.utcnow(),
+                completed_at=datetime.utcnow()
+            )
+            db.add(task)
+            db.commit()
+            db.refresh(task)
+            task_id = task.id
+        except Exception as e:
+            task_id = None
+        finally:
+            db.close()
+        
         return DetectAndMatchResponse(
             success=True,
             count=len(boxes),
@@ -466,6 +514,7 @@ async def detect_and_match_image(
             boxes=box_infos,
             crops=crops_base64,
             image_with_boxes=img_base64,
+            task_id=task_id,
             matches=match_infos,
             sku_matcher_enabled=sku_matcher_enabled
         )
@@ -505,13 +554,22 @@ async def get_sku_list():
     return SKUListResponse(success=True, skus=skus, count=len(skus))
 
 
-@app.get("/api/sku-image/{sku_id}/{image_name}")
-async def get_sku_image(sku_id: str, image_name: str):
-    """获取SKU图片"""
+@app.get("/api/sku-image")
+async def get_sku_image(path: str):
+    """获取SKU图片或任务上传的图片
+    Args:
+        path: CSV中的完整路径，如 'images\\000001\\1 (112)_001.jpg' 或任务上传路径
+    """
     from urllib.parse import unquote
-    image_name = unquote(image_name)
-    image_path = config.paths.SKU_IMAGES_DIR / sku_id / image_name
-
+    path = unquote(path)
+    
+    # 先尝试作为任务上传的图片路径
+    image_path = Path(path)
+    
+    # 如果不是绝对路径，尝试在SKU库中查找
+    if not image_path.is_absolute():
+        image_path = config.paths.SKU_DIR / path
+    
     if not image_path.exists():
         return JSONResponse(status_code=404, content={"detail": f"图片不存在: {image_path}"})
 
@@ -519,16 +577,58 @@ async def get_sku_image(sku_id: str, image_name: str):
         with open(image_path, "rb") as f:
             content = f.read()
 
-        if image_name.lower().endswith(".jpg") or image_name.lower().endswith(".jpeg"):
+        ext = image_path.suffix.lower()
+        if ext in [".jpg", ".jpeg"]:
             media_type = "image/jpeg"
-        elif image_name.lower().endswith(".png"):
+        elif ext == ".png":
             media_type = "image/png"
+        elif ext == ".bmp":
+            media_type = "image/bmp"
+        elif ext == ".gif":
+            media_type = "image/gif"
+        elif ext == ".webp":
+            media_type = "image/webp"
         else:
             media_type = "application/octet-stream"
 
         return Response(content=content, media_type=media_type)
     except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+        logger.error(f"读取图片失败: {e}")
+        raise HTTPException(status_code=500, detail=f"读取图片失败: {str(e)}")
+
+
+@app.get("/api/tasks/{task_id}/image")
+async def get_task_image(task_id: int):
+    """获取任务上传的原始图片"""
+    from models.task import Task
+    from database import SessionLocal
+    
+    db = SessionLocal()
+    try:
+        task = db.query(Task).filter(Task.id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在")
+        
+        image_path = Path(task.image_path)
+        if not image_path.exists():
+            raise HTTPException(status_code=404, detail="图片不存在")
+        
+        with open(image_path, "rb") as f:
+            content = f.read()
+        
+        ext = image_path.suffix.lower()
+        if ext in [".jpg", ".jpeg"]:
+            media_type = "image/jpeg"
+        elif ext == ".png":
+            media_type = "image/png"
+        elif ext == ".bmp":
+            media_type = "image/bmp"
+        else:
+            media_type = "application/octet-stream"
+        
+        return Response(content=content, media_type=media_type)
+    finally:
+        db.close()
 
 
 @app.get("/")

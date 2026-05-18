@@ -5,31 +5,33 @@
       <button class="btn-primary" @click="saveDatabase">💾 保存更新</button>
     </div>
 
-    <div class="top-bar">
-      <div class="folder-controls">
-        <button class="btn" @click="prevFolder" :disabled="currentFolderIndex <= 0">◀ 上一个</button>
-        <div class="folder-info">
-          📂 {{ currentFolder }} ({{ currentFolderIndex + 1 }}/{{ folders.length }}, {{ currentImages.length }}张)
-        </div>
-        <button class="btn" @click="nextFolder" :disabled="currentFolderIndex >= folders.length - 1">下一个 ▶</button>
-        <select v-model="currentFolder" @change="onFolderSelect" class="folder-select">
-          <option v-for="folder in folders" :key="folder" :value="folder">{{ folder }}</option>
-        </select>
-      </div>
-      <div class="search-box">
-        <input v-model="searchKeyword" placeholder="搜索 SKU 编号或名称" @input="debounceSearch" />
-      </div>
-      <div class="new-sku-box">
-        <input v-model="newSkuInput" placeholder="新增 SKU (留空自动生成)" />
-        <button class="btn btn-success" @click="createSku">➕ 新增</button>
-      </div>
-    </div>
-
     <div class="main-content">
-      <!-- 左侧：待审核图片区域 -->
+      <!-- 左侧：文件夹导航栏 -->
+      <div class="folder-nav">
+        <div class="folder-nav-header">
+          <h3>� 文件夹</h3>
+          <div class="folder-nav-info">
+            {{ currentFolderIndex + 1 }} / {{ folders.length }}
+          </div>
+        </div>
+        <div class="folder-list">
+          <div
+            v-for="(folder, idx) in folders"
+            :key="folder"
+            :class="['folder-item', { active: currentFolderIndex === idx }]"
+            @click="selectFolder(idx)"
+          >
+            <span class="folder-icon">📁</span>
+            <span class="folder-name">{{ folder }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：待审核图片区域 -->
       <div class="left-panel">
         <div class="panel-header">
-          <h2>📋 待审核图片</h2>
+          <h2>📋 待审核图片 - {{ currentFolder }}</h2>
+          <div class="crop-count">共 {{ currentImages.length }} 张图片</div>
         </div>
         <div class="crop-gallery">
           <div
@@ -38,7 +40,7 @@
             :class="['crop-item', { selected: selectedCrops.includes(idx) }]"
             @click="toggleCropSelect(idx)"
           >
-            <img :src="img.url" :alt="img.name" />
+            <img :src="encodeURI(img.url)" :alt="img.name" loading="lazy" @error="(e) => e.target.style.display = 'none'" />
             <div class="crop-name">{{ img.name }}</div>
           </div>
         </div>
@@ -55,7 +57,12 @@
               class="selected-item"
               @click="deselectCrop(i)"
             >
-              <img :src="currentImages[idx]?.url" />
+              <img 
+                :src="encodeURI(currentImages[idx]?.url)" 
+                :alt="currentImages[idx]?.name" 
+                @error="(e) => e.target.style.display = 'none'"
+                @click.stop="openLargeImage(currentImages[idx]?.url, currentImages[idx]?.name, $event)"
+              />
               <div class="remove-badge">×</div>
             </div>
           </div>
@@ -66,6 +73,15 @@
       <div class="right-panel">
         <div class="panel-header">
           <h2>🗂️ SKU 库</h2>
+          <div class="sku-controls">
+            <div class="search-box">
+              <input v-model="searchKeyword" placeholder="搜索 SKU 编号或名称" @input="debounceSearch" />
+            </div>
+            <div class="new-sku-box">
+              <input v-model="newSkuInput" placeholder="新增 SKU" />
+              <button class="btn btn-success" @click="createSku">➕ 新增</button>
+            </div>
+          </div>
         </div>
         <div class="sku-gallery">
           <div
@@ -75,7 +91,7 @@
             @click="selectSku(sku)"
           >
             <div class="sku-cover">
-              <img v-if="sku.cover_url" :src="sku.cover_url" :onerror="handleImageError" />
+              <img v-if="sku.cover_url" :src="encodeURI(sku.cover_url)" :alt="sku.name" @error="(e) => e.target.style.display = 'none'" />
               <div v-else class="no-cover">📷</div>
             </div>
             <div class="sku-info">
@@ -89,14 +105,18 @@
         <div class="action-hint">{{ actionHint }}</div>
         <div class="action-buttons">
           <button class="btn btn-success" @click="assignImages" :disabled="!canAssign">✅ 确认归类</button>
-          <button class="btn btn-secondary" @click="recallImages" :disabled="!canRecall">↩️ 撤回</button>
-          <button class="btn btn-danger" @click="deleteSku" :disabled="!selectedSkuId">🗑️ 删除</button>
+          <button class="btn btn-secondary" disabled title="功能已禁用">↩️ 撤回</button>
+          <button class="btn btn-danger" disabled title="功能已禁用">🗑️ 删除</button>
         </div>
 
         <!-- SKU 详情 -->
         <div v-if="selectedSkuId" class="sku-detail">
           <div class="detail-header">
             <h3>SKU 详情：{{ selectedSkuId }}</h3>
+            <div v-if="selectedSku" class="sku-info-detail">
+              <span class="sku-name-detail">{{ selectedSku.name }}</span>
+              <span class="sku-count-detail">{{ getSkuImages().length }} 张图片</span>
+            </div>
           </div>
           <div class="sku-detail-images">
             <div
@@ -105,7 +125,12 @@
               :class="['detail-image', { selected: selectedSkuImages.includes(idx) }]"
               @click="toggleSkuImageSelect(idx)"
             >
-              <img :src="img.url" :alt="img.name" :onerror="handleImageError" />
+              <img 
+                :src="encodeURI(img.url)" 
+                :alt="img.name" 
+                @error="(e) => e.target.style.display = 'none'"
+                @click.stop="openLargeImage(img.url, img.name, $event)"
+              />
               <div class="image-name">{{ img.name }}</div>
             </div>
           </div>
@@ -127,12 +152,25 @@
     <div v-if="showToast" :class="['toast', toastType]">
       {{ toastMessage }}
     </div>
+
+    <!-- 大图查看模态框 -->
+    <div v-if="showLargeImage" class="large-image-overlay" @click="closeLargeImage">
+      <div class="large-image-container" @click.stop>
+        <div class="large-image-header">
+          <span class="large-image-name">{{ largeImageName }}</span>
+          <button class="close-btn" @click="closeLargeImage">×</button>
+        </div>
+        <div class="large-image-wrapper">
+          <img :src="largeImageUrl" :alt="largeImageName" @error="(e) => e.target.style.display = 'none'" />
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { skuReview } from '../api/client';
+import { ref, computed, onMounted, nextTick } from 'vue';
+import { skuReview, getImageUrl, getImageUrlFromPath } from '../api/client';
 
 // 数据状态
 const folders = ref([]);
@@ -142,6 +180,7 @@ const currentImages = ref([]);
 const selectedCrops = ref([]);
 const skus = ref([]);
 const selectedSkuId = ref('');
+const selectedSku = ref(null);
 const selectedSkuImages = ref([]);
 const skuImagesData = ref([]);
 const searchKeyword = ref('');
@@ -151,10 +190,10 @@ const showToast = ref(false);
 const toastMessage = ref('');
 const toastType = ref('info');
 
-// 图片加载错误处理
-const handleImageError = (e) => {
-  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23f0f0f0" width="100" height="100"/%3E%3Ctext x="50" y="55" text-anchor="middle" font-size="24"%3E📷%3C/text%3E%3C/svg%3E';
-};
+// 大图查看
+const showLargeImage = ref(false);
+const largeImageUrl = ref('');
+const largeImageName = ref('');
 
 // 计算属性
 const filteredSkus = computed(() => {
@@ -239,6 +278,14 @@ const nextFolder = async () => {
   }
 };
 
+const selectFolder = async (idx) => {
+  if (currentFolderIndex.value !== idx) {
+    currentFolderIndex.value = idx;
+    currentFolder.value = folders.value[idx];
+    await loadFolderImages();
+  }
+};
+
 const onFolderSelect = async () => {
   const idx = folders.value.indexOf(currentFolder.value);
   if (idx >= 0) {
@@ -292,6 +339,7 @@ const clearSelection = () => {
 
 const selectSku = async (sku) => {
   selectedSkuId.value = sku.id;
+  selectedSku.value = sku;
   selectedSkuImages.value = [];
   await loadSkuImages(sku.id);
   addLog(`选中 SKU: ${sku.id}（${sku.cnt}张图片）`);
@@ -388,6 +436,7 @@ const deleteSku = async () => {
       addLog(`🗑️ 已删除 SKU: ${selectedSkuId.value}`);
       showToastMsg(res.message, 'success');
       selectedSkuId.value = '';
+      selectedSku.value = null;
       skuImagesData.value = [];
       await loadSkus();
     } else {
@@ -396,6 +445,20 @@ const deleteSku = async () => {
   } catch (e) {
     showToastMsg('操作失败', 'error');
   }
+};
+
+// 大图查看
+const openLargeImage = (url, name, event) => {
+  event.stopPropagation();
+  largeImageUrl.value = encodeURI(url);
+  largeImageName.value = name;
+  showLargeImage.value = true;
+};
+
+const closeLargeImage = () => {
+  showLargeImage.value = false;
+  largeImageUrl.value = '';
+  largeImageName.value = '';
 };
 
 const saveDatabase = async () => {
@@ -423,7 +486,7 @@ onMounted(() => {
 
 <style scoped>
 .sku-review-page {
-  padding: 20px;
+  padding: 20px 0;
   max-width: 100%;
   margin: 0 auto;
   background: #f5f7fa;
@@ -434,16 +497,18 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  margin-left: 20px;
+  margin-right: 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 20px 30px;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
 }
 
 .header h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 18px;
   color: white;
   font-weight: 600;
 }
@@ -466,67 +531,46 @@ onMounted(() => {
 
 .top-bar {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   background: white;
-  padding: 18px 24px;
-  border-radius: 12px;
-  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
-.folder-controls {
+.sku-controls {
   display: flex;
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
 }
 
-.folder-info {
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 14px;
-}
-
-.folder-select {
-  padding: 10px 14px;
-  border: 1px solid #e0e6ed;
-  border-radius: 6px;
-  background: white;
-  color: #2c3e50;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.folder-select:hover {
-  border-color: #667eea;
-}
-
 .search-box input, .new-sku-box input {
-  padding: 10px 14px;
-  border: 1px solid #e0e6ed;
-  border-radius: 6px;
-  width: 200px;
-  font-size: 14px;
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  width: 160px;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
 .search-box input:focus, .new-sku-box input:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 .btn {
-  padding: 10px 18px;
+  padding: 6px 12px;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
-  background: #f0f2f5;
+  background: #f1f5f9;
   color: #4a5568;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
@@ -574,8 +618,83 @@ onMounted(() => {
 
 .main-content {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   margin-bottom: 20px;
+  padding: 0 8px;
+}
+
+/* 文件夹导航栏 */
+.folder-nav {
+  width: 200px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.folder-nav-header {
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.folder-nav-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.folder-nav-info {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.folder-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.2s;
+}
+
+.folder-item:hover {
+  background: #f5f7fa;
+}
+
+.folder-item.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.folder-item.active .folder-icon {
+  transform: scale(1.1);
+}
+
+.folder-icon {
+  font-size: 16px;
+  transition: transform 0.2s;
+}
+
+.folder-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .left-panel, .right-panel {
@@ -589,10 +708,23 @@ onMounted(() => {
   flex-direction: column;
 }
 
+.crop-count {
+  font-size: 12px;
+  color: #667eea;
+  background: #f0f4ff;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
 .panel-header {
-  padding: 16px 20px;
+  padding: 12px 16px;
   background: linear-gradient(135deg, #f6f8fb 0%, #eef2f7 100%);
   border-bottom: 1px solid #e0e6ed;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .panel-header h2, .panel-header h3 {
@@ -609,10 +741,11 @@ onMounted(() => {
 
 .crop-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-auto-rows: minmax(160px, auto);
   gap: 12px;
   padding: 20px;
-  max-height: 320px;
+  max-height: 380px;
   overflow-y: auto;
 }
 
@@ -651,7 +784,7 @@ onMounted(() => {
 
 .crop-item img {
   width: 100%;
-  height: 90px;
+  height: 130px;
   object-fit: cover;
 }
 
@@ -694,32 +827,32 @@ onMounted(() => {
 
 .selected-item {
   position: relative;
-  width: 70px;
-  height: 70px;
+  width: 150px;
+  height: 150px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .selected-item:hover {
-  transform: scale(1.05);
+  transform: scale(1.03);
 }
 
 .selected-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.14);
 }
 
 .remove-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -8px;
+  right: -8px;
   background: #ef4444;
   color: white;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -732,6 +865,7 @@ onMounted(() => {
 .sku-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-auto-rows: minmax(150px, auto);
   gap: 12px;
   padding: 20px;
   max-height: 360px;
@@ -773,18 +907,22 @@ onMounted(() => {
 }
 
 .sku-cover {
-  width: 100%;
-  height: 80px;
-  background: #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 100% !important;
+  min-height: 85px !important;
+  height: 85px !important;
+  background: #e5e7eb !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
 .sku-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: 100% !important;
+  min-height: 85px !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  flex-shrink: 0 !important;
 }
 
 .no-cover {
@@ -853,6 +991,27 @@ onMounted(() => {
   font-weight: 600;
 }
 
+.sku-info-detail {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.sku-name-detail {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+.sku-count-detail {
+  font-size: 12px;
+  color: #667eea;
+  background: #f0f4ff;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .sku-detail-images {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -918,6 +1077,7 @@ onMounted(() => {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin: 0 20px;
 }
 
 .log-panel h3 {
@@ -991,5 +1151,108 @@ onMounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* 大图查看模态框 */
+.large-image-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.large-image-container {
+  background: white;
+  border-radius: 12px;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: scaleIn 0.2s ease;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.large-image-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.large-image-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #f3f4f6;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.large-image-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: auto;
+  background: #f9fafb;
+}
+
+.large-image-wrapper img {
+  max-width: 100%;
+  max-height: 75vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 </style>

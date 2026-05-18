@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="sku-list-page">
     <div class="header">
       <h1>📦 SKU管理</h1>
@@ -122,17 +122,12 @@
               @click="selectSku(sku)"
             >
               <div class="gallery-image-box">
-                <div v-if="getSkuImages(sku.sku_id).length > 0" class="gallery-thumb">
-                  <img 
-                    :src="getSkuImages(sku.sku_id)[0]" 
-                    :alt="sku.sku_name"
-                    class="gallery-img"
-                  />
-                  <div v-if="sku.image_count > 1" class="img-count">{{ sku.image_count }}</div>
-                </div>
-                <div v-else class="gallery-placeholder">
-                  <span>📷</span>
-                </div>
+                <SkuImage 
+                  :image-path="getFirstImagePath(sku.sku_id)" 
+                  width="100%"
+                  height="100%"
+                />
+                <div v-if="sku.image_count > 1" class="img-count">{{ sku.image_count }}</div>
               </div>
               <div class="gallery-info">
                 <div class="gallery-sku-id">{{ sku.sku_id }}</div>
@@ -208,10 +203,10 @@
           
           <div class="image-slider" v-if="currentSkuImages.length > 0">
             <div class="slider-container">
-              <img 
-                :src="currentSkuImages[currentImageIndex]?.url" 
-                :alt="`图片${currentImageIndex + 1}`" 
-                class="slide-image" 
+              <SkuImage 
+                :image-path="currentSkuImages[currentImageIndex]" 
+                width="100%"
+                height="100%"
               />
               <div class="slide-info">
                 <span>{{ currentSkuImages[currentImageIndex]?.filename }}</span>
@@ -380,8 +375,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { sku } from '../api/client'
+import SkuImage from './result/SkuImage.vue'
 
 const viewMode = ref('gallery')
 const skus = ref([])
@@ -403,7 +399,6 @@ const selectAll = ref(false)
 const selectedSku = ref(null)
 const currentSkuImages = ref([])
 const currentImageIndex = ref(0)
-const sliderRef = ref(null)
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
@@ -449,6 +444,11 @@ const getSkuImages = (skuId) => {
   return skuImagesCache.value[skuId] || []
 }
 
+const getFirstImagePath = (skuId) => {
+  const images = getSkuImages(skuId)
+  return images.length > 0 ? images[0] : ''
+}
+
 const loadSkus = async () => {
   loading.value = true
   try {
@@ -472,9 +472,10 @@ const preloadSkuImages = async () => {
       try {
         const res = await sku.getImages(s.sku_id)
         if (res.success) {
-          skuImagesCache.value[s.sku_id] = res.images.map(img => img.url)
+          skuImagesCache.value[s.sku_id] = res.images || []
         }
       } catch (err) {
+        console.error(`Failed to load images for ${s.sku_id}:`, err)
         skuImagesCache.value[s.sku_id] = []
       }
     }
@@ -1147,18 +1148,6 @@ onMounted(() => {
   position: relative;
 }
 
-.gallery-thumb {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.gallery-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .img-count {
   position: absolute;
   bottom: 4px;
@@ -1168,16 +1157,6 @@ onMounted(() => {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;
-}
-
-.gallery-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  color: #ccc;
 }
 
 .gallery-info {
@@ -1346,14 +1325,7 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   position: relative;
-}
-
-
-
-.slide-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  min-height: 300px;
 }
 
 .slide-info {

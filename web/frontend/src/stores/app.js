@@ -7,15 +7,20 @@ export const useAppStore = defineStore('app', () => {
 
   const currentState = ref('IDLE')
   const selectedFile = ref(null)
+  const selectedFiles = ref([])
   const previewUrl = ref('')
   const result = ref(null)
   const error = ref(null)
   const skuCount = ref(0)
   const systemStatus = ref('ready')
   const currentPage = ref('home')
+  const refreshTrigger = ref(0)
 
-  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
-  const isLoggedIn = computed(() => !!localStorage.getItem('token'))
+  const batchTaskIds = ref([])
+  const batchTasks = ref([])
+  const batchResults = ref([])
+  const currentBatchIndex = ref(0)
+  const currentMode = ref('review')
 
   const isIdle = computed(() => currentState.value === 'IDLE')
   const isUploaded = computed(() => currentState.value === 'UPLOADED')
@@ -30,19 +35,9 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  function setUser(userData) {
-    user.value = userData
-  }
-
   function setPage(page) {
     currentPage.value = page
-  }
-
-  function logout() {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    user.value = null
-    currentPage.value = 'home'
+    refreshTrigger.value++
   }
 
   function uploadImage(file) {
@@ -51,6 +46,23 @@ export const useAppStore = defineStore('app', () => {
     error.value = null
     result.value = null
     setStatus('UPLOADED')
+  }
+
+  function addFiles(files) {
+    selectedFiles.value = [...selectedFiles.value, ...files]
+  }
+
+  function removeFileAt(index) {
+    selectedFiles.value.splice(index, 1)
+  }
+
+  function clearFiles() {
+    selectedFiles.value.forEach(file => {
+      if (file.preview) {
+        URL.revokeObjectURL(file.preview)
+      }
+    })
+    selectedFiles.value = []
   }
 
   function startProcessing() {
@@ -73,6 +85,8 @@ export const useAppStore = defineStore('app', () => {
     previewUrl.value = ''
     result.value = null
     error.value = null
+    batchTaskIds.value = []
+    batchTasks.value = []
     setStatus('IDLE')
   }
 
@@ -82,6 +96,14 @@ export const useAppStore = defineStore('app', () => {
     if (isSuccess.value || hasError.value) {
       setStatus('IDLE')
     }
+  }
+
+  function setBatchTaskIds(ids) {
+    batchTaskIds.value = ids
+  }
+
+  function setBatchTasks(tasks) {
+    batchTasks.value = tasks
   }
 
   async function fetchSystemHealth() {
@@ -116,14 +138,18 @@ export const useAppStore = defineStore('app', () => {
   return {
     currentState,
     selectedFile,
+    selectedFiles,
     previewUrl,
     result,
     error,
     skuCount,
     systemStatus,
     currentPage,
-    user,
-    isLoggedIn,
+    batchTaskIds,
+    batchTasks,
+    batchResults,
+    currentBatchIndex,
+    currentMode,
     isIdle,
     isUploaded,
     isProcessing,
@@ -131,15 +157,18 @@ export const useAppStore = defineStore('app', () => {
     hasError,
     isSystemInit,
     setStatus,
-    setUser,
     setPage,
-    logout,
     uploadImage,
+    addFiles,
+    removeFileAt,
+    clearFiles,
     startProcessing,
     completeSuccess,
     completeError,
     reset,
     removeFile,
+    setBatchTaskIds,
+    setBatchTasks,
     fetchSystemHealth
   }
 })
