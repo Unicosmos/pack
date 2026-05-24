@@ -420,26 +420,27 @@ const getMatchResultForTask = (task, boxId) => {
 }
 
 const detectTask = async (task) => {
-  submitting.value = true
-  try {
-    const res = await taskApi.detect(task.id)
-    if (res) {
-      ElMessage.success('检测成功')
-      await loadTasks()
-      await loadStats()
-      // 如果当前任务正在展开，刷新展开的内容
-      if (expandedTaskId.value === task.id) {
-        expandedTaskId.value = null
-        await new Promise(resolve => setTimeout(resolve, 100))
-        expandedTaskId.value = task.id
+    submitting.value = true
+    try {
+      const res = await taskApi.detect(task.id)
+      if (res && res.status === 'detected') {
+        ElMessage.success('检测成功')
+        await loadTasks()
+        await loadStats()
+        if (expandedTaskId.value === task.id) {
+          expandedTaskId.value = null
+          await new Promise(resolve => setTimeout(resolve, 100))
+          expandedTaskId.value = task.id
+        }
+      } else {
+        ElMessage.error('检测未成功执行')
       }
+    } catch (e) {
+      ElMessage.error('检测失败: ' + (e.detail || e.message || '未知错误'))
+    } finally {
+      submitting.value = false
     }
-  } catch (e) {
-    ElMessage.error('检测失败: ' + (e.detail || e.message || '未知错误'))
-  } finally {
-    submitting.value = false
   }
-}
 
 const openReview = async (task) => {
   try {

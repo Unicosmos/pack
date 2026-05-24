@@ -200,8 +200,10 @@ async def detect_task(
     db: Session = Depends(get_db)
 ):
     """对任务图片执行YOLO检测和SKU匹配"""
-    from main import detector, matcher
-    from schemas.schemas import BoxInfo, MatchInfo, TopLabel
+    from main import detect_match_service
+
+    detector = detect_match_service.detection_service.detector
+    matcher = detect_match_service.match_service.matcher
 
     if detector is None or not detector.is_ready():
         raise HTTPException(status_code=503, detail="检测模型未加载")
@@ -210,9 +212,6 @@ async def detect_task(
 
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
-
-    if task.status == "completed":
-        return task_to_response(task)
 
     try:
         if task.status != "pending":
@@ -615,8 +614,11 @@ async def match_task(
     db: Session = Depends(get_db)
 ):
     """对审核后的检测结果进行SKU匹配"""
-    from main import matcher, detector
+    from main import detect_match_service
     from core.utils.image_utils import process_uploaded_image, crop_box, resize_with_padding
+
+    matcher = detect_match_service.match_service.matcher
+    detector = detect_match_service.detection_service.detector
 
     if matcher is None or not matcher.is_ready():
         raise HTTPException(status_code=503, detail="SKU匹配器未加载")
@@ -809,9 +811,12 @@ async def get_task_stats(
 
 def process_batch_task(task_ids: List[int]):
     """后台处理批量任务（检测并匹配）"""
-    from main import detector, matcher
+    from main import detect_match_service
     from database import SessionLocal
     from models.match_result import MatchResult
+
+    detector = detect_match_service.detection_service.detector
+    matcher = detect_match_service.match_service.matcher
 
     if detector is None or not detector.is_ready():
         return

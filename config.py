@@ -81,7 +81,7 @@ class Config:
         data_dir = base_dir / "data"
         models_dir = data_dir / "models"
         sku_library_dir = data_dir / "sku_library"
-        sku_output_dir = base_dir / "SKU" / "sku_output"
+        training_sku_dir = base_dir / "training" / "sku"
 
         sku_model_path = models_dir / "sku" / "vits16_dino_finetuned.pth"
         if not sku_model_path.exists():

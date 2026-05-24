@@ -8,9 +8,11 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 from contextlib import asynccontextmanager
+import uuid
+from datetime import datetime
 
 from PIL import Image
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -45,8 +47,9 @@ from core.utils.image_utils import (
 )
 from core.utils.logger import logger
 
-from core.detector import BoxDetector
-from core.matcher import SKUMatcher
+# 引入服务层
+from services.detect_match_service import DetectMatchService
+from repositories.task_repository import TaskRepository
 
 from database import init_db, SessionLocal, get_db
 from models.task import Task
@@ -56,55 +59,20 @@ from api.sku_review import router as sku_review_router
 from api.logs import router as logs_router
 
 
-detector: Optional[BoxDetector] = None
-matcher: Optional[SKUMatcher] = None
+# 服务实例
+detect_match_service = DetectMatchService()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global detector, matcher
-
     logger.info("=" * 50)
     logger.info("Pack Web API 启动中...")
 
     logger.info("初始化数据库...")
     init_db()
 
-    cfg = config
-
-    if cfg.paths.MODEL_PATH.exists():
-        logger.info(f"加载检测模型: {cfg.paths.MODEL_PATH}")
-        try:
-            detector = BoxDetector(str(cfg.paths.MODEL_PATH), conf_threshold=cfg.model.CONF_THRESHOLD)
-            if detector.is_ready():
-                logger.info("  BoxDetector加载成功")
-            else:
-                logger.error("  BoxDetector加载失败: 检测器未就绪")
-                detector = None
-        except Exception as e:
-            logger.error(f"  BoxDetector加载失败: {e}")
-            detector = None
-    else:
-        logger.error(f"  错误: 模型文件不存在: {cfg.paths.MODEL_PATH}")
-
-    if cfg.paths.SKU_DIR.exists():
-        logger.info(f"加载SKU库: {cfg.paths.SKU_DIR}")
-        try:
-            matcher = SKUMatcher(
-                str(cfg.paths.SKU_DIR),
-                match_threshold=cfg.match.MATCH_THRESHOLD,
-                ratio_threshold=cfg.match.RATIO_THRESHOLD,
-                sku_model_path=str(cfg.paths.SKU_MODEL_PATH) if cfg.paths.SKU_MODEL_PATH else None
-            )
-            if matcher.is_ready():
-                logger.info("  SKUMatcher加载成功")
-            else:
-                logger.warning("  SKUMatcher未就绪（可能缺少特征文件）")
-        except Exception as e:
-            logger.error(f"  SKUMatcher加载失败: {e}")
-            matcher = None
-    else:
-        logger.info("  SKU库目录不存在，匹配功能将不可用")
+    logger.info("初始化检测匹配服务...")
+    detect_match_service.initialize()
 
     logger.info("=" * 50)
 
@@ -141,20 +109,15 @@ static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# 挂载 SKU 审核用到的文件夹 - 挂载整个 SKU 目录（使用不冲突的路径）
-sku_root = Path("d:/A_pack/pack/SKU")
+# 挂载 SKU 审核用到的文件夹 - 挂载整个训练 SKU 目录（使用不冲突的路径）
+sku_root = Path(__file__).parent.parent.parent / "training" / "sku"
 if sku_root.exists():
     app.mount("/sku-static", StaticFiles(directory=str(sku_root)), name="sku_root")
 
 
 def get_sku_count() -> int:
     """获取SKU数量"""
-    if matcher and matcher.is_ready():
-        sku_ids = set()
-        for item in matcher.sku_info:
-            sku_ids.add(item.get('sku_id', ''))
-        return len(sku_ids)
-    return 0
+    return detect_match_service.get_sku_count()
 
 
 def serialize_value(value):
@@ -217,19 +180,16 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check():
     """健康检查接口"""
-    detector_ready = detector is not None and detector.is_ready()
-    matcher_ready = matcher is not None and matcher.is_ready()
+    detector_ready = detect_match_service.is_detection_ready()
+    matcher_ready = detect_match_service.is_match_ready()
     sku_count_val = get_sku_count()
 
-    logger.info(f"Health check - detector: {detector}, detector_ready: {detector_ready}, matcher: {matcher}, matcher_ready: {matcher_ready}")
+    logger.info(f"Health check - detector_ready: {detector_ready}, matcher_ready: {matcher_ready}")
 
-    if detector is None:
+    if not detector_ready:
         status = "init"
         message = "系统初始化中，检测模型未加载"
-    elif not detector_ready:
-        status = "error"
-        message = "检测模型加载失败"
-    elif matcher is None or not matcher_ready:
+    elif not matcher_ready:
         status = "ready"
         message = "检测就绪，SKU匹配功能未配置"
     else:
@@ -253,15 +213,16 @@ async def detect_image(
     conf_threshold: float = 0.5
 ):
     """仅检测接口（不进行SKU匹配）"""
-    logger.info(f"detect_image called - detector: {detector}, is_ready: {detector.is_ready() if detector else None}")
-    if detector is None or not detector.is_ready():
+    logger.info(f"detect_image called - detector_ready: {detect_match_service.is_detection_ready()}")
+    if not detect_match_service.is_detection_ready():
         raise HTTPException(status_code=503, detail="检测模型未加载，请检查模型文件是否存在")
 
     try:
         contents = await file.read()
         image = process_uploaded_image(contents)
-
-        result = detector.detect_single_image(image, return_cropped=True, return_plot=True)
+        result = detect_match_service.detection_service.detector.detect_single_image(
+            image, return_cropped=True, return_plot=True
+        )
 
         boxes = result.get("detections", [])
         plot_image = result.get("plot_image", None)
@@ -319,7 +280,7 @@ async def match_image(
     ratio_threshold: float = 1.2
 ):
     """仅SKU匹配接口"""
-    if matcher is None or not matcher.is_ready():
+    if not detect_match_service.is_match_ready():
         raise HTTPException(status_code=503, detail="SKU匹配器未加载，请检查SKU库是否存在")
 
     try:
@@ -327,11 +288,21 @@ async def match_image(
         image = process_uploaded_image(contents)
 
         resized = resize_with_padding(image, target_size=config.model.INPUT_SIZE)
-        features = matcher.extract_feature(resized)
+        features = detect_match_service.match_service.matcher.extract_feature(resized)
+        result = detect_match_service.match_service.matcher.match_sku(
+            features, threshold=match_threshold, ratio_threshold=ratio_threshold
+        )
 
-        result = matcher.match_sku(features, threshold=match_threshold, ratio_threshold=ratio_threshold)
-
-        top5_labels = [TopLabel(label=t['label'], similarity=t['similarity'], image_path=t.get('image_path', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in result.top5_labels] if result.top5_labels else []
+        top5_labels = [
+            TopLabel(
+                label=t['label'], 
+                similarity=t['similarity'], 
+                image_path=t.get('image_path', ''), 
+                sku_id=t.get('sku_id', ''), 
+                sku_name=t.get('sku_name', '')
+            ) 
+            for t in result.top5_labels
+        ] if result.top5_labels else []
 
         return MatchResponse(
             success=True,
@@ -353,165 +324,31 @@ async def detect_and_match_image(
     match_threshold: float = 0.85
 ):
     """检测+匹配接口（主接口）"""
-    logger.info(f"detect_and_match_image called - detector: {detector}, is_ready: {detector.is_ready() if detector else None}")
-    if detector is None or not detector.is_ready():
+    logger.info(f"detect_and_match_image called - detector_ready: {detect_match_service.is_detection_ready()}")
+    if not detect_match_service.is_detection_ready():
         raise HTTPException(status_code=503, detail="检测模型未加载，请检查模型文件是否存在")
 
     try:
         contents = await file.read()
-        image = process_uploaded_image(contents)
-
-        result = detector.detect_single_image(image, return_cropped=True, return_plot=True)
-
-        boxes = result.get("detections", [])
-        plot_image = result.get("plot_image", None)
-
-        if not boxes:
-            return DetectAndMatchResponse(
-                success=True,
-                count=0,
-                matched_count=0,
-                low_conf_count=0,
-                unmatched_count=0,
-                boxes=[],
-                matches=[],
-                image_with_boxes=None,
-                sku_matcher_enabled=matcher is not None and matcher.is_ready()
-            )
-
-        boxes = filter_small_boxes(
-            boxes,
-            image.size,
-            min_area_ratio=config.model.MIN_AREA_RATIO,
-            min_pixel_area=config.model.MIN_PIXEL_AREA
+        result = detect_match_service.detect_and_match(
+            contents, 
+            file.filename,
+            conf_threshold=conf_threshold,
+            match_threshold=match_threshold
         )
 
-        match_results = []
-        sku_matcher_enabled = matcher is not None and matcher.is_ready()
-
-        if sku_matcher_enabled and boxes:
-            try:
-                features = []
-                for box in boxes:
-                    cropped = crop_box(image, box.get("bbox", []))
-                    if cropped:
-                        resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
-                        feat = matcher.extract_feature(resized)
-                        features.append(feat)
-                    else:
-                        features.append(None)
-
-                for feat in features:
-                    if feat is None:
-                        match_results.append(MatchResult(
-                            sku_id=None,
-                            similarity=0.0,
-                            ratio=None,
-                            status="unmatched",
-                            top5_labels=[]
-                        ))
-                    else:
-                        mr = matcher.match_sku(feat, threshold=match_threshold)
-                        match_results.append(mr)
-            except Exception as e:
-                print(f"匹配失败: {e}")
-                sku_matcher_enabled = False
-
-        if not sku_matcher_enabled:
-            match_results = [None] * len(boxes)
-
-        if plot_image:
-            result_image = plot_image
-        else:
-            result_image, _ = draw_detection_result(image, boxes, match_results)
-
-        img_base64 = image_to_base64(result_image)
-
-        crops_base64 = generate_crops_base64(image, boxes, target_size=config.model.INPUT_SIZE)
-
-        box_infos = [
-            BoxInfo(
-                bbox=b.get("bbox", []),
-                confidence=b.get("confidence", 0.0),
-                class_id=b.get("class_id", 0),
-                class_name=b.get("class_name", "box")
-            )
-            for b in boxes
-        ]
-
-        match_infos = []
-        matched_count = 0
-        low_conf_count = 0
-        unmatched_count = 0
-
-        for mr in match_results:
-            if mr is None:
-                match_infos.append(None)
-                unmatched_count += 1
-            else:
-                top5 = [TopLabel(label=t['label'], similarity=t['similarity'], image_path=t.get('image_path', ''), sku_id=t.get('sku_id', ''), sku_name=t.get('sku_name', '')) for t in mr.top5_labels] if mr.top5_labels else []
-                match_infos.append(MatchInfo(
-                    sku_id=mr.sku_id,
-                    similarity=mr.similarity,
-                    ratio=mr.ratio,
-                    status=mr.status,
-                    top5_labels=top5
-                ))
-                if mr.status == "matched":
-                    matched_count += 1
-                elif mr.status == "low_conf":
-                    low_conf_count += 1
-                else:
-                    unmatched_count += 1
-
-        db = SessionLocal()
-        try:
-            unique_id = str(uuid.uuid4())[:8]
-            filename = f"{unique_id}_{file.filename}"
-            upload_dir = config.paths.DATA_DIR / "uploads"
-            upload_dir.mkdir(exist_ok=True)
-            file_path = upload_dir / filename
-            
-            with open(file_path, "wb") as f:
-                f.write(contents)
-            
-            task = Task(
-                task_name=file.filename,
-                image_name=file.filename,
-                image_path=str(file_path),
-                status="detected",
-                result={
-                    "detections": {
-                        "boxes": [b.dict() for b in box_infos]
-                    },
-                    "matches": match_infos,
-                    "image_with_boxes": img_base64
-                },
-                box_count=len(boxes),
-                created_at=datetime.utcnow(),
-                completed_at=datetime.utcnow()
-            )
-            db.add(task)
-            db.commit()
-            db.refresh(task)
-            task_id = task.id
-        except Exception as e:
-            task_id = None
-        finally:
-            db.close()
-        
         return DetectAndMatchResponse(
             success=True,
-            count=len(boxes),
-            matched_count=matched_count,
-            low_conf_count=low_conf_count,
-            unmatched_count=unmatched_count,
-            boxes=box_infos,
-            crops=crops_base64,
-            image_with_boxes=img_base64,
-            task_id=task_id,
-            matches=match_infos,
-            sku_matcher_enabled=sku_matcher_enabled
+            count=result["count"],
+            matched_count=result["matched_count"],
+            low_conf_count=result["low_conf_count"],
+            unmatched_count=result["unmatched_count"],
+            boxes=result["boxes"],
+            crops=result["crops"],
+            image_with_boxes=result["image_with_boxes"],
+            task_id=result["task_id"],
+            matches=result["matches"],
+            sku_matcher_enabled=result["sku_matcher_enabled"]
         )
 
     except Exception as e:
@@ -521,29 +358,18 @@ async def detect_and_match_image(
 @app.get("/api/skus", response_model=SKUListResponse)
 async def get_sku_list():
     """获取SKU列表"""
-    if matcher is None or not matcher.is_ready():
+    if not detect_match_service.is_match_ready():
         return SKUListResponse(success=True, skus=[], count=0)
 
-    sku_map = {}
-    for item in matcher.sku_info:
-        sku_id = item.get('sku_id', '')
-        if sku_id:
-            if sku_id not in sku_map:
-                sku_map[sku_id] = {
-                    'sku_id': sku_id,
-                    'sku_name': item.get('sku_name', sku_id),
-                    'labels': []
-                }
-            sku_map[sku_id]['labels'].append(item.get('label', ''))
-
+    sku_list = detect_match_service.get_sku_list()
     skus = [
         SKUInfo(
-            sku_id=sku_id,
-            sku_name=info['sku_name'],
-            label_count=len(info['labels']),
-            image_count=len(info['labels'])
+            sku_id=item['sku_id'],
+            sku_name=item['sku_name'],
+            label_count=item['label_count'],
+            image_count=item['image_count']
         )
-        for sku_id, info in sku_map.items()
+        for item in sku_list
     ]
 
     return SKUListResponse(success=True, skus=skus, count=len(skus))

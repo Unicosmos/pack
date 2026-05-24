@@ -268,7 +268,10 @@ class SKUMatcher:
         Returns:
             MatchResult列表
         """
-        if not self.is_ready() or not images:
+        if not images:
+            return []
+        
+        if not self.is_ready():
             return [MatchResult(
                 sku_id=None,
                 sku_name=None,
@@ -276,7 +279,7 @@ class SKUMatcher:
                 ratio=None,
                 status="unmatched",
                 top5_labels=[]
-            )] * len(images)
+            ) for _ in images]
 
         try:
             features = self.extractor.extract_batch(images, batch_size=8)
@@ -294,6 +297,6 @@ class SKUMatcher:
                 sku_name=None,
                 similarity=0.0,
                 ratio=None,
-                status="unmatched",
+                status="error",
                 top5_labels=[]
-            )] * len(images)
+            ) for _ in images]

@@ -2,8 +2,45 @@ import math
 import io
 import base64
 from typing import List, Tuple, Optional, Dict, Any
-from PIL import Image
+from PIL import Image, ImageOps
 import numpy as np
+
+
+def apply_exif_orientation(image: Image.Image) -> Image.Image:
+    """
+    应用EXIF方向信息旋转图片（完整8方向处理）
+
+    Args:
+        image: PIL Image对象
+
+    Returns:
+        应用了正确方向的图片
+    """
+    try:
+        exif = image.getexif()
+        if exif is None:
+            return image
+        
+        orientation = exif.get(0x0112)
+        if orientation is None:
+            return image
+        
+        orientation_map = {
+            2: lambda img: img.transpose(Image.FLIP_LEFT_RIGHT),
+            3: lambda img: img.rotate(180),
+            4: lambda img: img.rotate(180).transpose(Image.FLIP_LEFT_RIGHT),
+            5: lambda img: img.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT),
+            6: lambda img: img.rotate(-90, expand=True),
+            7: lambda img: img.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT),
+            8: lambda img: img.rotate(90, expand=True),
+        }
+        
+        if orientation in orientation_map:
+            return orientation_map[orientation](image)
+    except Exception:
+        pass
+    
+    return image
 
 
 def calculate_box_area(bbox: List[int]) -> int:
@@ -148,22 +185,7 @@ def base64_to_image(base64_str: str) -> Optional[Image.Image]:
 
 def process_uploaded_image(contents: bytes) -> Image.Image:
     image = Image.open(io.BytesIO(contents))
-    
-    # 处理EXIF方向信息
-    try:
-        exif = image._getexif()
-        if exif:
-            orientation_tag = 0x0112
-            if orientation_tag in exif:
-                orientation = exif[orientation_tag]
-                if orientation == 3:
-                    image = image.rotate(180, expand=True)
-                elif orientation == 6:
-                    image = image.rotate(270, expand=True)
-                elif orientation == 8:
-                    image = image.rotate(90, expand=True)
-    except (AttributeError, KeyError, IndexError):
-        pass
+    image = apply_exif_orientation(image)
     
     if image.mode != "RGB":
         image = image.convert("RGB")

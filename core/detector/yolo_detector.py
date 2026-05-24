@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 
 from core.utils.logger import logger
+from core.utils.image_utils import apply_exif_orientation
 
 try:
     import torch
@@ -18,41 +19,6 @@ try:
 except ImportError as e:
     HAS_YOLO = False
     logger.warning(f"ultralytics模块导入失败: {e}")
-
-
-def apply_exif_orientation(image: Image.Image) -> Image.Image:
-    """
-    应用EXIF方向信息旋转图片
-
-    Args:
-        image: PIL Image对象
-
-    Returns:
-        应用了正确方向的图片
-    """
-    try:
-        exif = image.getexif()
-        if exif is not None:
-            orientation = exif.get(0x0112)
-
-            if orientation == 2:
-                image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            elif orientation == 3:
-                image = image.rotate(180)
-            elif orientation == 4:
-                image = image.rotate(180).transpose(Image.FLIP_LEFT_RIGHT)
-            elif orientation == 5:
-                image = image.rotate(-90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
-            elif orientation == 6:
-                image = image.rotate(-90, expand=True)
-            elif orientation == 7:
-                image = image.rotate(90, expand=True).transpose(Image.FLIP_LEFT_RIGHT)
-            elif orientation == 8:
-                image = image.rotate(90, expand=True)
-    except Exception as e:
-        logger.debug(f"处理EXIF方向失败: {e}")
-
-    return image
 
 
 class BoxDetector:

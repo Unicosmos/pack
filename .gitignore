@@ -46,7 +46,7 @@ Thumbs.db
 # ================================================
 # 数据目录（图片和结果不提交）
 # ================================================
-data/
+/data/
 coco_style_oneclass/
 yolo_dataset/
 yolo_dataset_seg/
@@ -56,7 +56,7 @@ weights/
 # ================================================
 # SKU 临时目录
 # ================================================
-SKU/crops/
+sku/crops/
 SKU/source/
 SKU/features.csv
 SKU/sku_auged/
@@ -116,6 +116,14 @@ old/
 SKU/A_old_sku_library_finetuned/
 SKU/results_finetuned/
 SKU/results_pretrained/
+
+# ================================================
+# Training/SKU 临时目录（不提交）
+# ================================================
+training/sku/crops/
+training/sku/results_finetuned/
+training/sku/results_pretrained/
+training/sku/sku_output/
 
 # ================================================
 # SKU SVG （取消追踪）
