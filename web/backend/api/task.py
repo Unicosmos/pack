@@ -10,18 +10,21 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, BackgroundTasks
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
 
 from database import get_db
+from config import config
+from core.utils.image_utils import process_uploaded_image, filter_small_boxes, image_to_base64, crop_box, resize_with_padding
+from core.visualizer import draw_detection_result, draw_detection_result_from_db
 from models.task import Task
 from models.detection_box import DetectionBox
 from models.match_result import MatchResult
+from models.sku import SKU
 from models.operation_log import log_operation
 from schemas.schemas import (
     TaskResponse,
@@ -33,12 +36,9 @@ from schemas.schemas import (
 
 router = APIRouter(prefix="/api/tasks", tags=["任务管理"])
 
-executor = ThreadPoolExecutor(max_workers=4)
-
 
 def get_upload_dir() -> Path:
     """获取上传目录（从config获取）"""
-    from config import config
     upload_dir = config.paths.DATA_DIR / "uploads"
     upload_dir.mkdir(exist_ok=True)
     return upload_dir
@@ -65,12 +65,10 @@ def task_to_response(task: Task) -> TaskResponse:
         id=task.id,
         image_name=task.image_name,
         status=task.status,
-        detection_status=task.detection_status,
-        review_status=task.review_status,
         box_count=task.box_count,
         matched_count=task.matched_count,
         unmatched_count=task.unmatched_count,
-        result=task.result,
+        vis_image=task.vis_image,
         created_at=task.created_at.isoformat() if task.created_at else "",
         completed_at=task.completed_at.isoformat() if task.completed_at else None
     )
@@ -85,35 +83,37 @@ async def upload_image(
     if not file.filename.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp')):
         raise HTTPException(status_code=400, detail="只支持图片格式：jpg, png, bmp")
 
-    unique_id = str(uuid.uuid4())[:8]
-    # 安全处理文件名
     safe_filename = file.filename.replace('/', '_').replace('\\', '_').replace(':', '_')
-    filename = f"{unique_id}_{safe_filename}"
-    upload_dir = get_upload_dir()
-    file_path = upload_dir / filename
-    
-    # 确保父目录存在
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        with open(file_path, "wb") as f:
-            content = await file.read()
-            f.write(content)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"保存文件失败：{str(e)}")
 
     task = Task(
         task_name=file.filename,
         image_name=file.filename,
-        image_path=str(file_path),
+        image_path="",
         status="pending",
-        detection_status="pending",
-        review_status="pending",
         created_at=datetime.utcnow()
     )
     db.add(task)
     db.commit()
     db.refresh(task)
+
+    try:
+        task_dir = config.paths.TASKS_DIR / f"task_{task.id}"
+        original_dir = task_dir / "original"
+        original_dir.mkdir(parents=True, exist_ok=True)
+
+        content = await file.read()
+        image = process_uploaded_image(content)
+        
+        file_path = original_dir / safe_filename
+        image.save(file_path, format='JPEG', quality=95)
+
+        task.image_path = str(file_path)
+        db.commit()
+        db.refresh(task)
+    except Exception as e:
+        db.delete(task)
+        db.commit()
+        raise HTTPException(status_code=500, detail=f"保存文件失败：{str(e)}")
 
     return task_to_response(task)
 
@@ -174,18 +174,14 @@ async def update_task(
 
     if update_data.status is not None:
         task.status = update_data.status
-    if update_data.result is not None:
-        task.result = update_data.result
+    if update_data.vis_image is not None:
+        task.vis_image = update_data.vis_image
     if update_data.box_count is not None:
         task.box_count = update_data.box_count
     if update_data.matched_count is not None:
         task.matched_count = update_data.matched_count
     if update_data.unmatched_count is not None:
         task.unmatched_count = update_data.unmatched_count
-    if update_data.detection_status is not None:
-        task.detection_status = update_data.detection_status
-    if update_data.review_status is not None:
-        task.review_status = update_data.review_status
     if update_data.error_message is not None:
         task.error_message = update_data.error_message
 
@@ -205,10 +201,7 @@ async def detect_task(
 ):
     """对任务图片执行YOLO检测和SKU匹配"""
     from main import detector, matcher
-    from core.utils.image_utils import process_uploaded_image, filter_small_boxes, image_to_base64, crop_box, resize_with_padding
     from schemas.schemas import BoxInfo, MatchInfo, TopLabel
-    from core.visualizer import draw_detection_result
-    from config import config
 
     if detector is None or not detector.is_ready():
         raise HTTPException(status_code=503, detail="检测模型未加载")
@@ -218,10 +211,20 @@ async def detect_task(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    if task.detection_status == "detected" and task.review_status != "pending":
+    if task.status == "completed":
         return task_to_response(task)
 
     try:
+        if task.status != "pending":
+            existing_boxes = db.query(DetectionBox).filter(DetectionBox.task_id == task.id).all()
+            for box in existing_boxes:
+                db.query(MatchResult).filter(MatchResult.box_id == box.id).delete()
+                db.delete(box)
+            db.commit()
+
+            task.box_count = 0
+            task.matched_count = 0
+            task.unmatched_count = 0
         with open(task.image_path, 'rb') as f:
             image = process_uploaded_image(f.read())
 
@@ -231,8 +234,6 @@ async def detect_task(
         plot_image = result.get("plot_image", None)
 
         if not boxes:
-            task.detection_status = "detected"
-            task.review_status = "reviewed"
             task.status = "completed"
             task.box_count = 0
             task.matched_count = 0
@@ -253,46 +254,46 @@ async def detect_task(
 
         if sku_matcher_enabled and boxes:
             try:
-                features = []
-                for box in boxes:
+                images_to_match = []
+                valid_indices = []
+                
+                for idx, box in enumerate(boxes):
                     cropped = crop_box(image, box.get("bbox", []))
                     if cropped:
                         resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
-                        feat = matcher.extract_feature(resized)
-                        features.append(feat)
-                    else:
-                        features.append(None)
+                        images_to_match.append(resized)
+                        valid_indices.append(idx)
 
-                for feat in features:
-                    if feat is None:
-                        match_results.append({
-                            'sku_id': None,
-                            'similarity': 0.0,
-                            'ratio': None,
-                            'status': 'unmatched',
-                            'top5_labels': []
-                        })
-                    else:
-                        mr = matcher.match_sku(feat, threshold=match_threshold)
-                        match_results.append({
+                match_results = [None] * len(boxes)
+                
+                if images_to_match:
+                    batch_results = matcher.match_sku_batch(images_to_match, threshold=match_threshold)
+                    
+                    for i, mr in enumerate(batch_results):
+                        original_idx = valid_indices[i]
+                        match_results[original_idx] = {
                             'sku_id': mr.sku_id,
+                            'sku_name': mr.sku_name,
                             'similarity': mr.similarity,
                             'ratio': mr.ratio,
                             'status': mr.status,
                             'top5_labels': mr.top5_labels if mr.top5_labels else []
-                        })
+                        }
             except Exception as e:
                 print(f"匹配失败: {e}")
-                sku_matcher_enabled = False
-
-        if not sku_matcher_enabled:
+                match_results = [None] * len(boxes)
+        else:
             match_results = [None] * len(boxes)
+
+        crops_dir = config.paths.TASKS_DIR / f"task_{task.id}" / "crops"
+        crops_dir.mkdir(exist_ok=True)
 
         detected_boxes = []
         for idx, box in enumerate(boxes):
             x1, y1, x2, y2 = box.get("bbox", [])
             cropped = image.crop((x1, y1, x2, y2))
-            crop_base64 = image_to_base64(cropped)
+            crop_path = crops_dir / f"box_{idx}.jpg"
+            cropped.save(crop_path)
             mr = match_results[idx] if idx < len(match_results) else None
 
             detection_box = DetectionBox(
@@ -305,15 +306,34 @@ async def detect_task(
                 confidence=box.get("confidence", 0.0),
                 class_id=box.get("class_id", 0),
                 class_name=box.get("class_name", "box"),
-                path=None,
+                path=str(crop_path),
                 status="approved",
-                is_audited=False,
-                extra_data={
-                    "crop_base64": crop_base64,
-                    "match_result": mr
-                }
+                is_audited=False
             )
             db.add(detection_box)
+            db.flush()
+
+            top5_data = []
+            if mr and mr.get('top5_labels'):
+                for label in mr['top5_labels']:
+                    top5_data.append({
+                        "sku_id": label.get("sku_id", ""),
+                        "name": label.get("sku_name", ""),
+                        "similarity": label.get("similarity", 0),
+                        "image_path": label.get("image_path", "")
+                    })
+
+            match_result = MatchResult(
+                box_id=detection_box.id,
+                task_id=task.id,
+                sku_id=mr.get('sku_id') if mr else None,
+                sku_name=mr.get('sku_name') if mr else None,
+                similarity=mr.get('similarity') if mr else None,
+                status=mr.get('status', 'unmatched') if mr else 'unmatched',
+                top1_sku_id=mr.get('sku_id') if mr else None,
+                top5_candidates=json.dumps(top5_data) if top5_data else None
+            )
+            db.add(match_result)
 
             detected_boxes.append({
                 "box_id": str(idx),
@@ -323,26 +343,30 @@ async def detect_task(
                 "class_name": box.get("class_name", "box"),
                 "status": "approved",
                 "is_audited": False,
-                "crop_base64": crop_base64,
-                "match_result": mr
+                "crop_path": str(crop_path)
             })
 
-        matched_count = sum(1 for mr in match_results if mr and mr.get('status') == 'matched')
-        unmatched_count = sum(1 for mr in match_results if mr is None or mr.get('status') == 'unmatched')
+        matched_count = sum(1 for mr in match_results if mr and mr.get('sku_id'))
+        unmatched_count = sum(1 for mr in match_results if mr is None or not mr.get('sku_id'))
 
-        task.result = {
-            "detections": {
-                "boxes": detected_boxes
-            },
-            "matches": match_results
-        }
         task.box_count = len(detected_boxes)
         task.matched_count = matched_count
         task.unmatched_count = unmatched_count
-        task.detection_status = "detected"
-        task.review_status = "pending"
         task.status = "detected"
         task.completed_at = datetime.utcnow()
+
+        task_dir = config.paths.TASKS_DIR / f"task_{task.id}"
+        task_dir.mkdir(exist_ok=True)
+        
+        try:
+            plot_image, _ = draw_detection_result(image, boxes, match_results)
+            
+            plot_path = task_dir / "detection_result.jpg"
+            plot_image.save(plot_path, format='JPEG')
+            
+            task.vis_image = str(plot_path)
+        except Exception as e:
+            print(f"生成可视化结果失败: {e}")
 
         db.commit()
         db.refresh(task)
@@ -361,7 +385,7 @@ async def get_task_image(
     task_id: int,
     db: Session = Depends(get_db)
 ):
-    """获取任务图片"""
+    """获取任务原图"""
     task = db.query(Task).filter(Task.id == task_id).first()
 
     if not task:
@@ -370,34 +394,90 @@ async def get_task_image(
     if not os.path.exists(task.image_path):
         raise HTTPException(status_code=404, detail="图片不存在")
 
-    from fastapi.responses import FileResponse
     return FileResponse(task.image_path)
+
+
+@router.get("/{task_id}/detection-image")
+async def get_task_detection_image(
+    task_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取任务检测结果可视化图片"""
+    task = db.query(Task).filter(Task.id == task_id).first()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    if not task.vis_image or not os.path.exists(task.vis_image):
+        raise HTTPException(status_code=404, detail="检测结果图片不存在")
+
+    return FileResponse(task.vis_image)
 
 @router.get("/{task_id}/detections")
 async def get_task_detections(
     task_id: int,
     db: Session = Depends(get_db)
 ):
-    """获取任务的检测结果"""
+    """获取任务的检测结果（包含匹配数据）"""
     task = db.query(Task).filter(Task.id == task_id).first()
 
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    if not task.result or "detections" not in task.result:
+    detection_boxes = db.query(DetectionBox).filter(
+        DetectionBox.task_id == task_id
+    ).order_by(DetectionBox.box_index).all()
+
+    if not detection_boxes:
         return {
             "success": True,
             "task_id": task_id,
+            "status": task.status,
             "boxes": []
         }
+
+    box_ids = [box.id for box in detection_boxes]
+    match_results = db.query(MatchResult).filter(
+        MatchResult.box_id.in_(box_ids)
+    ).all()
+    
+    match_map = {mr.box_id: mr for mr in match_results}
+
+    boxes = []
+    for db_box in detection_boxes:
+        box_data = {
+            "box_id": f"box_{db_box.box_index}",
+            "bbox": [db_box.bbox_x1, db_box.bbox_y1, db_box.bbox_x2, db_box.bbox_y2],
+            "confidence": db_box.confidence,
+            "class_id": db_box.class_id,
+            "class_name": db_box.class_name,
+            "status": db_box.status,
+            "is_audited": db_box.is_audited,
+            "crop_path": db_box.path,
+            "custom_sku": db_box.custom_sku
+        }
+
+        mr = match_map.get(db_box.id)
+        if mr:
+            box_data["match_result"] = {
+                "sku_id": mr.sku_id,
+                "sku_name": mr.sku_name,
+                "similarity": mr.similarity,
+                "status": mr.status,
+                "top1_sku_id": mr.top1_sku_id,
+                "top5_labels": json.loads(mr.top5_candidates) if mr.top5_candidates else []
+            }
+
+        boxes.append(box_data)
 
     return {
         "success": True,
         "task_id": task_id,
-        "detection_status": task.detection_status,
-        "review_status": task.review_status,
-        "boxes": task.result.get("detections", {}).get("boxes", []),
-        "image_with_boxes": task.result.get("image_with_boxes")
+        "status": task.status,
+        "box_count": task.box_count,
+        "matched_count": task.matched_count,
+        "unmatched_count": task.unmatched_count,
+        "boxes": boxes
     }
 
 
@@ -413,19 +493,18 @@ async def review_task_detections(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    if task.detection_status != "detected":
-        raise HTTPException(status_code=400, detail="任务尚未完成检测")
+    if task.status not in ["detected", "completed"]:
+        raise HTTPException(status_code=400, detail="任务状态不允许审核")
 
     try:
-        approved_count = 0
-        rejected_count = 0
-        deleted_count = 0
-
         detection_boxes = db.query(DetectionBox).filter(
             DetectionBox.task_id == task_id
         ).order_by(DetectionBox.box_index).all()
 
-        # 创建box_id到审核数据的映射
+        approved_count = 0
+        rejected_count = 0
+        deleted_count = 0
+
         review_box_map = {box.get("box_id"): box for box in review_data.boxes}
 
         for idx, db_box in enumerate(detection_boxes):
@@ -438,18 +517,7 @@ async def review_task_detections(
 
                 # 保存自定义SKU
                 if "custom_sku" in review_box:
-                    db_box.extra_data = db_box.extra_data or {}
-                    db_box.extra_data["custom_sku"] = review_box["custom_sku"]
-
-                if old_status != new_status:
-                    log_operation(
-                        db=db,
-                        entity_type="box",
-                        entity_id=db_box.id,
-                        action="review",
-                        old_value={"status": old_status},
-                        new_value={"status": new_status}
-                    )
+                    db_box.custom_sku = review_box["custom_sku"]
 
                 db_box.status = new_status
                 db_box.is_audited = True
@@ -459,25 +527,70 @@ async def review_task_detections(
                     approved_count += 1
                 elif new_status == "rejected":
                     rejected_count += 1
-                elif new_status == "deleted":
-                    deleted_count += 1
+            else:
+                deleted_count += 1
+                db.query(MatchResult).filter(MatchResult.box_id == db_box.id).delete(synchronize_session=False)
+                db.delete(db_box)
 
-        # 更新task.result中的boxes，确保box_id格式统一
-        if "detections" not in task.result:
-            task.result["detections"] = {}
-        
-        # 保存完整的审核数据，包括自定义SKU
-        task.result["detections"]["boxes"] = review_data.boxes
-        task.review_status = "reviewed"
         task.box_count = approved_count
+
+        detection_boxes = db.query(DetectionBox).filter(
+            DetectionBox.task_id == task_id
+        ).order_by(DetectionBox.box_index).all()
+
+        matched_count = 0
+        unmatched_count = 0
+        
+        for db_box in detection_boxes:
+            if db_box.status == "approved":
+                mr = db.query(MatchResult).filter(
+                    MatchResult.box_id == db_box.id
+                ).first()
+                
+                has_custom_sku = db_box.custom_sku
+                
+                if has_custom_sku:
+                    sku = db.query(SKU).filter(SKU.sku_id == has_custom_sku).first()
+                    sku_name = sku.sku_name if sku else None
+                    
+                    if mr:
+                        mr.sku_id = has_custom_sku
+                        mr.sku_name = sku_name
+                        mr.status = "matched"
+                        mr.is_manual_override = True
+                        mr.override_at = datetime.utcnow()
+                        db.add(mr)
+                    else:
+                        mr = MatchResult(
+                            box_id=db_box.id,
+                            task_id=db_box.task_id,
+                            sku_id=has_custom_sku,
+                            sku_name=sku_name,
+                            similarity=1.0,
+                            status="matched",
+                            top1_sku_id=has_custom_sku,
+                            is_manual_override=True,
+                            override_at=datetime.utcnow()
+                        )
+                        db.add(mr)
+                    matched_count += 1
+                elif mr and mr.sku_id:
+                    matched_count += 1
+                else:
+                    unmatched_count += 1
+        
+        task.matched_count = matched_count
+        task.unmatched_count = unmatched_count
+        task.status = "completed"
+        task.completed_at = datetime.utcnow()
 
         log_operation(
             db=db,
             entity_type="task",
             entity_id=task_id,
             action="review",
-            old_value={"review_status": "pending"},
-            new_value={"review_status": "reviewed", "approved": approved_count, "rejected": rejected_count, "deleted": deleted_count}
+            old_value={"status": "detected"},
+            new_value={"status": "completed", "approved": approved_count, "rejected": rejected_count, "deleted": deleted_count}
         )
 
         db.commit()
@@ -513,8 +626,8 @@ async def match_task(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    if task.review_status != "reviewed":
-        raise HTTPException(status_code=400, detail="任务尚未完成审核")
+    if task.status not in ["detected", "completed"]:
+        raise HTTPException(status_code=400, detail="任务状态不允许审核")
 
     try:
         with open(task.image_path, 'rb') as f:
@@ -536,26 +649,32 @@ async def match_task(
             if not cropped:
                 match_result = MatchResult(
                     box_id=db_box.id,
+                    task_id=db_box.task_id,
                     sku_id=None,
                     similarity=None,
                     status="unmatched",
                     top1_sku_id=None
                 )
                 db.add(match_result)
-                matches[f"box_{db_box.box_index}"] = {"status": "unmatched", "sku_id": None, "similarity": None}
+                matches[f"box_{db_box.box_index}"] = {
+                    "status": "unmatched",
+                    "sku_id": None,
+                    "similarity": None,
+                    "top5_labels": []
+                }
                 unmatched_count += 1
                 continue
 
             # 检查是否有自定义SKU
-            custom_sku = None
-            if db_box.extra_data and db_box.extra_data.get("custom_sku"):
-                custom_sku = db_box.extra_data["custom_sku"]
+            custom_sku = db_box.custom_sku
 
             if custom_sku:
                 # 如果有自定义SKU，直接使用
                 match_result = MatchResult(
                     box_id=db_box.id,
+                    task_id=db_box.task_id,
                     sku_id=custom_sku,
+                    sku_name=None,
                     similarity=1.0,
                     status="matched",
                     top1_sku_id=custom_sku,
@@ -566,7 +685,8 @@ async def match_task(
                 matches[f"box_{db_box.box_index}"] = {
                     "sku_id": custom_sku,
                     "similarity": 1.0,
-                    "status": "matched"
+                    "status": "matched",
+                    "top5_labels": []
                 }
                 matched_count += 1
             else:
@@ -580,14 +700,16 @@ async def match_task(
                     for label in result.top5_labels:
                         top5_data.append({
                             "sku_id": label.get("sku_id", ""),
-                            "label": label.get("label", ""),
+                            "name": label.get("label", ""),
                             "similarity": label.get("similarity", 0),
                             "image_path": label.get("image_path", "")
                         })
 
                 match_result = MatchResult(
                     box_id=db_box.id,
+                    task_id=db_box.task_id,
                     sku_id=result.sku_id,
+                    sku_name=result.sku_name,
                     similarity=result.similarity,
                     status=result.status,
                     top1_sku_id=result.sku_id,
@@ -598,7 +720,8 @@ async def match_task(
                 matches[f"box_{db_box.box_index}"] = {
                     "sku_id": result.sku_id,
                     "similarity": result.similarity,
-                    "status": result.status
+                    "status": result.status,
+                    "top5_labels": top5_data
                 }
 
                 if result.status == "matched":
@@ -606,10 +729,8 @@ async def match_task(
                 else:
                     unmatched_count += 1
 
-        task.result["matches"] = matches
         task.matched_count = matched_count
         task.unmatched_count = unmatched_count
-        task.review_status = "matched"
         task.status = "completed"
         task.completed_at = datetime.utcnow()
 
@@ -618,8 +739,8 @@ async def match_task(
             entity_type="task",
             entity_id=task_id,
             action="match",
-            old_value={"review_status": "reviewed"},
-            new_value={"review_status": "matched", "matched": matched_count, "unmatched": unmatched_count}
+            old_value={"status": "detected"},
+            new_value={"status": "completed", "matched": matched_count, "unmatched": unmatched_count}
         )
 
         db.commit()
@@ -645,8 +766,16 @@ async def delete_task(
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
+    db.query(MatchResult).filter(MatchResult.task_id == task_id).delete(synchronize_session=False)
+    db.query(DetectionBox).filter(DetectionBox.task_id == task_id).delete()
+
     if os.path.exists(task.image_path):
         os.remove(task.image_path)
+
+    task_dir = config.paths.TASKS_DIR / f"task_{task_id}"
+    if task_dir.exists():
+        import shutil
+        shutil.rmtree(task_dir)
 
     db.delete(task)
     db.commit()
@@ -662,8 +791,7 @@ async def get_task_stats(
     total = db.query(Task).count()
     completed = db.query(Task).filter(Task.status == "completed").count()
     pending = db.query(Task).filter(Task.status == "pending").count()
-    detected = db.query(Task).filter(Task.detection_status == "detected").count()
-    reviewed = db.query(Task).filter(Task.review_status == "reviewed").count()
+    detected = db.query(Task).filter(Task.status == "detected").count()
     failed = db.query(Task).filter(Task.status == "failed").count()
 
     total_detections = db.query(Task).with_entities(func.sum(Task.box_count)).scalar() or 0
@@ -674,18 +802,16 @@ async def get_task_stats(
         "completed": completed,
         "pending": pending,
         "detected": detected,
-        "reviewed": reviewed,
         "failed": failed,
         "total_detections": total_detections
     }
 
 
 def process_batch_task(task_ids: List[int]):
-    """后台处理批量任务（仅检测，不匹配）"""
-    from main import detector
+    """后台处理批量任务（检测并匹配）"""
+    from main import detector, matcher
     from database import SessionLocal
-    from core.utils.image_utils import process_uploaded_image, filter_small_boxes, image_to_base64
-    from config import config
+    from models.match_result import MatchResult
 
     if detector is None or not detector.is_ready():
         return
@@ -696,7 +822,7 @@ def process_batch_task(task_ids: List[int]):
             try:
                 task = db.query(Task).filter(Task.id == task_id).first()
 
-                if not task or task.detection_status == "detected":
+                if not task or task.status == "detected":
                     continue
 
                 with open(task.image_path, 'rb') as f:
@@ -713,10 +839,49 @@ def process_batch_task(task_ids: List[int]):
                 )
 
                 detected_boxes = []
+                match_results = []
+                sku_matcher_enabled = matcher is not None and matcher.is_ready()
+
+                if sku_matcher_enabled and boxes:
+                    features = []
+                    for box in boxes:
+                        cropped = crop_box(image, box.get("bbox", []))
+                        if cropped:
+                            resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
+                            feat = matcher.extract_feature(resized)
+                            features.append(feat)
+                        else:
+                            features.append(None)
+
+                    for feat in features:
+                        if feat is None:
+                            match_results.append({
+                                'sku_id': None,
+                                'sku_name': None,
+                                'similarity': 0.0,
+                                'status': 'unmatched',
+                                'top5_labels': []
+                            })
+                        else:
+                            mr = matcher.match_sku(feat, threshold=0.85)
+                            match_results.append({
+                                'sku_id': mr.sku_id,
+                                'sku_name': mr.sku_name,
+                                'similarity': mr.similarity,
+                                'status': mr.status,
+                                'top5_labels': mr.top5_labels if mr.top5_labels else []
+                            })
+                else:
+                    match_results = [None] * len(boxes)
+
                 for idx, box in enumerate(boxes):
                     x1, y1, x2, y2 = box.get("bbox", [])
                     cropped = image.crop((x1, y1, x2, y2))
-                    crop_base64 = image_to_base64(cropped)
+
+                    crops_dir = config.paths.TASKS_DIR / f"task_{task.id}" / "crops"
+                    crops_dir.mkdir(exist_ok=True)
+                    crop_path = crops_dir / f"box_{idx}.jpg"
+                    cropped.save(crop_path)
 
                     detection_box = DetectionBox(
                         task_id=task.id,
@@ -728,12 +893,36 @@ def process_batch_task(task_ids: List[int]):
                         confidence=box.get("confidence", 0.0),
                         class_id=box.get("class_id", 0),
                         class_name=box.get("class_name", "box"),
-                        path=None,
+                        path=str(crop_path),
                         status="approved",
-                        is_audited=False,
-                        extra_data={"crop_base64": crop_base64}
+                        is_audited=False
                     )
                     db.add(detection_box)
+                    db.flush()
+
+                    mr = match_results[idx] if idx < len(match_results) else None
+                    if mr:
+                        top5_data = []
+                        if mr.get('top5_labels'):
+                            for label in mr['top5_labels']:
+                                top5_data.append({
+                                    "sku_id": label.get("sku_id", ""),
+                                    "name": label.get("sku_name", ""),
+                                    "similarity": label.get("similarity", 0),
+                                    "image_path": label.get("image_path", "")
+                                })
+
+                        match_result = MatchResult(
+                            box_id=detection_box.id,
+                            task_id=task.id,
+                            sku_id=mr.get('sku_id'),
+                            sku_name=mr.get('sku_name'),
+                            similarity=mr.get('similarity'),
+                            status=mr.get('status', 'unmatched'),
+                            top1_sku_id=mr.get('sku_id'),
+                            top5_candidates=json.dumps(top5_data) if top5_data else None
+                        )
+                        db.add(match_result)
 
                     detected_boxes.append({
                         "box_id": str(idx),
@@ -743,16 +932,25 @@ def process_batch_task(task_ids: List[int]):
                         "class_name": box.get("class_name", "box"),
                         "status": "approved",
                         "is_audited": False,
-                        "crop_base64": crop_base64
+                        "crop_path": str(crop_path)
                     })
 
-                task.result = {
-                    "detections": {"boxes": detected_boxes},
-                    "matches": {},
-                    "image_with_boxes": result.get("plot_base64")
-                }
+                matched_count = sum(1 for mr in match_results if mr and mr.get('status') == 'matched')
+                unmatched_count = sum(1 for mr in match_results if mr is None or mr.get('status') != 'matched')
+
+                task_dir = config.paths.TASKS_DIR / f"task_{task.id}"
+                task_dir.mkdir(exist_ok=True)
+                
+                try:
+                    plot_image, _ = draw_detection_result(image, boxes, match_results)
+                    plot_path = task_dir / "detection_result.jpg"
+                    plot_image.save(plot_path, format='JPEG')
+                    task.vis_image = str(plot_path)
+                except Exception as e:
+                    print(f"生成可视化结果失败: {e}")
                 task.box_count = len(detected_boxes)
-                task.detection_status = "detected"
+                task.matched_count = matched_count
+                task.unmatched_count = unmatched_count
                 task.status = "detected"
                 task.completed_at = datetime.utcnow()
 
@@ -800,8 +998,6 @@ async def create_batch_task(
             image_name=file.filename,
             image_path=str(file_path),
             status="pending",
-            detection_status="pending",
-            review_status="pending",
             created_at=datetime.utcnow()
         )
         db.add(task)
@@ -835,7 +1031,7 @@ async def get_batch_task_status(
     completed_count = sum(1 for t in tasks if t.status == "completed")
     failed_count = sum(1 for t in tasks if t.status == "failed")
     pending_count = sum(1 for t in tasks if t.status == "pending")
-    detected_count = sum(1 for t in tasks if t.detection_status == "detected" and t.review_status != "reviewed")
+    detected_count = sum(1 for t in tasks if t.status == "detected")
 
     total_boxes = sum(t.box_count or 0 for t in tasks)
     total_matched = sum(t.matched_count or 0 for t in tasks)
@@ -858,8 +1054,6 @@ async def get_batch_task_status(
                 "id": t.id,
                 "image_name": t.image_name,
                 "status": t.status,
-                "detection_status": t.detection_status,
-                "review_status": t.review_status,
                 "box_count": t.box_count,
                 "matched_count": t.matched_count,
                 "unmatched_count": t.unmatched_count,
@@ -868,3 +1062,273 @@ async def get_batch_task_status(
             } for t in tasks
         ]
     }
+
+
+@router.get("/{task_id}/export")
+async def export_task_result(
+    task_id: int,
+    format: str = Query("json", enum=["json", "csv"]),
+    include_images: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    """导出任务检测和匹配结果"""
+    task = db.query(Task).filter(Task.id == task_id).first()
+
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    detection_boxes = db.query(DetectionBox).filter(
+        DetectionBox.task_id == task_id
+    ).order_by(DetectionBox.box_index).all()
+
+    box_ids = [box.id for box in detection_boxes]
+    match_results = db.query(MatchResult).filter(
+        MatchResult.box_id.in_(box_ids)
+    ).all()
+    
+    match_map = {mr.box_id: mr for mr in match_results}
+
+    export_data = {
+        "task_id": task.id,
+        "image_name": task.image_name,
+        "status": task.status,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        "boxes": []
+    }
+
+    seen_box_indices = set()
+    
+    for db_box in detection_boxes:
+        if db_box.box_index in seen_box_indices:
+            continue
+        seen_box_indices.add(db_box.box_index)
+
+        box_item = {
+            "box_id": f"box_{db_box.box_index}",
+            "bbox": [db_box.bbox_x1, db_box.bbox_y1, db_box.bbox_x2, db_box.bbox_y2],
+            "confidence": db_box.confidence,
+            "class_name": db_box.class_name,
+            "status": db_box.status,
+            "is_audited": db_box.is_audited
+        }
+
+        if include_images and db_box.path:
+            box_item["crop_path"] = db_box.path
+
+        mr = match_map.get(db_box.id)
+        if mr:
+            box_item["sku_id"] = mr.sku_id
+            box_item["similarity"] = mr.similarity
+            box_item["match_status"] = mr.status
+            box_item["top1_sku_id"] = mr.top1_sku_id
+
+        export_data["boxes"].append(box_item)
+
+    export_data["box_count"] = len(export_data["boxes"])
+    export_data["matched_count"] = sum(1 for box in export_data["boxes"] if box.get("match_status") == "matched")
+    export_data["unmatched_count"] = export_data["box_count"] - export_data["matched_count"]
+
+    if format == "json":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=export_data)
+    elif format == "csv":
+        import csv
+        from io import StringIO
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow([
+            "任务ID", "图片名称", "箱体编号", "检测置信度", "类别",
+            "SKU编码", "SKU商品名称", "相似度", "匹配状态",
+            "已审核", "人工修正", "修正时间", "坐标信息"
+        ])
+        
+        for idx, box in enumerate(export_data["boxes"], 1):
+            match_status_map = {
+                "matched": "已匹配",
+                "unmatched": "未匹配",
+                "low_conf": "低置信"
+            }
+            match_status = match_status_map.get(box.get("match_status", ""), box.get("match_status", ""))
+            
+            bbox_str = f"[{box['bbox'][0]}, {box['bbox'][1]}, {box['bbox'][2]}, {box['bbox'][3]}]"
+            
+            writer.writerow([
+                export_data["task_id"],
+                export_data["image_name"],
+                box["box_id"].replace("box_", "箱体"),
+                f"{box['confidence']:.4f}" if box.get("confidence") else "",
+                box.get("class_name", ""),
+                box.get("sku_id", ""),
+                box.get("sku_name", ""),
+                f"{box['similarity']:.4f}" if box.get("similarity") else "",
+                match_status,
+                "是" if box.get("is_audited") else "否",
+                "是" if box.get("is_manual_override") else "否",
+                box.get("override_at", "")[:19] if box.get("override_at") else "",
+                bbox_str
+            ])
+        
+        output.seek(0)
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=task_{task_id}_export.csv"}
+        )
+
+
+@router.post("/batch/export")
+async def export_batch_tasks(
+    task_ids: List[int],
+    format: str = Query("json", enum=["json", "csv"]),
+    include_images: bool = Query(False),
+    db: Session = Depends(get_db)
+):
+    """批量导出多个任务的检测和匹配结果"""
+    if not task_ids:
+        raise HTTPException(status_code=400, detail="请选择要导出的任务")
+
+    tasks = db.query(Task).filter(Task.id.in_(task_ids)).all()
+    
+    if len(tasks) != len(task_ids):
+        raise HTTPException(status_code=404, detail="部分任务不存在")
+
+    export_data = {
+        "tasks": [],
+        "total_tasks": len(tasks),
+        "exported_at": datetime.utcnow().isoformat()
+    }
+
+    for task in tasks:
+        detection_boxes = db.query(DetectionBox).filter(
+            DetectionBox.task_id == task.id
+        ).order_by(DetectionBox.box_index).all()
+
+        box_ids = [box.id for box in detection_boxes]
+        match_results = db.query(MatchResult).filter(
+            MatchResult.box_id.in_(box_ids)
+        ).all()
+        
+        match_map = {mr.box_id: mr for mr in match_results}
+
+        task_data = {
+            "task_id": task.id,
+            "image_name": task.image_name,
+            "status": task.status,
+            "image_path": task.image_path,
+            "vis_image": task.vis_image,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+            "box_count": 0,
+            "matched_count": 0,
+            "unmatched_count": 0,
+            "boxes": []
+        }
+
+        seen_box_indices = set()
+        
+        for db_box in detection_boxes:
+            if db_box.box_index in seen_box_indices:
+                continue
+            seen_box_indices.add(db_box.box_index)
+
+            box_item = {
+                "box_id": f"box_{db_box.box_index}",
+                "bbox": [db_box.bbox_x1, db_box.bbox_y1, db_box.bbox_x2, db_box.bbox_y2],
+                "confidence": db_box.confidence,
+                "class_name": db_box.class_name,
+                "status": db_box.status,
+                "is_audited": db_box.is_audited,
+                "path": db_box.path
+            }
+
+            if include_images and db_box.path:
+                try:
+                    with open(db_box.path, 'rb') as f:
+                        import base64
+                        box_item["crop_base64"] = base64.b64encode(f.read()).decode('utf-8')
+                except Exception:
+                    pass
+
+            mr = match_map.get(db_box.id)
+            if mr:
+                box_item["sku_id"] = mr.sku_id
+                box_item["sku_name"] = mr.sku_name
+                box_item["similarity"] = mr.similarity
+                box_item["match_status"] = mr.status
+                box_item["top1_sku_id"] = mr.top1_sku_id
+                box_item["is_manual_override"] = mr.is_manual_override
+                box_item["override_at"] = mr.override_at.isoformat() if mr.override_at else None
+
+            task_data["boxes"].append(box_item)
+
+        task_data["box_count"] = len(task_data["boxes"])
+        task_data["matched_count"] = sum(1 for box in task_data["boxes"] if box.get("match_status") == "matched")
+        task_data["unmatched_count"] = task_data["box_count"] - task_data["matched_count"]
+        
+        export_data["tasks"].append(task_data)
+
+    if format == "json":
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=export_data)
+    elif format == "csv":
+        import csv
+        from io import StringIO
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        writer.writerow([
+            "任务ID", "图片名称", "任务状态", "创建时间",
+            "箱体编号", "检测置信度(%)", "类别",
+            "SKU编码", "SKU商品名称", "相似度", "匹配状态",
+            "已审核", "人工修正", "修正时间", "坐标信息"
+        ])
+        
+        for task in export_data["tasks"]:
+            task_status_map = {
+                "pending": "进行中",
+                "detected": "已检测",
+                "completed": "已完成",
+                "failed": "失败"
+            }
+            task_status = task_status_map.get(task["status"], task["status"])
+            
+            for box in task["boxes"]:
+                match_status_map = {
+                    "matched": "已匹配",
+                    "unmatched": "未匹配",
+                    "low_conf": "低置信"
+                }
+                match_status = match_status_map.get(box.get("match_status", ""), box.get("match_status", ""))
+                
+                bbox_str = f"[{box['bbox'][0]}, {box['bbox'][1]}, {box['bbox'][2]}, {box['bbox'][3]}]"
+                
+                writer.writerow([
+                    task["task_id"],
+                    task["image_name"],
+                    task_status,
+                    task["created_at"][:19] if task["created_at"] else "",
+                    box["box_id"].replace("box_", "箱体"),
+                    f"{box['confidence']:.4f}" if box.get("confidence") else "",
+                    box.get("class_name", ""),
+                    box.get("sku_id", ""),
+                    box.get("sku_name", ""),
+                    f"{box['similarity']:.4f}" if box.get("similarity") else "",
+                    match_status,
+                    "是" if box.get("is_audited") else "否",
+                    "是" if box.get("is_manual_override") else "否",
+                    box.get("override_at", "")[:19] if box.get("override_at") else "",
+                    bbox_str
+                ])
+        
+        output.seek(0)
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=batch_export_{len(tasks)}_tasks.csv"}
+        )

@@ -25,6 +25,7 @@ except ImportError as e:
 @dataclass
 class MatchResult:
     sku_id: Optional[str]
+    sku_name: Optional[str]
     similarity: float
     ratio: Optional[float]
     status: str
@@ -107,8 +108,20 @@ class SKUMatcher:
             return
 
         try:
-            self.extractor = FeatureExtractor(model_path=self.sku_model_path, device='cpu')
-            logger.info("FeatureExtractor已初始化")
+            device = 'cpu'
+            if torch.cuda.is_available():
+                try:
+                    device = 'cuda'
+                    self.extractor = FeatureExtractor(model_path=self.sku_model_path, device=device)
+                    logger.info(f"FeatureExtractor已初始化, 设备: {device}")
+                except Exception as e:
+                    logger.warning(f"GPU初始化失败，降级到CPU: {e}")
+                    device = 'cpu'
+                    self.extractor = FeatureExtractor(model_path=self.sku_model_path, device=device)
+                    logger.info(f"FeatureExtractor已初始化, 设备: {device}")
+            else:
+                self.extractor = FeatureExtractor(model_path=self.sku_model_path, device=device)
+                logger.info(f"FeatureExtractor已初始化, 设备: {device}")
         except Exception as e:
             logger.error(f"初始化FeatureExtractor失败: {e}")
             return
@@ -173,6 +186,7 @@ class SKUMatcher:
         if len(top_labels) == 0:
             return MatchResult(
                 sku_id=None,
+                sku_name=None,
                 similarity=0.0,
                 ratio=None,
                 status="unmatched",
@@ -206,8 +220,12 @@ class SKUMatcher:
             status = "matched"
             sku_id = top1_sku
 
+        top1_info = top5_labels[0] if top5_labels else {}
+        sku_name = top1_info.get("sku_name") if sku_id else None
+
         return MatchResult(
             sku_id=sku_id,
+            sku_name=sku_name,
             similarity=top1_sim,
             ratio=float(ratio) if ratio != float('inf') else None,
             status=status,
@@ -238,3 +256,44 @@ class SKUMatcher:
         except Exception as e:
             logger.error(f"特征提取失败: {e}")
             return np.zeros(self.feature_dim)
+    
+    def match_sku_batch(self, images: List[Image.Image], threshold: Optional[float] = None) -> List[MatchResult]:
+        """
+        批量匹配SKU（优化性能）
+
+        Args:
+            images: PIL Image对象列表
+            threshold: 相似度阈值
+
+        Returns:
+            MatchResult列表
+        """
+        if not self.is_ready() or not images:
+            return [MatchResult(
+                sku_id=None,
+                sku_name=None,
+                similarity=0.0,
+                ratio=None,
+                status="unmatched",
+                top5_labels=[]
+            )] * len(images)
+
+        try:
+            features = self.extractor.extract_batch(images, batch_size=8)
+            
+            results = []
+            for feat in features:
+                mr = self.match_sku(feat, threshold=threshold)
+                results.append(mr)
+            
+            return results
+        except Exception as e:
+            logger.error(f"批量匹配失败: {e}")
+            return [MatchResult(
+                sku_id=None,
+                sku_name=None,
+                similarity=0.0,
+                ratio=None,
+                status="unmatched",
+                top5_labels=[]
+            )] * len(images)

@@ -15,8 +15,8 @@
 </template>
 
 <script setup>
-import BatchResultCard from './BatchResultCard.vue'
-import MatchResultCard from './MatchResultCard.vue'
+import BatchResultCard from '@task/BatchResultCard.vue'
+import MatchResultCard from '@task/match/MatchResultCard.vue'
 
 const props = defineProps({
   results: {

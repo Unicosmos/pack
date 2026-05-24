@@ -17,10 +17,7 @@ class Task(Base):
     image_path = Column(String(1000), nullable=False)
     status = Column(String(20), default="pending")
 
-    detection_status = Column(String(20), default="pending")
-    review_status = Column(String(20), default="pending")
-
-    result = Column(JSON, nullable=True)
+    vis_image = Column(String(1000), nullable=True)
     box_count = Column(Integer, default=0)
     matched_count = Column(Integer, default=0)
     unmatched_count = Column(Integer, default=0)

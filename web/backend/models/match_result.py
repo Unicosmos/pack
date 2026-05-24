@@ -13,8 +13,10 @@ class MatchResult(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     box_id = Column(Integer, ForeignKey("detection_boxes.id", ondelete="CASCADE"), nullable=False, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True)
 
     sku_id = Column(String(50), nullable=True)
+    sku_name = Column(String(200), nullable=True)
     similarity = Column(Float, nullable=True)
     status = Column(String(20), nullable=False)
 
@@ -35,6 +37,7 @@ class MatchResult(Base):
         return {
             "box_id": str(self.box_id),
             "sku_id": self.sku_id,
+            "sku_name": self.sku_name,
             "similarity": self.similarity,
             "status": self.status,
             "top1_sku_id": self.top1_sku_id,

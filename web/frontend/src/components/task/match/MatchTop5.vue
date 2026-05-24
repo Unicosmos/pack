@@ -32,7 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import SkuImage from './SkuImage.vue'
+import SkuImage from '@sku/SkuImage.vue'
 
 const props = defineProps({
   labels: {

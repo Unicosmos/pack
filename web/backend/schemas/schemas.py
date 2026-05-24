@@ -45,6 +45,7 @@ class TopLabel(BaseModel):
 
 class MatchInfo(BaseModel):
     sku_id: Optional[str] = Field(None, description="匹配的SKU编号")
+    sku_name: Optional[str] = Field(None, description="匹配的SKU名称")
     similarity: Optional[float] = Field(None, description="Top-1相似度")
     ratio: Optional[float] = Field(None, description="相似度比值")
     status: str = Field(..., description="匹配状态: matched/low_conf/unmatched")
@@ -113,12 +114,10 @@ class TaskResponse(BaseModel):
     id: int
     image_name: str
     status: str
-    detection_status: str
-    review_status: str
     box_count: int
     matched_count: int
     unmatched_count: int
-    result: Optional[Dict[str, Any]]
+    vis_image: Optional[str]
     created_at: str
     completed_at: Optional[str]
 
@@ -128,12 +127,10 @@ class TaskResponse(BaseModel):
 
 class TaskUpdate(BaseModel):
     status: Optional[str] = None
-    result: Optional[Dict[str, Any]] = None
+    vis_image: Optional[str] = None
     box_count: Optional[int] = None
     matched_count: Optional[int] = None
     unmatched_count: Optional[int] = None
-    detection_status: Optional[str] = None
-    review_status: Optional[str] = None
     error_message: Optional[str] = None
 
 

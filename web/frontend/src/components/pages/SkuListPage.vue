@@ -1,10 +1,10 @@
-﻿<template>
+<template>
   <div class="sku-list-page">
     <div class="header">
       <h1>📦 SKU管理</h1>
     </div>
 
-    <div class="main-content">
+    <div class="main-content" :class="{ expanded: selectedSku }">
       <div class="left-panel">
         <div class="panel-header">
           <div class="search-bar">
@@ -35,16 +35,16 @@
             <button 
               :class="['btn btn-sm', { active: viewMode === 'list' }]" 
               @click="viewMode = 'list'"
-            >📋 列表</button>
+            >📋</button>
             <button 
               :class="['btn btn-sm', { active: viewMode === 'gallery' }]" 
               @click="viewMode = 'gallery'"
-            >🖼️ 画廊</button>
+            >🖼️</button>
           </div>
           <div class="action-buttons">
-            <button class="btn btn-secondary" @click="showImportDialog = true">📥 导入</button>
-            <button class="btn btn-secondary" @click="handleExport">📤 导出</button>
-            <button class="btn btn-secondary" @click="handleSyncFromCsv">🔄 同步CSV</button>
+            <button class="btn btn-secondary btn-icon" title="导入" @click="showImportDialog = true">📥</button>
+            <button class="btn btn-secondary btn-icon" title="导出" @click="handleExport">📤</button>
+            <button class="btn btn-secondary btn-icon" title="同步CSV" @click="handleSyncFromCsv">🔄</button>
             <button class="btn btn-primary" @click="openCreateDialog">➕ 新增SKU</button>
           </div>
         </div>
@@ -166,68 +166,64 @@
           <button class="btn-close" @click="selectedSku = null">×</button>
         </div>
         
-        <div class="sku-detail">
-          <div class="detail-row">
-            <span class="label">分类</span>
-            <span class="value">{{ selectedSku.category || '-' }}</span>
+        <div class="detail-section">
+          <div class="section-title">基本信息</div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">分类</span>
+              <span class="value">{{ selectedSku.category || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">状态</span>
+              <span :class="['value', selectedSku.status]">
+                {{ selectedSku.status === 'active' ? '启用' : '禁用' }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="label">图片数量</span>
+              <span class="value">{{ selectedSku.image_count }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">创建时间</span>
+              <span class="value">{{ formatDate(selectedSku.created_at) }}</span>
+            </div>
           </div>
-          <div class="detail-row">
-            <span class="label">状态</span>
-            <span :class="['value', selectedSku.status]">
-              {{ selectedSku.status === 'active' ? '启用' : '禁用' }}
-            </span>
-          </div>
-          <div class="detail-row">
-            <span class="label">图片数量</span>
-            <span class="value">{{ selectedSku.image_count }}</span>
-          </div>
-          <div class="detail-row">
+          <div class="detail-row-full">
             <span class="label">标签</span>
-            <span class="value">{{ selectedSku.tags || '-' }}</span>
+            <div class="tag-list">
+              <span v-for="tag in (selectedSku.tags || '').split(',').filter(t => t.trim())" :key="tag" class="tag">{{ tag.trim() }}</span>
+              <span v-if="!selectedSku.tags || !selectedSku.tags.trim()" class="empty-tag">-</span>
+            </div>
           </div>
-          <div class="detail-row">
+          <div class="detail-row-full">
             <span class="label">描述</span>
-            <span class="value">{{ selectedSku.description || '-' }}</span>
-          </div>
-          <div class="detail-row">
-            <span class="label">创建时间</span>
-            <span class="value">{{ formatDate(selectedSku.created_at) }}</span>
+            <span class="value-full">{{ selectedSku.description || '-' }}</span>
           </div>
         </div>
 
-        <div class="image-viewer">
-          <div class="viewer-header">
-            <span>图片浏览</span>
+        <div class="image-section">
+          <div class="section-header">
+            <span class="section-title">图片管理</span>
             <button class="btn btn-sm btn-primary" @click="openUploadDialog">📤 上传图片</button>
           </div>
           
-          <div class="image-slider" v-if="currentSkuImages.length > 0">
-            <div class="slider-container">
-              <SkuImage 
-                :image-path="currentSkuImages[currentImageIndex]" 
-                width="100%"
-                height="100%"
-              />
-              <div class="slide-info">
-                <span>{{ currentSkuImages[currentImageIndex]?.filename }}</span>
-                <button class="btn btn-xs btn-danger" @click="deleteImage(currentImageIndex)">删除</button>
+          <div v-if="currentSkuImages.length > 0" class="image-viewer">
+            <div class="image-grid">
+              <div 
+                v-for="(img, idx) in currentSkuImages" 
+                :key="idx"
+                class="image-grid-item"
+                @click="openImageViewer(img.url, img.filename)"
+              >
+                <SkuImage :image-path="img" width="100%" height="100%" />
+                <div class="image-grid-name">{{ img.filename }}</div>
               </div>
             </div>
             
-            <div class="slider-controls">
-              <button class="btn btn-nav" @click="prevImage" :disabled="currentImageIndex <= 0">‹</button>
-              <div class="slider-dots">
-                <span 
-                  v-for="(_, idx) in currentSkuImages" 
-                  :key="idx"
-                  :class="['dot', { active: idx === currentImageIndex }]"
-                  @click="goToImage(idx)"
-                ></span>
-              </div>
-              <button class="btn btn-nav" @click="nextImage" :disabled="currentImageIndex >= currentSkuImages.length - 1">›</button>
+            <div class="image-stats">
+              <span>共 {{ currentSkuImages.length }} 张图片</span>
+              <span class="hint">点击图片查看大图</span>
             </div>
-            
-            <div class="image-counter">{{ currentImageIndex + 1 }} / {{ currentSkuImages.length }}</div>
           </div>
           
           <div v-else class="empty-images">
@@ -371,13 +367,21 @@
     </div>
 
     <div v-if="toast.show" :class="['toast', toast.type]">{{ toast.message }}</div>
+
+    <ImageViewer
+      :visible="showImageViewer"
+      :image-url="viewerImageUrl"
+      :image-name="viewerImageName"
+      @update:visible="showImageViewer = false"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { sku } from '../api/client'
-import SkuImage from './result/SkuImage.vue'
+import { sku } from '@api/client'
+import SkuImage from '@sku/SkuImage.vue'
+import ImageViewer from '@ui/ImageViewer.vue'
 
 const viewMode = ref('gallery')
 const skus = ref([])
@@ -399,6 +403,10 @@ const selectAll = ref(false)
 const selectedSku = ref(null)
 const currentSkuImages = ref([])
 const currentImageIndex = ref(0)
+
+const showImageViewer = ref(false)
+const viewerImageUrl = ref('')
+const viewerImageName = ref('')
 
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
@@ -782,6 +790,12 @@ const goToImage = (index) => {
   currentImageIndex.value = index
 }
 
+const openImageViewer = (imageUrl, imageName = '图片') => {
+  viewerImageUrl.value = imageUrl
+  viewerImageName.value = imageName
+  showImageViewer.value = true
+}
+
 watch(selectedSku, () => {
   currentImageIndex.value = 0
 })
@@ -796,13 +810,13 @@ onMounted(() => {
 <style scoped>
 .sku-list-page {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--color-bg-secondary);
 }
 
 .header {
-  background: linear-gradient(135deg, #4a69bd 0%, #6a89cc 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
   padding: 20px 30px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .header h1 {
@@ -818,30 +832,49 @@ onMounted(() => {
   padding: 20px;
   max-width: 1400px;
   margin: 0 auto;
+  transition: all 0.3s ease;
+}
+
+.main-content.expanded .left-panel {
+  flex: 1;
+  max-width: calc(33.33% - 10px);
+}
+
+.main-content.expanded .right-panel {
+  flex: 2;
+  width: auto;
+  max-width: calc(66.67% - 10px);
+}
+
+.main-content:not(.expanded) .left-panel {
+  flex: 1;
+}
+
+.main-content:not(.expanded) .right-panel {
+  width: 450px;
 }
 
 .left-panel {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 15px;
+  transition: all 0.3s ease;
 }
 
 .right-panel {
-  width: 400px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  transition: all 0.3s ease;
 }
 
 .right-panel-placeholder {
-  width: 400px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  width: 450px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -849,7 +882,7 @@ onMounted(() => {
 
 .panel-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -858,7 +891,7 @@ onMounted(() => {
 .panel-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .btn-close {
@@ -866,20 +899,20 @@ onMounted(() => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #999;
+  color: var(--color-text-tertiary);
   padding: 0;
   line-height: 1;
 }
 
-.btn-close:hover { color: #333; }
+.btn-close:hover { color: var(--color-text-primary); }
 
 .search-bar {
   display: flex;
   gap: 0;
-  background: white;
-  border-radius: 8px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 
 .search-input {
@@ -893,7 +926,7 @@ onMounted(() => {
 .btn-search {
   padding: 12px 16px;
   border: none;
-  background: #4a69bd;
+  background: var(--color-primary);
   color: white;
   cursor: pointer;
   font-size: 16px;
@@ -907,10 +940,11 @@ onMounted(() => {
 .filter-select {
   flex: 1;
   padding: 10px 12px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
-  background: white;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
 .actions-row {
@@ -921,8 +955,8 @@ onMounted(() => {
 
 .view-toggle {
   display: flex;
-  background: #f0f0f0;
-  border-radius: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -930,79 +964,35 @@ onMounted(() => {
   border-radius: 0;
   border: none;
   background: transparent;
+  color: var(--color-text-secondary);
 }
 
 .view-toggle .btn.active {
-  background: #4a69bd;
+  background: var(--color-primary);
   color: white;
 }
 
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
-.btn {
-  padding: 8px 14px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
+.btn-icon {
+  padding: 8px;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
-}
-
-.btn-xs {
-  padding: 4px 8px;
-  font-size: 11px;
-}
-
-.btn-primary {
-  background: #4a69bd;
-  color: white;
-}
-
-.btn-primary:hover { background: #3d5a9e; }
-.btn-primary:disabled { background: #a5a5a5; cursor: not-allowed; }
-
-.btn-secondary {
-  background: #e8e8e8;
-  color: #333;
-}
-
-.btn-secondary:hover { background: #d8d8d8; }
-
-.btn-danger {
-  background: #e74c3c;
-  color: white;
-}
-
-.btn-danger:hover { background: #c0392b; }
-
-.btn-nav {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #f0f0f0;
-  border: none;
-  font-size: 20px;
-  color: #666;
-}
-
-.btn-nav:hover:not(:disabled) { background: #e0e0e0; }
-.btn-nav:disabled { opacity: 0.4; }
 
 .stats-bar {
   display: flex;
-  background: white;
-  border-radius: 8px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
   padding: 15px 20px;
   gap: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-item {
@@ -1014,31 +1004,31 @@ onMounted(() => {
   display: block;
   font-size: 24px;
   font-weight: bold;
-  color: #4a69bd;
+  color: var(--color-primary);
 }
 
-.stat-item.active .stat-num { color: #27ae60; }
-.stat-item.inactive .stat-num { color: #95a5a6; }
-.stat-item.images .stat-num { color: #3498db; }
+.stat-item.active .stat-num { color: var(--color-success); }
+.stat-item.inactive .stat-num { color: var(--color-text-tertiary); }
+.stat-item.images .stat-num { color: var(--color-primary); }
 
 .stat-label {
   font-size: 12px;
-  color: #888;
+  color: var(--color-text-tertiary);
 }
 
 .sku-list-container {
   flex: 1;
-  background: white;
-  border-radius: 8px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
   overflow-y: auto;
 }
 
 .loading, .empty-state {
   text-align: center;
   padding: 40px 20px;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .empty-icon {
@@ -1055,34 +1045,34 @@ onMounted(() => {
 .data-table td {
   padding: 10px;
   text-align: left;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .data-table th {
-  background: #f8f9fa;
+  background: var(--color-bg-tertiary);
   font-weight: 600;
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
 .data-table td {
   font-size: 13px;
-  color: #555;
+  color: var(--color-text-primary);
   cursor: pointer;
 }
 
 .data-table tr:hover {
-  background: #f8f9fa;
+  background: var(--color-bg-tertiary);
 }
 
 .data-table tr.selected {
-  background: #e8f4fd;
+  background: rgba(102, 126, 234, 0.1);
 }
 
 .sku-id {
   font-family: monospace;
   font-weight: 600;
-  color: #4a69bd;
+  color: var(--color-primary);
 }
 
 .status-badge {
@@ -1093,13 +1083,13 @@ onMounted(() => {
 }
 
 .status-badge.active {
-  background: #e8f5e9;
-  color: #27ae60;
+  background: rgba(103, 194, 58, 0.1);
+  color: var(--color-success);
 }
 
 .status-badge.inactive {
-  background: #f5f5f5;
-  color: #95a5a6;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 .btn-icon {
@@ -1112,8 +1102,8 @@ onMounted(() => {
   transition: background 0.2s;
 }
 
-.btn-icon:hover { background: #f0f0f0; }
-.btn-icon.danger:hover { background: #ffe6e6; }
+.btn-icon:hover { background: var(--color-bg-tertiary); }
+.btn-icon.danger:hover { background: rgba(245, 108, 108, 0.1); }
 
 .gallery-view {
   display: grid;
@@ -1122,9 +1112,9 @@ onMounted(() => {
 }
 
 .gallery-card {
-  background: white;
+  background: var(--color-bg-primary);
   border: 2px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
@@ -1132,19 +1122,19 @@ onMounted(() => {
 }
 
 .gallery-card:hover {
-  border-color: #4a69bd;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
 }
 
 .gallery-card.selected {
-  border-color: #4a69bd;
-  background: #f8fafc;
+  border-color: var(--color-primary);
+  background: rgba(102, 126, 234, 0.05);
 }
 
 .gallery-image-box {
   height: 120px;
   overflow: hidden;
-  background: #f8f9fa;
+  background: var(--color-bg-tertiary);
   position: relative;
 }
 
@@ -1166,13 +1156,13 @@ onMounted(() => {
 .gallery-sku-id {
   font-family: monospace;
   font-weight: 600;
-  color: #4a69bd;
+  color: var(--color-primary);
   font-size: 13px;
 }
 
 .gallery-sku-name {
   font-size: 12px;
-  color: #333;
+  color: var(--color-text-primary);
   margin: 4px 0;
   white-space: nowrap;
   overflow: hidden;
@@ -1192,18 +1182,18 @@ onMounted(() => {
 }
 
 .status-tag.active {
-  background: #e8f5e9;
-  color: #27ae60;
+  background: rgba(103, 194, 58, 0.1);
+  color: var(--color-success);
 }
 
 .status-tag.inactive {
-  background: #f5f5f5;
-  color: #95a5a6;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 .image-count {
   font-size: 11px;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .gallery-actions {
@@ -1225,17 +1215,21 @@ onMounted(() => {
   backdrop-filter: blur(4px);
 }
 
+.dark .gallery-actions .btn-icon {
+  background: rgba(30, 30, 50, 0.9);
+}
+
 .pagination-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--color-border-light);
 }
 
 .selection-info {
-  color: #666;
+  color: var(--color-text-secondary);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -1247,133 +1241,191 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   font-size: 13px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .pagination button {
   padding: 5px 12px;
-  border: 1px solid #e0e0e0;
-  background: white;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
+  color: var(--color-text-primary);
 }
 
 .pagination button:hover:not(:disabled) {
-  background: #f5f5f5;
+  background: var(--color-bg-tertiary);
 }
 
 .pagination button:disabled {
   opacity: 0.5;
 }
 
-.sku-detail {
+.detail-section {
   padding: 15px 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
+  overflow-y: auto;
 }
 
-.detail-row {
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.detail-item {
+  background: var(--color-bg-tertiary);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.detail-item .label {
+  display: block;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.detail-item .value {
+  display: block;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.detail-item .value.active { color: var(--color-success); }
+.detail-item .value.inactive { color: var(--color-text-tertiary); }
+
+.detail-row-full {
+  margin-top: 12px;
+}
+
+.detail-row-full .label {
+  display: block;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  background: rgba(102, 126, 234, 0.1);
+  color: var(--color-primary);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.empty-tag {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.value-full {
+  display: block;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--color-bg-tertiary);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  min-height: 44px;
+}
+
+.image-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 15px 20px;
+  overflow-y: auto;
+}
+
+.section-header {
   display: flex;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dashed #f0f0f0;
+  align-items: center;
+  margin-bottom: 15px;
 }
 
-.detail-row:last-child {
+.section-header .section-title {
+  margin-bottom: 0;
+  padding-bottom: 0;
   border-bottom: none;
 }
-
-.detail-row .label {
-  color: #888;
-  font-size: 13px;
-}
-
-.detail-row .value {
-  color: #333;
-  font-size: 13px;
-}
-
-.detail-row .value.active { color: #27ae60; }
-.detail-row .value.inactive { color: #95a5a6; }
 
 .image-viewer {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 15px;
+  min-height: 0;
 }
 
-.viewer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  padding: 10px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  min-height: 200px;
 }
 
-.image-slider {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.slider-container {
-  flex: 1;
-  background: #f8f9fa;
-  border-radius: 8px;
+.image-grid-item {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   position: relative;
-  min-height: 300px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+  background: var(--color-bg-secondary);
 }
 
-.slide-info {
+.image-grid-item:hover {
+  border-color: var(--color-primary);
+  transform: scale(1.02);
+}
+
+.image-grid-name {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 6px 8px;
+  color: white;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-stats {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: white;
+  padding: 10px 0;
   font-size: 12px;
+  color: var(--color-text-tertiary);
 }
 
-.slider-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.slider-dots {
-  display: flex;
-  gap: 8px;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ddd;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.dot.active {
-  background: #4a69bd;
-  transform: scale(1.2);
-}
-
-.image-counter {
-  text-align: center;
-  font-size: 12px;
-  color: #888;
-  margin-top: 10px;
+.image-stats .hint {
+  color: var(--color-primary);
 }
 
 .empty-images {
@@ -1382,9 +1434,9 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
-  border-radius: 8px;
-  color: #999;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
 }
 
 .empty-images p {
@@ -1394,7 +1446,7 @@ onMounted(() => {
 
 .placeholder-content {
   text-align: center;
-  color: #bbb;
+  color: var(--color-text-tertiary);
   padding: 60px 20px;
 }
 
@@ -1417,12 +1469,13 @@ onMounted(() => {
 }
 
 .modal {
-  background: white;
+  background: var(--color-bg-primary);
   border-radius: 10px;
   width: 480px;
   max-width: 90%;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 .modal-sm { width: 400px; }
@@ -1432,13 +1485,13 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
@@ -1450,7 +1503,7 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 20px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border);
 }
 
 .form-group {
@@ -1461,12 +1514,12 @@ onMounted(() => {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: #333;
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 
 .required {
-  color: #e74c3c;
+  color: var(--color-danger);
 }
 
 .form-group input,
@@ -1474,22 +1527,24 @@ onMounted(() => {
 .form-group select {
   width: 100%;
   padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   font-size: 14px;
   box-sizing: border-box;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #4a69bd;
+  border-color: var(--color-primary);
 }
 
 .upload-area {
-  border: 2px dashed #ddd;
-  border-radius: 10px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
   padding: 40px 20px;
   text-align: center;
   cursor: pointer;
@@ -1497,7 +1552,7 @@ onMounted(() => {
 }
 
 .upload-area:hover {
-  border-color: #4a69bd;
+  border-color: var(--color-primary);
 }
 
 .upload-icon {
@@ -1509,20 +1564,20 @@ onMounted(() => {
 .upload-text {
   display: block;
   font-size: 14px;
-  color: #333;
+  color: var(--color-text-primary);
   margin-bottom: 4px;
 }
 
 .upload-hint {
   display: block;
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .import-instructions {
-  background: #f8f9fa;
+  background: var(--color-bg-tertiary);
   padding: 15px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin-bottom: 15px;
   font-size: 13px;
 }
@@ -1533,23 +1588,24 @@ onMounted(() => {
 }
 
 .import-instructions code {
-  background: #e8e8e8;
+  background: var(--color-bg-secondary);
   padding: 2px 6px;
   border-radius: 3px;
   font-family: monospace;
 }
 
 .download-link {
-  color: #4a69bd;
+  color: var(--color-primary);
   text-decoration: underline;
 }
 
 .file-input {
   width: 100%;
   padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  background: var(--color-bg-primary);
 }
 
 .toast {
@@ -1557,16 +1613,16 @@ onMounted(() => {
   bottom: 30px;
   right: 30px;
   padding: 12px 24px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: white;
   font-size: 14px;
   z-index: 2000;
   animation: slideIn 0.3s ease;
 }
 
-.toast.info { background: #4a69bd; }
-.toast.error { background: #e74c3c; }
-.toast.success { background: #27ae60; }
+.toast.info { background: var(--color-primary); }
+.toast.error { background: var(--color-danger); }
+.toast.success { background: var(--color-success); }
 
 @keyframes slideIn {
   from {
@@ -1579,13 +1635,27 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1100px) {
   .main-content {
     flex-direction: column;
   }
   
+  .main-content.expanded .left-panel,
+  .main-content:not(.expanded) .left-panel {
+    max-width: 100%;
+  }
+  
+  .main-content.expanded .right-panel {
+    max-width: 100%;
+  }
+  
   .right-panel, .right-panel-placeholder {
     width: 100%;
+    max-height: none;
+  }
+  
+  .right-panel {
+    max-height: calc(100vh - 200px);
   }
 }
 </style>

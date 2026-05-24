@@ -1,0 +1,276 @@
+# 前端组件库文档
+
+## 目录结构
+
+```
+components/
+├── pages/                    # 页面级组件（路由直接引用）
+│   ├── HomePage.vue          # 首页
+│   ├── TaskListPage.vue      # 任务列表页
+│   ├── SkuListPage.vue       # SKU列表页
+│   └── SkuReviewPage.vue     # SKU审核页
+├── ui/                       # 通用UI组件（可复用）
+│   ├── StatsCard.vue         # 统计卡片
+│   ├── StatusBanner.vue      # 状态横幅
+│   ├── ImageViewer.vue       # 图片查看器
+│   └── ImagePreview.vue      # 图片预览
+├── task/                     # 任务相关组件
+│   ├── ReviewDialog.vue      # 审核对话框
+│   ├── BatchResultCard.vue   # 批量结果卡片
+│   ├── DetectionList.vue     # 检测结果列表
+│   ├── ResultImage.vue       # 结果图片
+│   └── match/                # 匹配相关
+│       ├── MatchResultCard.vue
+│       ├── MatchTags.vue
+│       └── MatchTop5.vue
+├── sku/                      # SKU相关组件
+│   └── SkuImage.vue          # SKU图片组件
+├── upload/                   # 上传相关组件
+│   ├── UploadArea.vue        # 上传区域
+│   └── FileList.vue          # 文件列表
+├── hooks/                    # 自定义Hooks（待扩展）
+└── COMPONENTS.md             # 组件文档
+```
+
+## 组件分类说明
+
+### 1. 页面组件 (pages/)
+页面级组件，作为路由的直接入口，包含完整的页面布局和业务逻辑。
+
+| 组件名 | 说明 | 依赖 |
+|--------|------|------|
+| HomePage | 首页，包含上传和检测功能 | UploadArea, BatchResultCard |
+| TaskListPage | 任务列表管理页面 | StatsCard, ReviewDialog, ImageViewer |
+| SkuListPage | SKU库管理页面 | SkuImage |
+| SkuReviewPage | SKU审核页面 | MatchResultCard |
+
+### 2. UI组件 (ui/)
+通用UI组件，不包含业务逻辑，可在多个页面复用。
+
+| 组件名 | 说明 | 适用场景 |
+|--------|------|----------|
+| StatsCard | 统计数据卡片 | 任务统计、数据概览 |
+| StatusBanner | 状态提示横幅 | 全局状态展示 |
+| ImageViewer | 大图查看器 | 图片预览弹窗 |
+| ImagePreview | 图片预览组件 | 缩略图展示 |
+
+### 3. 任务组件 (task/)
+与任务检测相关的业务组件。
+
+| 组件名 | 说明 | 关联模块 |
+|--------|------|----------|
+| ReviewDialog | 审核对话框 | MatchResultCard, MatchTop5 |
+| BatchResultCard | 批量检测结果卡片 | DetectionList |
+| DetectionList | 检测框列表 | SkuImage |
+| ResultImage | 检测结果图片 | ImageViewer |
+
+### 4. 匹配组件 (task/match/)
+SKU匹配相关的子组件。
+
+| 组件名 | 说明 | 使用位置 |
+|--------|------|----------|
+| MatchResultCard | 匹配结果卡片 | ReviewDialog |
+| MatchTags | 匹配标签 | MatchResultCard |
+| MatchTop5 | Top5匹配结果 | ReviewDialog |
+
+### 5. SKU组件 (sku/)
+SKU相关的展示组件。
+
+| 组件名 | 说明 | 特性 |
+|--------|------|------|
+| SkuImage | SKU图片展示 | 支持懒加载、占位符 |
+
+### 6. 上传组件 (upload/)
+文件上传相关组件。
+
+| 组件名 | 说明 | 功能 |
+|--------|------|------|
+| UploadArea | 上传区域 | 拖拽上传、点击上传 |
+| FileList | 文件列表 | 已选择文件展示 |
+
+## 命名规范
+
+### 文件命名
+- 使用 PascalCase（大驼峰）命名组件文件
+- 页面组件：`Page` 后缀（如 `HomePage.vue`）
+- 卡片组件：`Card` 后缀（如 `StatsCard.vue`）
+- 对话框组件：`Dialog` 后缀（如 `ReviewDialog.vue`）
+
+### 组件命名
+- 组件名与文件名一致
+- 使用 PascalCase 命名
+- 避免使用简写或缩写
+
+### 变量命名
+- 使用 camelCase（小驼峰）
+- 组件属性：以 `props` 对象定义
+- 事件：以 `on` 开头（如 `onUpdate`）
+
+## 代码风格规范
+
+### 1. 模板结构
+```vue
+<template>
+  <div class="component-name">
+    <!-- 组件内容 -->
+  </div>
+</template>
+
+<script setup>
+// 导入依赖
+import { ref, computed } from 'vue'
+
+// Props定义
+defineProps({
+  propName: {
+    type: String,
+    required: true,
+    default: ''
+  }
+})
+
+// Emits定义
+const emit = defineEmits(['update'])
+
+// 组件逻辑
+const state = ref({})
+</script>
+
+<style scoped>
+.component-name {
+  /* 样式 */
+}
+</style>
+```
+
+### 2. 注释规范
+- 使用 JSDoc 格式注释组件和方法
+- 关键逻辑添加注释说明
+- Props 和 Emits 必须有文档注释
+
+### 3. 样式规范
+- 使用 scoped 样式
+- 使用 CSS 变量（如 `var(--color-primary)`）
+- 类名使用 kebab-case
+
+## 公共组件封装建议
+
+### 待封装组件
+
+| 组件名 | 功能 | 优先级 |
+|--------|------|--------|
+| Button | 统一按钮样式 | 高 |
+| Dropdown | 统一下拉菜单 | 高 |
+| Loader | 统一加载动画 | 中 |
+| EmptyState | 空状态提示 | 中 |
+| Pagination | 分页组件 | 中 |
+
+### 待提取 Hooks
+
+| Hook名 | 功能 | 适用组件 |
+|--------|------|----------|
+
+| useSku | SKU数据管理 | SkuListPage |
+| useExport | 导出功能 | 多处使用 |
+| useLoading | 加载状态管理 | 全局 |
+
+## 依赖关系图
+
+```
+HomePage
+├── UploadArea
+│   └── FileList
+└── BatchResultCard
+    ├── DetectionList
+    │   └── SkuImage
+    └── MatchResultCard
+        ├── MatchTags
+        └── MatchTop5
+
+TaskListPage
+├── StatsCard
+├── ReviewDialog
+│   ├── MatchResultCard
+│   └── MatchTop5
+└── ImageViewer
+
+SkuListPage
+└── SkuImage
+
+SkuReviewPage
+└── MatchResultCard
+```
+
+## 组件版本管理
+
+### 版本号规则
+采用语义化版本控制：`v{major}.{minor}.{patch}`
+- major: 重大变更，不兼容升级
+- minor: 新增功能，向后兼容
+- patch: 修复bug，向后兼容
+
+### 更新记录
+
+| 版本 | 日期 | 更新内容 |
+|------|------|----------|
+| v1.0.0 | 2026-05-23 | 初始版本 |
+| v1.0.1 | 2026-05-23 | 更新导入路径为别名格式，添加路径别名配置说明 |
+
+## 使用指南
+
+### 导入组件
+
+```javascript
+// 页面组件
+import HomePage from '@pages/HomePage.vue'
+
+// UI组件
+import StatsCard from '@ui/StatsCard.vue'
+
+// 任务组件
+import ReviewDialog from '@task/ReviewDialog.vue'
+
+// SKU组件
+import SkuImage from '@sku/SkuImage.vue'
+
+// 上传组件
+import UploadArea from '@upload/UploadArea.vue'
+```
+
+### 组件使用示例
+
+#### StatsCard
+```vue
+<StatsCard 
+  :value="123" 
+  label="总任务数" 
+  variant="default" 
+/>
+```
+
+#### SkuImage
+```vue
+<SkuImage 
+  :image-path="'/path/to/image.jpg'" 
+  :placeholder-icon="'📦'" 
+  height="80px" 
+/>
+```
+
+#### ReviewDialog
+```vue
+<ReviewDialog 
+  :task="taskData" 
+  :inline="false" 
+  @update="handleUpdate" 
+/>
+```
+
+## 注意事项
+
+1. **组件职责单一**：每个组件只负责一个功能
+2. **避免深层嵌套**：组件嵌套不超过3层
+3. **props验证**：所有props必须定义类型和默认值
+4. **事件命名**：事件名使用 kebab-case
+5. **样式隔离**：使用scoped样式避免全局污染
+6. **性能优化**：合理使用v-memo、v-lazy等优化渲染

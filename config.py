@@ -42,6 +42,20 @@ class PathConfig:
     SKU_MODEL_PATH: Optional[Path]
     ULTRALYTICS_DIR: Path
     YOLO_CONFIG_DIR: Path
+    TASKS_DIR: Path
+    UPLOADS_DIR: Path
+
+    def get_task_dir(self, task_id: int) -> Path:
+        return self.TASKS_DIR / f"task_{task_id}"
+
+    def get_original_path(self, task_id: int, filename: str) -> Path:
+        return self.get_task_dir(task_id) / "original" / filename
+
+    def get_crops_dir(self, task_id: int) -> Path:
+        return self.get_task_dir(task_id) / "crops"
+
+    def get_result_path(self, task_id: int) -> Path:
+        return self.get_task_dir(task_id) / "result.json"
 
 
 class Config:
@@ -73,6 +87,9 @@ class Config:
         if not sku_model_path.exists():
             sku_model_path = None
 
+        tasks_dir = data_dir / "tasks"
+        uploads_dir = data_dir / "uploads"
+
         self.paths = PathConfig(
             BASE_DIR=base_dir,
             DATA_DIR=data_dir,
@@ -83,7 +100,9 @@ class Config:
             SKU_IMAGES_DIR=sku_library_dir / "images",
             SKU_MODEL_PATH=sku_model_path,
             ULTRALYTICS_DIR=data_dir / ".ultralytics",
-            YOLO_CONFIG_DIR=data_dir / ".yolo"
+            YOLO_CONFIG_DIR=data_dir / ".yolo",
+            TASKS_DIR=tasks_dir,
+            UPLOADS_DIR=uploads_dir
         )
 
         os.environ["ULTRALYTICS_CONFIG_DIR"] = str(self.paths.ULTRALYTICS_DIR)

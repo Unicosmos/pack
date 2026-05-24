@@ -45,8 +45,8 @@
 </template>
 
 <script setup>
-import MatchTags from './MatchTags.vue'
-import MatchTop5 from './MatchTop5.vue'
+import MatchTags from '@task/match/MatchTags.vue'
+import MatchTop5 from '@task/match/MatchTop5.vue'
 
 defineProps({
   result: {

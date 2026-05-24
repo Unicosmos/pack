@@ -49,6 +49,7 @@ from core.detector import BoxDetector
 from core.matcher import SKUMatcher
 
 from database import init_db, SessionLocal, get_db
+from models.task import Task
 from api.task import router as task_router
 from api.sku import router as sku_router
 from api.sku_review import router as sku_review_router
@@ -463,10 +464,6 @@ async def detect_and_match_image(
                 else:
                     unmatched_count += 1
 
-        from models.task import Task
-        from database import SessionLocal
-        from datetime import datetime
-        
         db = SessionLocal()
         try:
             unique_id = str(uuid.uuid4())[:8]
@@ -483,8 +480,6 @@ async def detect_and_match_image(
                 image_name=file.filename,
                 image_path=str(file_path),
                 status="detected",
-                detection_status="detected",
-                review_status="pending",
                 result={
                     "detections": {
                         "boxes": [b.dict() for b in box_infos]
@@ -595,40 +590,6 @@ async def get_sku_image(path: str):
     except Exception as e:
         logger.error(f"读取图片失败: {e}")
         raise HTTPException(status_code=500, detail=f"读取图片失败: {str(e)}")
-
-
-@app.get("/api/tasks/{task_id}/image")
-async def get_task_image(task_id: int):
-    """获取任务上传的原始图片"""
-    from models.task import Task
-    from database import SessionLocal
-    
-    db = SessionLocal()
-    try:
-        task = db.query(Task).filter(Task.id == task_id).first()
-        if not task:
-            raise HTTPException(status_code=404, detail="任务不存在")
-        
-        image_path = Path(task.image_path)
-        if not image_path.exists():
-            raise HTTPException(status_code=404, detail="图片不存在")
-        
-        with open(image_path, "rb") as f:
-            content = f.read()
-        
-        ext = image_path.suffix.lower()
-        if ext in [".jpg", ".jpeg"]:
-            media_type = "image/jpeg"
-        elif ext == ".png":
-            media_type = "image/png"
-        elif ext == ".bmp":
-            media_type = "image/bmp"
-        else:
-            media_type = "application/octet-stream"
-        
-        return Response(content=content, media_type=media_type)
-    finally:
-        db.close()
 
 
 @app.get("/")

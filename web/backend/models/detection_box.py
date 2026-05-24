@@ -30,7 +30,7 @@ class DetectionBox(Base):
     is_audited = Column(Boolean, default=False)
     reviewed_at = Column(DateTime, nullable=True)
 
-    extra_data = Column(JSON, nullable=True)
+    custom_sku = Column(String(50), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

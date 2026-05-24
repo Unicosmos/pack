@@ -65,7 +65,19 @@ export const detector = {
     formData.append('conf_threshold', confThreshold)
     formData.append('match_threshold', matchThreshold)
 
-    const response = await fetch('/api/detect-and-match', {
+    const response = await request('/api/detect-and-match', {
+      method: 'POST',
+      body: formData,
+    })
+    return response.json()
+  },
+
+  async detectOnly(file, confThreshold = 0.5) {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('conf_threshold', confThreshold)
+
+    const response = await request('/api/detect', {
       method: 'POST',
       body: formData,
     })
@@ -170,6 +182,24 @@ export const tasks = {
       body: JSON.stringify(data),
     })
     return response.json()
+  },
+
+  async exportTask(taskId, format = 'json', includeImages = false) {
+    const url = `/api/tasks/${taskId}/export?format=${format}&include_images=${includeImages}`
+    const response = await fetch(url)
+    
+    if (!response.ok) {
+      let errorMsg = '导出失败'
+      try {
+        const errorData = await response.json()
+        errorMsg = errorData.detail || errorMsg
+      } catch (e) {
+        errorMsg = response.statusText || errorMsg
+      }
+      throw new Error(errorMsg)
+    }
+
+    return response
   }
 }
 
@@ -302,6 +332,11 @@ export const skuReview = {
     const params = new URLSearchParams()
     if (keyword) params.set('keyword', keyword)
     const response = await request('/api/sku-review/skus?' + params.toString())
+    return response.json()
+  },
+
+  async getSkuById(skuId) {
+    const response = await request(`/api/sku/${encodeURIComponent(skuId)}`)
     return response.json()
   },
 

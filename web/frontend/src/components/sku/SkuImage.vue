@@ -16,7 +16,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { getImageUrlFromPath } from '@/api/client'
+import { getImageUrlFromPath } from '@api/client'
 
 const props = defineProps({
   imagePath: {

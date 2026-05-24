@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <div class="nav-bar">
+    <nav class="nav-bar">
       <div class="nav-left">
         <h1>📦 Pack Web</h1>
       </div>
@@ -17,83 +17,104 @@
         <button :class="{ active: store.currentPage === 'skuReview' }" @click="store.setPage('skuReview')">
           🔍 SKU审核
         </button>
+        <button class="theme-toggle" @click="toggleDarkMode" :title="isDark ? '切换到浅色模式' : '切换到深色模式'">
+          {{ isDark ? '☀️' : '🌙' }}
+        </button>
       </div>
-    </div>
+    </nav>
 
-    <div class="main-wrapper">
+    <main class="main-wrapper">
       <HomePage v-if="store.currentPage === 'home'" />
       <TaskListPage v-else-if="store.currentPage === 'tasks'" />
       <SkuListPage v-else-if="store.currentPage === 'skus'" />
       <SkuReviewPage v-else-if="store.currentPage === 'skuReview'" />
-    </div>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useAppStore } from './stores/app'
-import HomePage from './components/HomePage.vue'
-import TaskListPage from './components/TaskListPage.vue'
-import SkuListPage from './components/SkuListPage.vue'
-import SkuReviewPage from './components/SkuReviewPage.vue'
+import { ref, onMounted, watch } from 'vue'
+import { useAppStore } from '@stores/app'
+import HomePage from '@pages/HomePage.vue'
+import TaskListPage from '@pages/TaskListPage.vue'
+import SkuListPage from '@pages/SkuListPage.vue'
+import SkuReviewPage from '@pages/SkuReviewPage.vue'
 
 const store = useAppStore()
 
+// 使用 ref 存储深色模式状态
+const isDark = ref(false)
+
+// 从 localStorage 读取保存的主题设置
+const loadTheme = () => {
+  const saved = localStorage.getItem('darkMode')
+  if (saved !== null) {
+    isDark.value = saved === 'true'
+  } else {
+    // 默认检查系统偏好
+    isDark.value = window.matchMedia('(prefers-color-scheme: dark)').matches
+  }
+  updateHtmlClass()
+}
+
+// 更新 html 元素的 class
+const updateHtmlClass = () => {
+  const html = document.documentElement
+  if (isDark.value) {
+    html.classList.add('dark')
+  } else {
+    html.classList.remove('dark')
+  }
+}
+
+// 保存主题设置到 localStorage
+const saveTheme = () => {
+  localStorage.setItem('darkMode', String(isDark.value))
+}
+
+// 切换深色模式
+const toggleDarkMode = () => {
+  isDark.value = !isDark.value
+  updateHtmlClass()
+  saveTheme()
+}
+
+// 监听状态变化
+watch(isDark, () => {
+  updateHtmlClass()
+  saveTheme()
+})
+
 onMounted(() => {
   store.fetchSystemHealth()
+  loadTheme()
 })
 </script>
 
-<style scoped>
+<style>
+/* 全局主题切换相关样式 */
 .app-container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-bg-secondary);
+  transition: background-color var(--transition-normal);
 }
 
-.nav-bar {
-  background: white;
-  padding: 0 30px;
+.theme-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  height: 60px;
-}
-
-.nav-left h1 {
-  margin: 0;
-  font-size: 20px;
-  color: #333;
-}
-
-.nav-menu {
-  display: flex;
-  gap: 10px;
-}
-
-.nav-menu button {
-  padding: 8px 20px;
-  background: transparent;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 6px;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 14px;
-  color: #666;
-  transition: all 0.3s;
+  font-size: var(--font-size-lg);
+  background: var(--color-bg-tertiary);
+  transition: all var(--transition-fast);
 }
 
-.nav-menu button:hover {
-  background: #f0f0f0;
-}
-
-.nav-menu button.active {
-  background: #667eea;
-  color: white;
-}
-
-.main-wrapper {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 20px;
+.theme-toggle:hover {
+  transform: scale(1.1);
+  background: var(--color-primary);
 }
 </style>

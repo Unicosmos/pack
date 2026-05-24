@@ -63,12 +63,9 @@ def migrate_detection_boxes(task: Task, db: Session) -> List[int]:
             confidence=box_data.get("confidence", 0.0),
             class_id=box_data.get("class_id", 0),
             class_name=box_data.get("class_name", "box"),
-            path=box_data.get("path") or box_data.get("crop_base64"),
+            path=box_data.get("path") or box_data.get("crop_path"),
             status=box_data.get("status", "approved"),
-            is_audited=box_data.get("is_audited", False),
-            extra_data={
-                "crop_base64": box_data.get("crop_base64"),
-            }
+            is_audited=box_data.get("is_audited", False)
         )
         db.add(detection_box)
         db.flush()
@@ -77,18 +74,30 @@ def migrate_detection_boxes(task: Task, db: Session) -> List[int]:
     return box_ids
 
 
-def migrate_match_results(box_id: int, match_data: Dict[str, Any], db: Session):
+def migrate_match_results(task_id: int, box_id: int, match_data: Dict[str, Any], db: Session):
     """迁移匹配结果到 MatchResult 表"""
     if not match_data:
         return
 
+    top5_labels = match_data.get("top5_labels", []) or match_data.get("top5", [])
+    top5_data = []
+    for label in top5_labels:
+        top5_data.append({
+            "sku_id": label.get("sku_id", ""),
+            "name": label.get("label", ""),
+            "similarity": label.get("similarity", 0),
+            "image_path": label.get("image_path", "")
+        })
+
     match_result = MatchResult(
         box_id=box_id,
+        task_id=task_id,
         sku_id=match_data.get("sku_id"),
+        sku_name=match_data.get("sku_name"),
         similarity=match_data.get("similarity"),
         status=match_data.get("status", "unmatched"),
         top1_sku_id=match_data.get("sku_id"),
-        top5_candidates=json.dumps(match_data.get("top5", [])),
+        top5_candidates=json.dumps(top5_data) if top5_data else None,
         is_manual_override=False,
     )
     db.add(match_result)
@@ -108,14 +117,16 @@ def migrate_task(task: Task, db: Session) -> bool:
             return True
 
         matches = task.result.get("matches", {})
-        for box_id, match_data in matches.items():
-            if str(box_id).isdigit():
-                idx = int(box_id)
+        for box_key, match_data in matches.items():
+            if str(box_key).isdigit():
+                idx = int(box_key)
+            elif box_key.startswith("box_"):
+                idx = int(box_key.split("_")[1])
             else:
-                idx = box_ids.index(int(box_id)) if box_ids else -1
+                idx = -1
 
             if idx >= 0 and idx < len(box_ids):
-                migrate_match_results(box_ids[idx], match_data, db)
+                migrate_match_results(task.id, box_ids[idx], match_data, db)
 
         return True
     except Exception as e:

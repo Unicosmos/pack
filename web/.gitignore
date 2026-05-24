@@ -51,3 +51,6 @@ Thumbs.db
 # Keep package.json and config files in version control
 # ================================================
 
+# Web static assets (取消追踪)
+backend/static/assets/
+

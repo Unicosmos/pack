@@ -69,39 +69,39 @@ defineExpose({
 
 <style scoped>
 .upload-area {
-  border: 2px dashed #667eea;
-  border-radius: 10px;
+  border: 2px dashed var(--color-primary);
+  border-radius: var(--radius-lg);
   padding: 40px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal);
 }
 
 .upload-area:hover {
-  background: #f0f5ff;
-  border-color: #764ba2;
+  background: rgba(102, 126, 234, 0.1);
+  border-color: var(--color-secondary);
 }
 
 .upload-area.dragover {
-  background: #e8f0fe;
-  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.15);
+  border-color: var(--color-primary);
   border-style: solid;
 }
 
 .upload-icon {
   font-size: 48px;
-  color: #667eea;
+  color: var(--color-primary);
   margin-bottom: 15px;
 }
 
 .upload-text {
-  color: #667eea;
+  color: var(--color-primary);
   font-size: 18px;
   margin-bottom: 8px;
 }
 
 .upload-hint {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 14px;
 }
 </style>

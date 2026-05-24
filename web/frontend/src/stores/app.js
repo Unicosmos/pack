@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { detector } from '../api/client'
+import { detector } from '@api/client'
 
 export const useAppStore = defineStore('app', () => {
   const states = ['IDLE', 'UPLOADED', 'PROCESSING', 'SUCCESS', 'ERROR', 'SYSTEM_INIT']
