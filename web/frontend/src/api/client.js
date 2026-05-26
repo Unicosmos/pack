@@ -187,7 +187,7 @@ export const tasks = {
   async exportTask(taskId, format = 'json', includeImages = false) {
     const url = `/api/tasks/${taskId}/export?format=${format}&include_images=${includeImages}`
     const response = await fetch(url)
-    
+
     if (!response.ok) {
       let errorMsg = '导出失败'
       try {
@@ -393,6 +393,73 @@ export const skuReview = {
     const response = await request('/api/sku-review/save-database', {
       method: 'POST'
     })
+    return response.json()
+  },
+
+  async uploadFolder(folderName, files) {
+    const formData = new FormData()
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+    const response = await request(`/api/sku-review/upload-folder/${encodeURIComponent(folderName)}`, {
+      method: 'POST',
+      body: formData
+    })
+    return response.json()
+  },
+
+  async deleteFolder(folderName) {
+    const response = await request(`/api/sku-review/delete-folder/${encodeURIComponent(folderName)}`, {
+      method: 'DELETE'
+    })
+    return response.json()
+  }
+}
+
+export const build = {
+  async getStatus() {
+    const response = await request('/api/build/status')
+    return response.json()
+  },
+
+  async triggerBuild() {
+    const response = await request('/api/build/library', {
+      method: 'POST'
+    })
+    return response.json()
+  },
+
+  async getFeatureStatus() {
+    const response = await request('/api/build/feature/status')
+    return response.json()
+  },
+
+  async triggerFeatureExtract() {
+    const response = await request('/api/build/feature/extract', {
+      method: 'POST'
+    })
+    return response.json()
+  },
+
+  async getCombinedStatus() {
+    const response = await request('/api/build/combined/status')
+    return response.json()
+  },
+
+  async triggerCombinedBuild() {
+    const response = await request('/api/build/combined/run', {
+      method: 'POST'
+    })
+    return response.json()
+  },
+
+  async checkChange() {
+    const response = await request('/api/build/check-change')
+    return response.json()
+  },
+
+  async getInfo() {
+    const response = await request('/api/build/info')
     return response.json()
   }
 }

@@ -9,6 +9,9 @@ components/
 │   ├── TaskListPage.vue      # 任务列表页
 │   ├── SkuListPage.vue       # SKU列表页
 │   └── SkuReviewPage.vue     # SKU审核页
+├── layout/                   # 页面布局组件（统一页面结构）
+│   ├── PageHeader.vue        # 顶部横幅组件
+│   └── PageContainer.vue     # 内容容器组件
 ├── ui/                       # 通用UI组件（可复用）
 │   ├── StatsCard.vue         # 统计卡片
 │   ├── StatusBanner.vue      # 状态横幅
@@ -37,56 +40,160 @@ components/
 ### 1. 页面组件 (pages/)
 页面级组件，作为路由的直接入口，包含完整的页面布局和业务逻辑。
 
-| 组件名 | 说明 | 依赖 |
-|--------|------|------|
-| HomePage | 首页，包含上传和检测功能 | UploadArea, BatchResultCard |
-| TaskListPage | 任务列表管理页面 | StatsCard, ReviewDialog, ImageViewer |
-| SkuListPage | SKU库管理页面 | SkuImage |
-| SkuReviewPage | SKU审核页面 | MatchResultCard |
+| 组件名        | 说明                     | 依赖                                 |
+| ------------- | ------------------------ | ------------------------------------ |
+| HomePage      | 首页，包含上传和检测功能 | UploadArea, BatchResultCard          |
+| TaskListPage  | 任务列表管理页面         | StatsCard, ReviewDialog, ImageViewer |
+| SkuListPage   | SKU库管理页面            | SkuImage                             |
+| SkuReviewPage | SKU审核页面              | MatchResultCard                      |
 
-### 2. UI组件 (ui/)
+### 2. 布局组件 (layout/)
+页面布局公共组件，用于统一页面结构，解决页面切换时的视觉跳变问题。
+
+| 组件名        | 说明         | 功能特性                         |
+| ------------- | ------------ | -------------------------------- |
+| PageHeader    | 顶部横幅组件 | 统一导航、响应式设计、状态保持   |
+| PageContainer | 内容容器组件 | 标准化布局、侧边栏支持、无缝对接 |
+
+#### 2.1 PageHeader（顶部横幅组件）
+
+**功能说明**：提供统一的页面顶部横幅，包含标题、导航菜单和操作按钮区域。
+
+**Props配置**：
+
+| 属性名          | 类型   | 默认值 | 说明                        |
+| --------------- | ------ | ------ | --------------------------- |
+| title           | String | 必选   | 页面标题                    |
+| logo            | String | ''     | Logo图标（emoji或图标字符） |
+| navigationItems | Array  | []     | 导航菜单项数组              |
+
+**导航菜单项结构**：
+```javascript
+{
+  id: 'home',           // 菜单项ID
+  label: '首页',        // 显示文本
+  icon: '🏠',          // 图标
+  href: '/',           // 链接地址
+  active: true         // 是否激活状态
+}
+```
+
+**Slots**：
+| 插槽名          | 说明             |
+| --------------- | ---------------- |
+| navigation      | 自定义导航内容   |
+| actions / right | 右侧操作按钮区域 |
+
+**Events**：
+| 事件名   | 参数 | 说明             |
+| -------- | ---- | ---------------- |
+| navigate | item | 导航项点击时触发 |
+
+**使用示例**：
+```vue
+<PageHeader 
+  title="页面标题"
+  :navigation-items="navItems"
+  @navigate="handleNavigate"
+>
+  <template #actions>
+    <button class="btn btn-primary">操作按钮</button>
+  </template>
+</PageHeader>
+```
+
+#### 2.2 PageContainer（内容容器组件）
+
+**功能说明**：提供标准化的页面内容容器，统一管理边距、内边距和最大宽度。
+
+**Props配置**：
+
+| 属性名          | 类型    | 默认值   | 说明                     |
+| --------------- | ------- | -------- | ------------------------ |
+| title           | String  | ''       | 内容区域标题             |
+| subtitle        | String  | ''       | 内容区域副标题           |
+| showHeader      | Boolean | true     | 是否显示头部区域         |
+| hasSidebar      | Boolean | false    | 是否包含侧边栏           |
+| sidebarPosition | String  | 'left'   | 侧边栏位置（left/right） |
+| maxWidth        | String  | '1800px' | 最大宽度                 |
+| padding         | String  | '20px'   | 内边距                   |
+
+**Slots**：
+| 插槽名         | 说明           |
+| -------------- | -------------- |
+| default        | 主内容区域     |
+| header         | 自定义头部内容 |
+| sidebar        | 左侧侧边栏     |
+| sidebar-header | 侧边栏头部     |
+| sidebar-body   | 侧边栏主体     |
+| sidebar-footer | 侧边栏底部     |
+| sidebar-right  | 右侧侧边栏     |
+| footer         | 底部区域       |
+
+**使用示例**：
+```vue
+<PageContainer 
+  title="内容标题" 
+  subtitle="内容描述"
+  :has-sidebar="true"
+>
+  <!-- 主内容 -->
+  <div class="content">
+    页面内容...
+  </div>
+  
+  <!-- 侧边栏 -->
+  <template #sidebar>
+    <div class="sidebar-content">
+      侧边栏内容...
+    </div>
+  </template>
+</PageContainer>
+```
+
+### 3. UI组件 (ui/)
 通用UI组件，不包含业务逻辑，可在多个页面复用。
 
-| 组件名 | 说明 | 适用场景 |
-|--------|------|----------|
-| StatsCard | 统计数据卡片 | 任务统计、数据概览 |
-| StatusBanner | 状态提示横幅 | 全局状态展示 |
-| ImageViewer | 大图查看器 | 图片预览弹窗 |
-| ImagePreview | 图片预览组件 | 缩略图展示 |
+| 组件名       | 说明         | 适用场景           |
+| ------------ | ------------ | ------------------ |
+| StatsCard    | 统计数据卡片 | 任务统计、数据概览 |
+| StatusBanner | 状态提示横幅 | 全局状态展示       |
+| ImageViewer  | 大图查看器   | 图片预览弹窗       |
+| ImagePreview | 图片预览组件 | 缩略图展示         |
 
 ### 3. 任务组件 (task/)
 与任务检测相关的业务组件。
 
-| 组件名 | 说明 | 关联模块 |
-|--------|------|----------|
-| ReviewDialog | 审核对话框 | MatchResultCard, MatchTop5 |
-| BatchResultCard | 批量检测结果卡片 | DetectionList |
-| DetectionList | 检测框列表 | SkuImage |
-| ResultImage | 检测结果图片 | ImageViewer |
+| 组件名          | 说明             | 关联模块                   |
+| --------------- | ---------------- | -------------------------- |
+| ReviewDialog    | 审核对话框       | MatchResultCard, MatchTop5 |
+| BatchResultCard | 批量检测结果卡片 | DetectionList              |
+| DetectionList   | 检测框列表       | SkuImage                   |
+| ResultImage     | 检测结果图片     | ImageViewer                |
 
 ### 4. 匹配组件 (task/match/)
 SKU匹配相关的子组件。
 
-| 组件名 | 说明 | 使用位置 |
-|--------|------|----------|
-| MatchResultCard | 匹配结果卡片 | ReviewDialog |
-| MatchTags | 匹配标签 | MatchResultCard |
-| MatchTop5 | Top5匹配结果 | ReviewDialog |
+| 组件名          | 说明         | 使用位置        |
+| --------------- | ------------ | --------------- |
+| MatchResultCard | 匹配结果卡片 | ReviewDialog    |
+| MatchTags       | 匹配标签     | MatchResultCard |
+| MatchTop5       | Top5匹配结果 | ReviewDialog    |
 
 ### 5. SKU组件 (sku/)
 SKU相关的展示组件。
 
-| 组件名 | 说明 | 特性 |
-|--------|------|------|
+| 组件名   | 说明        | 特性               |
+| -------- | ----------- | ------------------ |
 | SkuImage | SKU图片展示 | 支持懒加载、占位符 |
 
 ### 6. 上传组件 (upload/)
 文件上传相关组件。
 
-| 组件名 | 说明 | 功能 |
-|--------|------|------|
+| 组件名     | 说明     | 功能               |
+| ---------- | -------- | ------------------ |
 | UploadArea | 上传区域 | 拖拽上传、点击上传 |
-| FileList | 文件列表 | 已选择文件展示 |
+| FileList   | 文件列表 | 已选择文件展示     |
 
 ## 命名规范
 
@@ -157,18 +264,18 @@ const state = ref({})
 
 ### 待封装组件
 
-| 组件名 | 功能 | 优先级 |
-|--------|------|--------|
-| Button | 统一按钮样式 | 高 |
-| Dropdown | 统一下拉菜单 | 高 |
-| Loader | 统一加载动画 | 中 |
-| EmptyState | 空状态提示 | 中 |
-| Pagination | 分页组件 | 中 |
+| 组件名     | 功能         | 优先级 |
+| ---------- | ------------ | ------ |
+| Button     | 统一按钮样式 | 高     |
+| Dropdown   | 统一下拉菜单 | 高     |
+| Loader     | 统一加载动画 | 中     |
+| EmptyState | 空状态提示   | 中     |
+| Pagination | 分页组件     | 中     |
 
 ### 待提取 Hooks
 
 | Hook名 | 功能 | 适用组件 |
-|--------|------|----------|
+| ------ | ---- | -------- |
 
 | useSku | SKU数据管理 | SkuListPage |
 | useExport | 导出功能 | 多处使用 |
@@ -211,9 +318,9 @@ SkuReviewPage
 
 ### 更新记录
 
-| 版本 | 日期 | 更新内容 |
-|------|------|----------|
-| v1.0.0 | 2026-05-23 | 初始版本 |
+| 版本   | 日期       | 更新内容                                     |
+| ------ | ---------- | -------------------------------------------- |
+| v1.0.0 | 2026-05-23 | 初始版本                                     |
 | v1.0.1 | 2026-05-23 | 更新导入路径为别名格式，添加路径别名配置说明 |
 
 ## 使用指南

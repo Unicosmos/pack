@@ -113,7 +113,7 @@ const statusText = computed(() => {
 }
 
 .top5-item.top1 {
-  border-color: #667eea;
+  border-color: #0066cc;
   background: #f0f5ff;
 }
 

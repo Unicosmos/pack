@@ -1,10 +1,7 @@
 <template>
   <div class="sku-list-page">
-    <div class="header">
-      <h1>📦 SKU管理</h1>
-    </div>
-
-    <div class="main-content" :class="{ expanded: selectedSku }">
+    <PageContainer>
+      <div class="main-content" :class="{ expanded: selectedSku }">
       <div class="left-panel">
         <div class="panel-header">
           <div class="search-bar">
@@ -35,17 +32,15 @@
             <button 
               :class="['btn btn-sm', { active: viewMode === 'list' }]" 
               @click="viewMode = 'list'"
-            >📋</button>
+            >📋 列表</button>
             <button 
               :class="['btn btn-sm', { active: viewMode === 'gallery' }]" 
               @click="viewMode = 'gallery'"
-            >🖼️</button>
+            >🖼️ 画廊</button>
           </div>
           <div class="action-buttons">
-            <button class="btn btn-secondary btn-icon" title="导入" @click="showImportDialog = true">📥</button>
-            <button class="btn btn-secondary btn-icon" title="导出" @click="handleExport">📤</button>
-            <button class="btn btn-secondary btn-icon" title="同步CSV" @click="handleSyncFromCsv">🔄</button>
-            <button class="btn btn-primary" @click="openCreateDialog">➕ 新增SKU</button>
+            <button class="btn btn-secondary" @click="handleExport">📤 导出</button>
+            <button class="btn btn-secondary" @click="handleSyncFromCsv">🔄 同步CSV</button>
           </div>
         </div>
 
@@ -74,7 +69,7 @@
           <div v-else-if="skus.length === 0" class="empty-state">
             <div class="empty-icon">📭</div>
             <p>暂无SKU数据</p>
-            <button class="btn btn-primary" @click="openCreateDialog">新增第一个SKU</button>
+            <p>请通过同步CSV导入SKU数据</p>
           </div>
 
           <table v-else-if="viewMode === 'list'" class="data-table">
@@ -101,14 +96,18 @@
                 <td>{{ sku.sku_name }}</td>
                 <td>{{ sku.category || '-' }}</td>
                 <td>
-                  <span :class="['status-badge', sku.status]">
+                  <span :class="['status-badge', sku.status === 'inactive' ? 'inactive' : 'active']">
                     {{ sku.status === 'active' ? '启用' : '禁用' }}
                   </span>
                 </td>
                 <td>{{ sku.image_count }}</td>
                 <td>
                   <button class="btn-icon" @click.stop="openEditDialog(sku)" title="编辑">✏️</button>
-                  <button class="btn-icon danger" @click.stop="confirmDelete(sku)" title="删除">🗑️</button>
+                  <button 
+                    :class="['btn-icon', { danger: sku.status === 'active' }]" 
+                    @click.stop="confirmToggleStatus(sku)" 
+                    :title="sku.status === 'active' ? '禁用' : '启用'"
+                  >{{ sku.status === 'active' ? '⛔' : '✅' }}</button>
                 </td>
               </tr>
             </tbody>
@@ -133,7 +132,7 @@
                 <div class="gallery-sku-id">{{ sku.sku_id }}</div>
                 <div class="gallery-sku-name">{{ sku.sku_name }}</div>
                 <div class="gallery-status">
-                  <span :class="['status-tag', sku.status]">
+                  <span :class="['status-tag', sku.status === 'inactive' ? 'inactive' : 'active']">
                     {{ sku.status === 'active' ? '启用' : '禁用' }}
                   </span>
                   <span class="image-count">📷 {{ sku.image_count }}</span>
@@ -141,7 +140,11 @@
               </div>
               <div class="gallery-actions">
                 <button class="btn-icon" @click.stop="openEditDialog(sku)" title="编辑">✏️</button>
-                <button class="btn-icon danger" @click.stop="confirmDelete(sku)" title="删除">🗑️</button>
+                <button 
+                  :class="['btn-icon', { danger: sku.status === 'active' }]" 
+                  @click.stop="confirmToggleStatus(sku)" 
+                  :title="sku.status === 'active' ? '禁用' : '启用'"
+                >{{ sku.status === 'active' ? '⛔' : '✅' }}</button>
               </div>
             </div>
           </div>
@@ -149,7 +152,7 @@
           <div class="pagination-bar">
             <div class="selection-info" v-if="selectedSkus.length > 0">
               已选择 {{ selectedSkus.length }} 项
-              <button class="btn btn-sm btn-danger" @click="confirmBatchDelete">批量删除</button>
+              <button class="btn btn-sm btn-danger" @click="confirmBatchToggleStatus">批量禁用</button>
             </div>
             <div class="pagination">
               <button :disabled="page <= 1" @click="changePage(page - 1)">上一页</button>
@@ -204,7 +207,6 @@
         <div class="image-section">
           <div class="section-header">
             <span class="section-title">图片管理</span>
-            <button class="btn btn-sm btn-primary" @click="openUploadDialog">📤 上传图片</button>
           </div>
           
           <div v-if="currentSkuImages.length > 0" class="image-viewer">
@@ -229,7 +231,6 @@
           <div v-else class="empty-images">
             <div class="empty-icon">📷</div>
             <p>暂无图片</p>
-            <button class="btn btn-primary" @click="openUploadDialog">上传图片</button>
           </div>
         </div>
       </div>
@@ -297,75 +298,35 @@
       </div>
     </div>
 
-    <div v-if="showUploadDialog" class="modal-overlay" @click.self="showUploadDialog = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>上传图片 - {{ selectedSku?.sku_id }}</h3>
-          <button class="btn-close" @click="showUploadDialog = false">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="upload-area" @click="triggerFileUpload">
-            <input type="file" accept="image/*" multiple ref="imageUpload" @change="handleImageUpload" hidden />
-            <span class="upload-icon">📤</span>
-            <span class="upload-text">点击或拖拽上传图片</span>
-            <span class="upload-hint">支持 JPG、PNG、BMP 格式</span>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="showUploadDialog = false">取消</button>
-        </div>
-      </div>
-    </div>
-
     <div v-if="showDeleteDialog" class="modal-overlay" @click.self="showDeleteDialog = false">
       <div class="modal modal-sm">
         <div class="modal-header">
-          <h3>确认删除</h3>
+          <h3>确认{{ deleteTarget?.status === 'active' || deleteType === 'batch' ? '禁用' : '启用' }}</h3>
           <button class="btn-close" @click="showDeleteDialog = false">×</button>
         </div>
         <div class="modal-body">
           <p v-if="deleteType === 'single'">
-            确定要删除SKU <strong>{{ deleteTarget?.sku_id }}</strong> 吗？此操作不可恢复。
+            确定要{{ deleteTarget?.status === 'active' ? '禁用' : '启用' }}SKU <strong>{{ deleteTarget?.sku_id }}</strong> 吗？
           </p>
           <p v-else>
-            确定要删除选中的 {{ selectedSkus.length }} 个SKU吗？此操作不可恢复。
+            确定要禁用选中的 {{ selectedSkus.length }} 个SKU吗？
           </p>
         </div>
         <div class="modal-footer">
           <button class="btn" @click="showDeleteDialog = false">取消</button>
-          <button class="btn btn-danger" @click="handleDelete" :disabled="submitting">
-            {{ submitting ? '删除中...' : '确认删除' }}
+          <button 
+            :class="['btn', { 'btn-danger': deleteTarget?.status === 'active' || deleteType === 'batch' }]" 
+            @click="handleToggleStatus" 
+            :disabled="submitting"
+          >
+            {{ submitting ? '处理中...' : `确认${deleteTarget?.status === 'active' || deleteType === 'batch' ? '禁用' : '启用'}` }}
           </button>
         </div>
       </div>
     </div>
 
-    <div v-if="showImportDialog" class="modal-overlay" @click.self="showImportDialog = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>导入CSV</h3>
-          <button class="btn-close" @click="showImportDialog = false">×</button>
-        </div>
-        <div class="modal-body">
-          <div class="import-instructions">
-            <p>请上传CSV文件，文件格式要求：</p>
-            <ul>
-              <li>必须包含 <code>sku_id</code> 和 <code>sku_name</code> 列</li>
-              <li>可选列：<code>description</code>, <code>category</code>, <code>tags</code></li>
-            </ul>
-            <a href="#" @click.prevent="downloadTemplate" class="download-link">下载模板文件</a>
-          </div>
-          <input type="file" accept=".csv" @change="handleFileChange" ref="fileInput" class="file-input" />
-        </div>
-        <div class="modal-footer">
-          <button class="btn" @click="showImportDialog = false">取消</button>
-          <button class="btn btn-primary" @click="handleImport" :disabled="!importFile || importing">
-            {{ importing ? '导入中...' : '开始导入' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
+    </PageContainer>
+    
     <div v-if="toast.show" :class="['toast', toast.type]">{{ toast.message }}</div>
 
     <ImageViewer
@@ -380,6 +341,8 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { sku } from '@api/client'
+import PageHeader from '@layout/PageHeader.vue'
+import PageContainer from '@layout/PageContainer.vue'
 import SkuImage from '@sku/SkuImage.vue'
 import ImageViewer from '@ui/ImageViewer.vue'
 
@@ -389,7 +352,7 @@ const stats = ref({})
 const categories = ref([])
 const loading = ref(false)
 const submitting = ref(false)
-const importing = ref(false)
+
 
 const searchQuery = ref('')
 const categoryFilter = ref('')
@@ -408,17 +371,11 @@ const showImageViewer = ref(false)
 const viewerImageUrl = ref('')
 const viewerImageName = ref('')
 
-const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const showDeleteDialog = ref(false)
-const showImportDialog = ref(false)
-const showUploadDialog = ref(false)
 
 const deleteType = ref('single')
 const deleteTarget = ref(null)
-const importFile = ref(null)
-
-const imageUpload = ref(null)
 
 const formData = ref({
   sku_id: '',
@@ -565,23 +522,11 @@ const openEditDialog = (item) => {
   showEditDialog.value = true
 }
 
-const openUploadDialog = () => {
-  showUploadDialog.value = true
-}
-
 const closeDialog = () => {
-  showCreateDialog.value = false
   showEditDialog.value = false
-  showImportDialog.value = false
-  showUploadDialog.value = false
-  importFile.value = null
 }
 
 const handleSubmit = async () => {
-  if (!formData.value.sku_id.trim()) {
-    showToast('SKU编号不能为空', 'error')
-    return
-  }
   if (!formData.value.sku_name.trim()) {
     showToast('SKU名称不能为空', 'error')
     return
@@ -589,14 +534,9 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    let res
-    if (showEditDialog.value) {
-      res = await sku.update(formData.value.sku_id, formData.value)
-    } else {
-      res = await sku.create(formData.value)
-    }
+    const res = await sku.update(formData.value.sku_id, formData.value)
     if (res.sku_id || res.success) {
-      showToast(showEditDialog.value ? '更新成功' : '创建成功')
+      showToast('更新成功')
       closeDialog()
       loadSkus()
       loadStats()
@@ -611,43 +551,58 @@ const handleSubmit = async () => {
   }
 }
 
-const confirmDelete = (item) => {
+const confirmToggleStatus = (item) => {
   deleteType.value = 'single'
   deleteTarget.value = item
   showDeleteDialog.value = true
 }
 
-const confirmBatchDelete = () => {
+const confirmBatchToggleStatus = () => {
   if (selectedSkus.value.length === 0) return
   deleteType.value = 'batch'
   showDeleteDialog.value = true
 }
 
-const handleDelete = async () => {
+const handleToggleStatus = async () => {
   submitting.value = true
   try {
     let res
+    let targetStatus
+    let actionText
+    
     if (deleteType.value === 'single') {
-      res = await sku.delete(deleteTarget.value.sku_id)
+      targetStatus = deleteTarget.value.status === 'active' ? 'inactive' : 'active'
+      actionText = targetStatus === 'inactive' ? '禁用' : '启用'
+      res = await sku.update(deleteTarget.value.sku_id, { status: targetStatus })
     } else {
-      res = await sku.batchDelete(selectedSkus.value)
+      targetStatus = 'inactive'
+      actionText = '禁用'
+      for (const skuId of selectedSkus.value) {
+        await sku.update(skuId, { status: targetStatus })
+      }
+      res = { success: true }
     }
-    if (res.success) {
-      showToast(res.message || '删除成功')
+    
+    if (res.success || deleteType.value === 'batch') {
+      showToast(`${actionText}成功`)
       showDeleteDialog.value = false
       selectedSkus.value = []
       selectAll.value = false
       if (selectedSku.value && (deleteType.value === 'single' || selectedSkus.value.includes(selectedSku.value.sku_id))) {
-        selectedSku.value = null
-        currentSkuImages.value = []
+        if (deleteType.value === 'single') {
+          selectedSku.value.status = targetStatus
+        } else {
+          selectedSku.value = null
+          currentSkuImages.value = []
+        }
       }
       loadSkus()
       loadStats()
     } else {
-      showToast(res.detail || '删除失败', 'error')
+      showToast(res.detail || `${actionText}失败`, 'error')
     }
   } catch (err) {
-    showToast('删除失败: ' + (err.detail || err.message), 'error')
+    showToast(`${targetStatus === 'inactive' ? '禁用' : '启用'}失败: ` + (err.detail || err.message), 'error')
   } finally {
     submitting.value = false
   }
@@ -686,36 +641,6 @@ const handleSyncFromCsv = async () => {
   }
 }
 
-const handleFileChange = (event) => {
-  const file = event.target.files[0]
-  if (file) {
-    importFile.value = file
-  }
-}
-
-const handleImport = async () => {
-  if (!importFile.value) return
-
-  importing.value = true
-  try {
-    const res = await sku.importCsv(importFile.value)
-    if (res.success) {
-      showToast(res.message)
-      showImportDialog.value = false
-      importFile.value = null
-      loadSkus()
-      loadStats()
-      loadCategories()
-    } else {
-      showToast(res.detail || '导入失败', 'error')
-    }
-  } catch (err) {
-    showToast('导入失败: ' + err.message, 'error')
-  } finally {
-    importing.value = false
-  }
-}
-
 const downloadTemplate = () => {
   const csv = 'sku_id,sku_name,description,category,tags\n000001,示例商品,这是一个示例描述,电子产品,标签1,标签2'
   const blob = new Blob([csv], { type: 'text/csv' })
@@ -726,31 +651,7 @@ const downloadTemplate = () => {
   a.click()
 }
 
-const triggerFileUpload = () => {
-  imageUpload.value?.click()
-}
 
-const handleImageUpload = async (event) => {
-  const files = Array.from(event.target.files)
-  if (files.length === 0) return
-
-  try {
-    const res = await sku.uploadImages(selectedSku.value.sku_id, files)
-    if (res.success) {
-      showToast(`成功上传 ${files.length} 张图片`)
-      showUploadDialog.value = false
-      await loadSkuImages(selectedSku.value.sku_id)
-      loadSkus()
-      loadStats()
-    } else {
-      showToast(res.detail || '上传失败', 'error')
-    }
-  } catch (err) {
-    showToast('上传失败: ' + err.message, 'error')
-  }
-  
-  event.target.value = ''
-}
 
 const deleteImage = async (index) => {
   const image = currentSkuImages.value[index]
@@ -813,25 +714,9 @@ onMounted(() => {
   background: var(--color-bg-secondary);
 }
 
-.header {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-  padding: 20px 30px;
-  box-shadow: var(--shadow-md);
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 22px;
-  color: white;
-  font-weight: 600;
-}
-
 .main-content {
   display: flex;
   gap: 20px;
-  padding: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
   transition: all 0.3s ease;
 }
 

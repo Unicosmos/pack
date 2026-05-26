@@ -57,6 +57,7 @@ from api.task import router as task_router
 from api.sku import router as sku_router
 from api.sku_review import router as sku_review_router
 from api.logs import router as logs_router
+from api.build import router as build_router
 
 
 # 服务实例
@@ -100,6 +101,7 @@ app.include_router(task_router)
 app.include_router(sku_router)
 app.include_router(sku_review_router)
 app.include_router(logs_router)
+app.include_router(build_router)
 
 # 先挂载子路径，再挂载父路径
 if config.paths.SKU_IMAGES_DIR.exists():

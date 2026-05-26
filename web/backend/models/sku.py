@@ -16,13 +16,12 @@ class SKU(Base):
     sku_name = Column(String(200), nullable=False, comment="SKU名称")
     description = Column(Text, nullable=True, comment="SKU描述")
     category = Column(String(100), nullable=True, index=True, comment="分类")
-    status = Column(String(20), default="active", index=True, comment="状态: active/inactive")
     image_count = Column(Integer, default=0, comment="图片数量")
     tags = Column(String(500), nullable=True, comment="标签，逗号分隔")
     created_at = Column(DateTime, default=datetime.utcnow, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="更新时间")
     created_by = Column(Integer, nullable=True, comment="创建人ID")
-    is_deleted = Column(Boolean, default=False, index=True, comment="软删除标记")
+    is_deleted = Column(Boolean, default=False, index=True, comment="禁用标记: True-已禁用, False-启用")
 
     def __repr__(self):
         return f"<SKU {self.sku_id}: {self.sku_name}>"

@@ -1,11 +1,7 @@
 <template>
   <div class="sku-review-page">
-    <div class="header">
-      <h1>📦 SKU 人工审核</h1>
-      <button class="btn-primary" @click="saveDatabase">💾 保存更新</button>
-    </div>
-
-    <div class="main-content">
+    <PageContainer>
+      <div class="main-content">
       <!-- 左侧：文件夹导航栏 -->
       <div class="folder-nav">
         <div class="folder-nav-header">
@@ -14,6 +10,38 @@
             {{ currentFolderIndex + 1 }} / {{ folders.length }}
           </div>
         </div>
+        
+        <!-- 文件夹操作 -->
+        <div class="folder-actions">
+          <input 
+            v-if="uploadFolderName" 
+            type="file" 
+            ref="folderFileInput" 
+            multiple 
+            accept="image/*" 
+            @change="handleFolderFileSelect"
+            style="display: none"
+          />
+          <input 
+            v-model="newFolderName" 
+            type="text" 
+            placeholder="输入文件夹名称"
+            class="folder-input"
+          />
+          <div class="folder-action-buttons">
+            <button class="btn btn-sm btn-primary" @click="prepareUploadFolder">
+              📤 上传图片
+            </button>
+            <button 
+              v-if="currentFolder" 
+              class="btn btn-sm btn-danger" 
+              @click="confirmDeleteFolder"
+            >
+              🗑️ 删除文件夹
+            </button>
+          </div>
+        </div>
+
         <div class="folder-list">
           <div
             v-for="(folder, idx) in folders"
@@ -105,8 +133,7 @@
         <div class="action-hint">{{ actionHint }}</div>
         <div class="action-buttons">
           <button class="btn btn-success" @click="assignImages" :disabled="!canAssign">✅ 确认归类</button>
-          <button class="btn btn-secondary" disabled title="功能已禁用">↩️ 撤回</button>
-          <button class="btn btn-danger" disabled title="功能已禁用">🗑️ 删除</button>
+          <button class="btn btn-danger" @click="handleDelete" :disabled="!selectedSkuId">🗑️ 删除</button>
         </div>
 
         <!-- SKU 详情 -->
@@ -138,6 +165,63 @@
       </div>
     </div>
 
+    <div class="build-panel">
+      <div class="panel-header">
+        <h3>📦 SKU库建库</h3>
+        <div class="stats-row">
+          <span class="stat-item">审核库: <span class="stat-value">{{ libraryInfo?.sku_output?.sku_count || 0 }}</span> SKU / <span class="stat-value">{{ skuOutputImageCount }}</span> 图</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-item">正式库: <span class="stat-value">{{ libraryInfo?.sku_library?.meta?.total_skus || 0 }}</span> SKU / <span class="stat-value">{{ libraryInfo?.sku_library?.meta?.total_images || 0 }}</span> 图</span>
+          <span class="stat-divider">|</span>
+          <span class="stat-item">SKU库特征文件: {{ libraryInfo?.sku_library?.has_features ? '✅ 已生成' : '❌ 未生成' }}</span>
+        </div>
+      </div>
+      
+      <button 
+        class="btn btn-primary" 
+        @click="triggerCombinedBuild" 
+        :disabled="combinedStatus === 'running'"
+        style="width: 100%; margin-bottom: 16px;"
+      >
+        {{ combinedStatus === 'running' ? '🔄 执行中...' : '一键同步并提取特征' }}
+      </button>
+      
+      <!-- 步骤进度条 -->
+      <div v-if="combinedStatus === 'running'" class="step-progress">
+        <div class="step-item" :class="{ active: combinedStep >= 1, completed: combinedStep > 1 }">
+          <div class="step-icon">{{ combinedStep > 1 ? '✓' : '1' }}</div>
+          <div class="step-label">图片增强</div>
+        </div>
+        <div class="step-divider" :class="{ active: combinedStep > 1 }"></div>
+        <div class="step-item" :class="{ active: combinedStep >= 2, completed: combinedStep > 2 }">
+          <div class="step-icon">{{ combinedStep > 2 ? '✓' : '2' }}</div>
+          <div class="step-label">特征提取</div>
+        </div>
+      </div>
+      
+      <!-- 状态信息 -->
+      <div v-if="combinedStatus !== 'idle'" class="build-status">
+        <span :class="['status-indicator', combinedStatus]"></span>
+        <span>{{ combinedMessage }}</span>
+      </div>
+      
+      <!-- 输出日志 -->
+      <div v-if="combinedOutput" class="output-log">
+        <pre>{{ combinedOutput }}</pre>
+      </div>
+      
+      <!-- 成功/失败详情 -->
+      <div v-if="combinedStatus === 'completed' || combinedStatus === 'failed'" class="result-detail">
+        <div v-if="combinedStatus === 'completed'" class="success-box">
+          ✅ 建库成功！
+        </div>
+        <div v-if="combinedStatus === 'failed'" class="error-box">
+          ❌ {{ combinedMessage }}
+        </div>
+      </div>
+      
+    </div>
+
     <div class="log-panel">
       <div class="panel-header">
         <h3>📜 操作日志</h3>
@@ -153,6 +237,8 @@
       {{ toastMessage }}
     </div>
 
+    </PageContainer>
+    
     <!-- 大图查看模态框 -->
     <div v-if="showLargeImage" class="large-image-overlay" @click="closeLargeImage">
       <div class="large-image-container" @click.stop>
@@ -169,8 +255,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
-import { skuReview, getImageUrlFromPath } from '@api/client';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { skuReview, build, getImageUrlFromPath } from '@api/client';
+import PageHeader from '@layout/PageHeader.vue';
+import PageContainer from '@layout/PageContainer.vue';
+import { ElMessageBox, ElMessage } from 'element-plus';
 
 // 数据状态
 const folders = ref([]);
@@ -189,6 +278,30 @@ const logs = ref([]);
 const showToast = ref(false);
 const toastMessage = ref('');
 const toastType = ref('info');
+
+// 建库状态
+const buildStatus = ref('idle')
+const buildMessage = ref('')
+const libraryInfo = ref(null)
+let pollInterval = null
+
+// 特征提取状态
+const featureStatus = ref('idle')
+const featureMessage = ref('')
+let featurePollInterval = null
+
+// 合并任务状态
+const combinedStatus = ref('idle')
+const combinedStep = ref(0)
+const combinedMessage = ref('')
+const combinedOutput = ref('')
+const skuOutputImageCount = ref(0)
+let combinedPollInterval = null
+
+// 文件夹管理状态
+const newFolderName = ref('')
+const uploadFolderName = ref('')
+const folderFileInput = ref(null);
 
 // 大图查看
 const showLargeImage = ref(false);
@@ -215,14 +328,28 @@ const actionHint = computed(() => {
 });
 
 const canAssign = computed(() => selectedCrops.value.length > 0 && selectedSkuId.value);
-const canRecall = computed(() => selectedSkuImages.value.length > 0);
 
-// Toast 提示
-const showToastMsg = (msg, type = 'info') => {
-  toastMessage.value = msg;
-  toastType.value = type;
-  showToast.value = true;
-  setTimeout(() => showToast.value = false, 3000);
+// 辅助函数：统一确认弹窗
+const showConfirm = async (message) => {
+  try {
+    await ElMessageBox.confirm(message, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    });
+    return true;
+  } catch (e) {
+    return e === 'cancel' ? false : Promise.reject(e);
+  }
+};
+
+// 辅助函数：显示操作结果消息
+const showResult = (success, successMsg, errorMsg) => {
+  if (success) {
+    ElMessage.success(successMsg);
+  } else {
+    ElMessage.error(errorMsg || '操作失败');
+  }
 };
 
 // 添加日志
@@ -373,36 +500,17 @@ const assignImages = async () => {
   try {
     const imagePaths = selectedCrops.value.map(idx => currentImages.value[idx].path);
     const res = await skuReview.assignImages(selectedSkuId.value, imagePaths);
+    
+    addLog(`✅ 归类 ${selectedCrops.value.length} 张图片至 ${selectedSkuId.value}`);
+    showResult(res.success, res.message, res.detail);
+    
     if (res.success) {
-      addLog(`✅ 归类 ${selectedCrops.value.length} 张图片至 ${selectedSkuId.value}`);
-      showToastMsg(res.message, 'success');
       selectedCrops.value = [];
       await loadSkus();
       await loadSkuImages(selectedSkuId.value);
-    } else {
-      showToastMsg(res.detail || '操作失败', 'error');
     }
   } catch (e) {
-    showToastMsg('操作失败', 'error');
-  }
-};
-
-const recallImages = async () => {
-  try {
-    const images = getSkuImages();
-    const imagePaths = selectedSkuImages.value.map(idx => images[idx].path);
-    const res = await skuReview.recallImages(selectedSkuId.value, imagePaths);
-    if (res.success) {
-      addLog(`↩️ 从 ${selectedSkuId.value} 撤回 ${selectedSkuImages.value.length} 张图片`);
-      showToastMsg(res.message, 'success');
-      selectedSkuImages.value = [];
-      await loadSkus();
-      await loadSkuImages(selectedSkuId.value);
-    } else {
-      showToastMsg(res.detail || '操作失败', 'error');
-    }
-  } catch (e) {
-    showToastMsg('操作失败', 'error');
+    ElMessage.error('操作失败');
   }
 };
 
@@ -415,35 +523,62 @@ const createSku = async () => {
     } else {
       res = await skuReview.createSku(newSkuInput.value || undefined);
     }
+    
+    addLog(res.message);
+    showResult(res.success, res.message, res.detail);
+    
     if (res.success) {
-      addLog(res.message);
-      showToastMsg(res.message, 'success');
       newSkuInput.value = '';
       await loadSkus();
-    } else {
-      showToastMsg(res.detail || '操作失败', 'error');
     }
   } catch (e) {
-    showToastMsg('操作失败', 'error');
+    ElMessage.error('操作失败');
   }
 };
 
-const deleteSku = async () => {
-  if (!confirm(`确定要删除 SKU ${selectedSkuId.value} 吗？`)) return;
-  try {
-    const res = await skuReview.deleteSku(selectedSkuId.value);
-    if (res.success) {
-      addLog(`🗑️ 已删除 SKU: ${selectedSkuId.value}`);
-      showToastMsg(res.message, 'success');
-      selectedSkuId.value = '';
-      selectedSku.value = null;
-      skuImagesData.value = [];
-      await loadSkus();
-    } else {
-      showToastMsg(res.detail || '操作失败', 'error');
+const handleDelete = async () => {
+  if (!selectedSkuId.value) return;
+  
+  const hasSelectedImages = selectedSkuImages.value.length > 0;
+  
+  if (hasSelectedImages) {
+    if (!await showConfirm(`确定要删除选中的 ${selectedSkuImages.value.length} 张图片吗？`)) return
+    
+    try {
+      const images = getSkuImages();
+      const imagePaths = selectedSkuImages.value.map(idx => images[idx].path);
+      const res = await skuReview.recallImages(selectedSkuId.value, imagePaths)
+      
+      addLog(`🗑️ 从 ${selectedSkuId.value} 删除 ${selectedSkuImages.value.length} 张图片`)
+      showResult(res.success, '删除成功', res.detail)
+      
+      if (res.success) {
+        selectedSkuImages.value = []
+        await loadSkus()
+        await loadSkuImages(selectedSkuId.value)
+      }
+    } catch (e) {
+      ElMessage.error('操作失败: ' + (e.message || e))
     }
-  } catch (e) {
-    showToastMsg('操作失败', 'error');
+  } else {
+    if (!await showConfirm(`确定要删除 SKU ${selectedSkuId.value} 及其所有图片吗？`)) return
+    
+    try {
+      const res = await skuReview.deleteSku(selectedSkuId.value)
+      
+      addLog(`🗑️ 已删除 SKU: ${selectedSkuId.value}`)
+      showResult(res.success, '删除成功', res.detail)
+      
+      if (res.success) {
+        selectedSkuId.value = ''
+        selectedSku.value = null
+        skuImagesData.value = []
+        selectedSkuImages.value = []
+        await loadSkus()
+      }
+    } catch (e) {
+      ElMessage.error('操作失败: ' + (e.message || e))
+    }
   }
 };
 
@@ -461,32 +596,331 @@ const closeLargeImage = () => {
   largeImageName.value = '';
 };
 
-const saveDatabase = async () => {
+// 建库操作
+const triggerBuild = async () => {
+  if (buildStatus.value === 'running') {
+    ElMessage.warning('建库任务正在进行中');
+    return;
+  }
+  
+  buildStatus.value = 'running';
+  buildMessage.value = '正在启动建库任务...';
+  
   try {
-    addLog('💾 开始保存 SKU 库更新…');
-    const res = await skuReview.saveDatabase();
+    const res = await build.triggerBuild();
     if (res.success) {
-      addLog('✅ SKU 库保存成功！');
-      showToastMsg(res.message, 'success');
-      await loadSkus();
+      addLog('📦 建库任务已启动');
+      buildMessage.value = res.message;
+      startPolling();
     } else {
-      showToastMsg(res.detail || '操作失败', 'error');
+      buildStatus.value = 'idle';
+      buildMessage.value = '';
+      ElMessage.error(res.message || '启动失败');
     }
   } catch (e) {
-    showToastMsg('操作失败', 'error');
+    buildStatus.value = 'idle';
+    buildMessage.value = '';
+    ElMessage.error('启动失败: ' + e.message);
   }
 };
 
-onMounted(() => {
-  addLog('🚀 系统初始化完成');
-  loadFolders();
-  loadSkus();
+const startPolling = () => {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async () => {
+    try {
+      const res = await build.getStatus();
+      if (res.success) {
+        buildStatus.value = res.status;
+        buildMessage.value = res.message;
+        
+        if (res.status === 'completed') {
+          addLog('✅ 建库完成');
+          ElMessage.success('建库完成');
+          stopPolling();
+          await refreshLibraryInfo();
+        } else if (res.status === 'failed') {
+          addLog('❌ 建库失败: ' + res.message);
+          ElMessage.error('建库失败: ' + res.message);
+          stopPolling();
+        }
+      }
+    } catch (e) {
+      console.error('轮询失败:', e);
+    }
+  }, 2000);
+};
+
+const stopPolling = () => {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+};
+
+const refreshLibraryInfo = async () => {
+  try {
+    const res = await build.getInfo()
+    if (res.success) {
+      libraryInfo.value = res.data
+    }
+  } catch (e) {
+    console.error('获取库信息失败:', e)
+  }
+}
+
+// 合并任务操作
+const triggerCombinedBuild = async () => {
+  if (combinedStatus.value === 'running') {
+    ElMessage.warning('任务正在进行中')
+    return
+  }
+  
+  combinedStatus.value = 'running'
+  combinedStep.value = 1
+  combinedMessage.value = '正在启动...'
+  combinedOutput.value = ''
+  
+  try {
+    const res = await build.triggerCombinedBuild()
+    if (res.success) {
+      addLog('🚀 启动完整建库流程')
+      combinedMessage.value = res.message
+      startCombinedPolling()
+    } else {
+      combinedStatus.value = 'idle'
+      combinedStep.value = 0
+      combinedMessage.value = ''
+      ElMessage.error(res.message || '启动失败')
+    }
+  } catch (e) {
+    combinedStatus.value = 'idle'
+    combinedStep.value = 0
+    combinedMessage.value = ''
+    ElMessage.error('启动失败: ' + e.message)
+  }
+}
+
+const startCombinedPolling = () => {
+  if (combinedPollInterval) clearInterval(combinedPollInterval)
+  combinedPollInterval = setInterval(async () => {
+    try {
+      const res = await build.getCombinedStatus()
+      if (res.success) {
+        combinedStatus.value = res.status
+        combinedStep.value = res.step || 0
+        combinedMessage.value = res.message
+        combinedOutput.value = res.output || ''
+        
+        if (res.status === 'completed') {
+          addLog('✅ 完整建库完成！')
+          ElMessage.success('建库成功！')
+          stopCombinedPolling()
+          await refreshLibraryInfo()
+          await updateImageCount()
+        } else if (res.status === 'failed') {
+          addLog('❌ 建库失败: ' + res.message)
+          ElMessage.error('建库失败')
+          stopCombinedPolling()
+        }
+      }
+    } catch (e) {
+      console.error('轮询失败:', e)
+    }
+  }, 500)
+}
+
+const stopCombinedPolling = () => {
+  if (combinedPollInterval) {
+    clearInterval(combinedPollInterval)
+    combinedPollInterval = null
+  }
+}
+
+// 特征提取操作
+const triggerFeatureExtract = async () => {
+  if (featureStatus.value === 'running') {
+    ElMessage.warning('特征提取任务正在进行中')
+    return
+  }
+  
+  featureStatus.value = 'running'
+  featureMessage.value = '正在启动特征提取任务...'
+  
+  try {
+    const res = await build.triggerFeatureExtract()
+    if (res.success) {
+      addLog('🔍 特征提取任务已启动')
+      featureMessage.value = res.message
+      startFeaturePolling()
+    } else {
+      featureStatus.value = 'idle'
+      featureMessage.value = ''
+      ElMessage.error(res.message || '启动失败')
+    }
+  } catch (e) {
+    featureStatus.value = 'idle'
+    featureMessage.value = ''
+    ElMessage.error('启动失败: ' + e.message)
+  }
+}
+
+const startFeaturePolling = () => {
+  if (featurePollInterval) clearInterval(featurePollInterval)
+  featurePollInterval = setInterval(async () => {
+    try {
+      const res = await build.getFeatureStatus()
+      if (res.success) {
+        featureStatus.value = res.status
+        featureMessage.value = res.message
+        
+        if (res.status === 'completed') {
+          addLog('✅ 特征提取完成')
+          ElMessage.success('特征提取完成')
+          stopFeaturePolling()
+          await refreshLibraryInfo()
+        } else if (res.status === 'failed') {
+          addLog('❌ 特征提取失败: ' + res.message)
+          ElMessage.error('特征提取失败: ' + res.message)
+          stopFeaturePolling()
+        }
+      }
+    } catch (e) {
+      console.error('轮询失败:', e)
+    }
+  }, 2000)
+}
+
+const stopFeaturePolling = () => {
+  if (featurePollInterval) {
+    clearInterval(featurePollInterval)
+    featurePollInterval = null
+  }
+}
+
+// 获取审核库图片数量
+const updateImageCount = async () => {
+  try {
+    const res = await build.checkChange()
+    if (res.success) {
+      skuOutputImageCount.value = res.image_count || 0
+    }
+  } catch (e) {
+    console.error('获取图片数量失败:', e)
+  }
+}
+
+// 文件夹管理方法
+const prepareUploadFolder = () => {
+  if (!newFolderName.value.trim()) {
+    ElMessage.error('请先输入文件夹名称')
+    return
+  }
+  uploadFolderName.value = newFolderName.value.trim()
+  nextTick(() => {
+    folderFileInput.value?.click()
+  })
+}
+
+const handleFolderFileSelect = async (event) => {
+  const files = Array.from(event.target.files)
+  if (files.length === 0) {
+    uploadFolderName.value = ''
+    return
+  }
+
+  try {
+    const res = await skuReview.uploadFolder(uploadFolderName.value, files)
+    addLog(`📤 成功上传 ${res.saved_count} 张图片到文件夹: ${uploadFolderName.value}`)
+    showResult(res.success, res.message || '上传成功', res.message)
+    
+    if (res.success) {
+      await loadFolders()
+      const newIndex = folders.value.indexOf(uploadFolderName.value)
+      if (newIndex !== -1) {
+        currentFolderIndex.value = newIndex
+        await loadFolderImages()
+      }
+      await updateImageCount()
+    }
+  } catch (e) {
+    ElMessage.error('上传失败: ' + e.message)
+  } finally {
+    uploadFolderName.value = ''
+    newFolderName.value = ''
+    if (folderFileInput.value) {
+      folderFileInput.value.value = ''
+    }
+  }
+}
+
+const confirmDeleteFolder = async () => {
+  if (!currentFolder.value) return
+  
+  if (!await showConfirm(`确定要删除文件夹 "${currentFolder.value}" 及其所有图片吗？`)) return
+  
+  try {
+    const res = await skuReview.deleteFolder(currentFolder.value)
+    addLog(`🗑️ 已删除文件夹: ${currentFolder.value}，包含 ${res.deleted_count} 张图片`)
+    showResult(res.success, '删除成功', res.message)
+    
+    await loadFolders()
+    if (folders.value.length > 0) {
+      currentFolderIndex.value = Math.min(currentFolderIndex.value, folders.value.length - 1)
+      await loadFolderImages()
+    } else {
+      currentFolder.value = ''
+      currentFolderIndex.value = -1
+      currentImages.value = []
+    }
+    await updateImageCount()
+  } catch (e) {
+    ElMessage.error('删除失败: ' + (e.message || e))
+  }
+}
+
+onMounted(async () => {
+  addLog('🚀 SKU审核系统初始化完成')
+  loadFolders()
+  loadSkus()
+  refreshLibraryInfo()
+  updateImageCount()
+  
+  try {
+    const res = await build.getCombinedStatus()
+    if (res.success) {
+      if (res.status === 'running') {
+        combinedStatus.value = 'running'
+        combinedStep.value = res.step || 0
+        combinedMessage.value = res.message
+        combinedOutput.value = res.output || ''
+        addLog('🔄 检测到正在运行的任务，继续跟踪...')
+        startCombinedPolling()
+      } else if (res.status === 'failed') {
+        combinedStatus.value = 'failed'
+        combinedStep.value = res.step || 0
+        combinedMessage.value = res.message
+        combinedOutput.value = res.output || ''
+        addLog('❌ 检测到失败的任务: ' + res.message)
+      } else {
+        combinedStatus.value = 'idle'
+        combinedStep.value = 0
+        combinedMessage.value = ''
+        combinedOutput.value = ''
+      }
+    }
+  } catch (e) {
+    console.error('检查任务状态失败:', e)
+  }
+});
+
+onUnmounted(() => {
+  stopCombinedPolling()
+  stopFeaturePolling()
 });
 </script>
 
 <style scoped>
 .sku-review-page {
-  padding: 20px;
   max-width: 100%;
   margin: 0 auto;
   background: var(--color-bg-secondary);
@@ -498,40 +932,6 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   margin-bottom: 20px;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-  padding: 12px 20px;
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 18px;
-  color: white;
-  font-weight: 600;
-}
-
-.btn-primary {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 10px 24px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all var(--transition-normal);
-}
-
-.btn-primary:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
 }
 
 .top-bar {
@@ -636,6 +1036,42 @@ onMounted(() => {
 
 .folder-item.active .folder-icon {
   transform: scale(1.1);
+}
+
+.folder-actions {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg-tertiary);
+}
+
+.folder-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  box-sizing: border-box;
+}
+
+.folder-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.folder-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.folder-action-buttons .btn {
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 12px;
 }
 
 .folder-icon {
@@ -1007,6 +1443,158 @@ onMounted(() => {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
 }
 
+/* 步骤进度条 */
+.step-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  padding: 12px 0;
+}
+
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.4;
+  transition: all 0.3s ease;
+}
+
+.step-item.active {
+  opacity: 1;
+}
+
+.step-item.completed {
+  opacity: 1;
+}
+
+.step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  background: var(--color-bg-tertiary);
+  border: 2px solid var(--color-border);
+  transition: all 0.3s ease;
+}
+
+.step-item.active .step-icon {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+  animation: pulse 1.5s infinite;
+}
+
+.step-item.completed .step-icon {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: white;
+}
+
+.step-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.step-item.active .step-label,
+.step-item.completed .step-label {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.step-divider {
+  width: 60px;
+  height: 3px;
+  background: var(--color-border);
+  margin: 0 8px;
+  margin-bottom: 24px;
+  transition: background 0.3s ease;
+}
+
+.step-divider.active {
+  background: #22c55e;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(102, 126, 234, 0);
+  }
+}
+
+/* 结果详情 */
+.result-detail {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.success-box {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+  font-weight: 500;
+  text-align: center;
+  font-size: 14px;
+}
+
+.error-box {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+/* 统计行 */
+.stats-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.stats-row .stat-item {
+  display: flex;
+  align-items: center;
+}
+
+.stats-row .stat-value {
+  color: var(--color-primary);
+  font-weight: 600;
+  margin: 0 2px;
+}
+
+.stats-row .stat-divider {
+  color: var(--color-border);
+}
+
+/* 输出日志 */
+.output-log {
+  margin-top: 12px;
+  padding: 10px;
+  background: var(--color-bg-tertiary);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.output-log pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--color-text-secondary);
+}
+
 .detail-image img {
   width: 100%;
   height: 70px;
@@ -1022,6 +1610,95 @@ onMounted(() => {
   text-overflow: ellipsis;
   color: var(--color-text-primary);
   background: var(--color-bg-primary);
+}
+
+.build-panel {
+  background: var(--color-bg-primary);
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 20px;
+}
+
+.build-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.build-panel h3 {
+  font-size: 14px;
+  margin: 0;
+}
+
+.build-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.build-actions .btn {
+  flex: 1;
+}
+
+.build-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--color-bg-tertiary);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-indicator.running {
+  background: var(--color-primary);
+  animation: pulse 1.5s infinite;
+}
+
+.status-indicator.completed {
+  background: var(--color-success);
+}
+
+.status-indicator.failed {
+  background: var(--color-danger);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.library-info {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-family: monospace;
 }
 
 .log-panel {

@@ -3,6 +3,7 @@
     <nav class="nav-bar">
       <div class="nav-left">
         <h1>📦 Pack Web</h1>
+        <span class="nav-title">{{ pageTitle }}</span>
       </div>
       <div class="nav-menu">
         <button :class="{ active: store.currentPage === 'home' }" @click="store.setPage('home')">
@@ -15,7 +16,7 @@
           📦 SKU管理
         </button>
         <button :class="{ active: store.currentPage === 'skuReview' }" @click="store.setPage('skuReview')">
-          🔍 SKU审核
+          🔍 SKU入库审核
         </button>
         <button class="theme-toggle" @click="toggleDarkMode" :title="isDark ? '切换到浅色模式' : '切换到深色模式'">
           {{ isDark ? '☀️' : '🌙' }}
@@ -33,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAppStore } from '@stores/app'
 import HomePage from '@pages/HomePage.vue'
 import TaskListPage from '@pages/TaskListPage.vue'
@@ -41,6 +42,16 @@ import SkuListPage from '@pages/SkuListPage.vue'
 import SkuReviewPage from '@pages/SkuReviewPage.vue'
 
 const store = useAppStore()
+
+const pageTitle = computed(() => {
+  const titles = {
+    home: '箱货检测与SKU匹配',
+    tasks: '任务列表',
+    skus: 'SKU管理',
+    skuReview: 'SKU入库审核'
+  }
+  return titles[store.currentPage] || ''
+})
 
 // 使用 ref 存储深色模式状态
 const isDark = ref(false)

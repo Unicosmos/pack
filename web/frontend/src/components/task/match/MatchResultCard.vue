@@ -73,7 +73,7 @@ defineProps({
 .match-result-index {
   width: 24px;
   height: 24px;
-  background: #667eea;
+  background: #0066cc;
   color: white;
   border-radius: 50%;
   display: flex;

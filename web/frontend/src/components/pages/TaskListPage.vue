@@ -1,11 +1,7 @@
 <template>
   <div class="task-list-page">
-    <div class="header">
-      <h1>📋 任务列表</h1>
-      <p>查看历史检测任务记录，支持批量任务进度追踪</p>
-    </div>
-
-    <div class="main-container" :class="{ 'split-view': showReviewPanel }">
+    <PageContainer>
+      <div class="main-container" :class="{ 'split-view': showReviewPanel }">
       <!-- 任务列表区域 -->
       <div class="task-list-section">
         <div class="section">
@@ -258,6 +254,8 @@
       </transition>
     </div>
 
+    </PageContainer>
+    
     <!-- 大图查看器 -->
     <ImageViewer
       :visible="showImageViewer"
@@ -272,6 +270,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
 import { tasks as taskApi, getImageUrlFromPath } from '@api/client'
+import PageHeader from '@layout/PageHeader.vue'
+import PageContainer from '@layout/PageContainer.vue'
 import SkuImage from '@sku/SkuImage.vue'
 import ReviewDialog from '@task/ReviewDialog.vue'
 import ImageViewer from '@ui/ImageViewer.vue'

@@ -51,13 +51,8 @@ class SKUUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     tags: Optional[str] = None
+    is_deleted: Optional[bool] = None
     status: Optional[str] = None
-
-    @validator('status')
-    def validate_status(cls, v):
-        if v and v not in ['active', 'inactive']:
-            raise ValueError('状态只能是 active 或 inactive')
-        return v
 
 
 class SKUResponse(BaseModel):
@@ -66,6 +61,7 @@ class SKUResponse(BaseModel):
     sku_name: str
     description: Optional[str]
     category: Optional[str]
+    is_deleted: bool
     status: str
     image_count: int
     tags: Optional[str]
@@ -101,7 +97,8 @@ def _sku_to_response(sku: SKU) -> SKUResponse:
         sku_name=sku.sku_name,
         description=sku.description,
         category=sku.category,
-        status=sku.status,
+        is_deleted=sku.is_deleted,
+        status='inactive' if sku.is_deleted else 'active',
         image_count=sku.image_count,
         tags=sku.tags,
         created_at=sku.created_at.isoformat() if sku.created_at else None,
@@ -115,11 +112,11 @@ async def list_skus(
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
     category: Optional[str] = None,
-    status: Optional[str] = None,
+    is_deleted: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     """获取SKU列表（支持分页、搜索、筛选）"""
-    query = db.query(SKU).filter(SKU.is_deleted == False)
+    query = db.query(SKU)
 
     if search:
         search_pattern = f"%{search}%"
@@ -134,8 +131,8 @@ async def list_skus(
     if category:
         query = query.filter(SKU.category == category)
 
-    if status:
-        query = query.filter(SKU.status == status)
+    if is_deleted is not None:
+        query = query.filter(SKU.is_deleted == is_deleted)
 
     total = query.count()
     skus = query.order_by(SKU.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
@@ -171,10 +168,10 @@ async def get_sku_stats(
     db: Session = Depends(get_db)
 ):
     """获取SKU统计信息"""
-    total = db.query(SKU).filter(SKU.is_deleted == False).count()
-    active = db.query(SKU).filter(SKU.is_deleted == False, SKU.status == 'active').count()
-    inactive = db.query(SKU).filter(SKU.is_deleted == False, SKU.status == 'inactive').count()
-    total_images = db.query(func.sum(SKU.image_count)).filter(SKU.is_deleted == False).scalar() or 0
+    total = db.query(SKU).count()
+    active = db.query(SKU).filter(SKU.is_deleted == False).count()
+    inactive = db.query(SKU).filter(SKU.is_deleted == True).count()
+    total_images = db.query(func.sum(SKU.image_count)).scalar() or 0
 
     return SKUStatsResponse(
         success=True,
@@ -192,8 +189,7 @@ async def get_sku(
 ):
     """获取单个SKU详情"""
     sku = db.query(SKU).filter(
-        SKU.sku_id == sku_id,
-        SKU.is_deleted == False
+        SKU.sku_id == sku_id
     ).first()
 
     if not sku:
@@ -209,8 +205,7 @@ async def create_sku(
 ):
     """创建新SKU"""
     existing = db.query(SKU).filter(
-        SKU.sku_id == sku_data.sku_id,
-        SKU.is_deleted == False
+        SKU.sku_id == sku_data.sku_id
     ).first()
 
     if existing:
@@ -222,7 +217,8 @@ async def create_sku(
         description=sku_data.description,
         category=sku_data.category,
         tags=sku_data.tags,
-        created_by=1
+        created_by=1,
+        is_deleted=False
     )
 
     db.add(sku)
@@ -240,14 +236,18 @@ async def update_sku(
 ):
     """更新SKU信息"""
     sku = db.query(SKU).filter(
-        SKU.sku_id == sku_id,
-        SKU.is_deleted == False
+        SKU.sku_id == sku_id
     ).first()
 
     if not sku:
         raise HTTPException(status_code=404, detail="SKU不存在")
 
     update_data = sku_data.dict(exclude_unset=True)
+    
+    if 'status' in update_data:
+        sku.is_deleted = update_data['status'] == 'inactive'
+        del update_data['status']
+    
     for field, value in update_data.items():
         setattr(sku, field, value)
 
@@ -262,10 +262,9 @@ async def delete_sku(
     sku_id: str,
     db: Session = Depends(get_db)
 ):
-    """删除SKU（软删除）"""
+    """禁用SKU"""
     sku = db.query(SKU).filter(
-        SKU.sku_id == sku_id,
-        SKU.is_deleted == False
+        SKU.sku_id == sku_id
     ).first()
 
     if not sku:
@@ -282,18 +281,17 @@ async def batch_delete_skus(
     sku_ids: List[str],
     db: Session = Depends(get_db)
 ):
-    """批量删除SKU"""
+    """批量禁用SKU"""
     if len(sku_ids) > 100:
-        raise HTTPException(status_code=400, detail="单次最多删除100个SKU")
+        raise HTTPException(status_code=400, detail="单次最多禁用100个SKU")
 
     count = db.query(SKU).filter(
-        SKU.sku_id.in_(sku_ids),
-        SKU.is_deleted == False
+        SKU.sku_id.in_(sku_ids)
     ).update({SKU.is_deleted: True}, synchronize_session=False)
 
     db.commit()
 
-    return MessageResponse(success=True, message=f"已删除 {count} 个SKU")
+    return MessageResponse(success=True, message=f"已禁用 {count} 个SKU")
 
 
 @router.post("/import")
@@ -331,8 +329,7 @@ async def import_skus_csv(
                 continue
 
             existing = db.query(SKU).filter(
-                SKU.sku_id == sku_id,
-                SKU.is_deleted == False
+                SKU.sku_id == sku_id
             ).first()
 
             if existing:
@@ -340,6 +337,7 @@ async def import_skus_csv(
                 existing.description = row.get('description', existing.description)
                 existing.category = row.get('category', existing.category)
                 existing.tags = row.get('tags', existing.tags)
+                existing.is_deleted = False
                 updated += 1
             else:
                 sku = SKU(
@@ -348,7 +346,8 @@ async def import_skus_csv(
                     description=row.get('description'),
                     category=row.get('category'),
                     tags=row.get('tags'),
-                    created_by=1
+                    created_by=1,
+                    is_deleted=False
                 )
                 db.add(sku)
                 imported += 1
@@ -424,8 +423,7 @@ async def sync_from_sku_csv(
     imported = 0
     for sku_id, info in sku_map.items():
         existing = db.query(SKU).filter(
-            SKU.sku_id == sku_id,
-            SKU.is_deleted == False
+            SKU.sku_id == sku_id
         ).first()
 
         if not existing:
@@ -433,10 +431,13 @@ async def sync_from_sku_csv(
                 sku_id=sku_id,
                 sku_name=info['sku_name'],
                 category=info.get('category'),
-                created_by=1
+                created_by=1,
+                is_deleted=False
             )
             db.add(sku)
             imported += 1
+        else:
+            existing.is_deleted = False
 
     db.commit()
 

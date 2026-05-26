@@ -7,24 +7,35 @@ echo =========================================
 echo.
 
 echo Stopping backend (port 8000)...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :8000') do (
-    taskkill /F /PID %%a >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo Stopped backend process: %%a
+for /f "tokens=1-5" %%a in ('netstat -ano ^| findstr ":8000"') do (
+    set "pid=%%e"
+    if not "!pid!"=="" (
+        taskkill /F /PID !pid! >nul 2>&1
+        if !errorlevel! equ 0 (
+            echo Stopped backend process: !pid!
+        )
     )
 )
 
 echo.
 echo Stopping frontend (port 5173)...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5173') do (
-    taskkill /F /PID %%a >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo Stopped frontend process: %%a
+for /f "tokens=1-5" %%a in ('netstat -ano ^| findstr ":5173"') do (
+    set "pid=%%e"
+    if not "!pid!"=="" (
+        taskkill /F /PID !pid! >nul 2>&1
+        if !errorlevel! equ 0 (
+            echo Stopped frontend process: !pid!
+        )
     )
 )
 
 echo.
-echo Stopping node.exe...
+echo Stopping Python backend processes...
+taskkill /F /IM python.exe >nul 2>&1
+taskkill /F /IM pythonw.exe >nul 2>&1
+
+echo.
+echo Stopping frontend node processes...
 taskkill /F /IM node.exe >nul 2>&1
 
 echo.

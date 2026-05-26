@@ -17,7 +17,7 @@ defineProps({
   },
   color: {
     type: String,
-    default: '#667eea'
+    default: '#0066cc'
   }
 })
 </script>

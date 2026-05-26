@@ -14,6 +14,7 @@ export default defineConfig({
       '@sku': resolve(__dirname, 'src/components/sku'),
       '@upload': resolve(__dirname, 'src/components/upload'),
       '@hooks': resolve(__dirname, 'src/components/hooks'),
+      '@layout': resolve(__dirname, 'src/components/layout'),
       '@api': resolve(__dirname, 'src/api'),
       '@utils': resolve(__dirname, 'src/utils'),
       '@stores': resolve(__dirname, 'src/stores')

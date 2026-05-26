@@ -1,56 +1,50 @@
 <template>
   <div class="home-page">
-    <StatusBanner :status="store.systemStatus" />
+    <PageContainer>
+      <StatusBanner :status="store.systemStatus" />
 
-    <header class="page-header">
-      <h1>📦 箱货检测与SKU匹配</h1>
-      <p>上传图片，自动检测箱体并匹配SKU</p>
-      <div class="header-tip">
-        💡 识别结果可在<a href="#" @click.prevent="goToTasks">任务列表</a>中进行审核
-      </div>
-    </header>
+      <section class="panel">
+        <div class="panel-body">
+          <UploadArea @files-selected="handleFilesSelected" />
+          <FileList :files="store.selectedFiles" @remove="handleFileRemove" @clear="handleClearFiles" />
 
-    <section class="panel">
-      <div class="panel-body">
-        <UploadArea @files-selected="handleFilesSelected" />
-        <FileList :files="store.selectedFiles" @remove="handleFileRemove" @clear="handleClearFiles" />
-
-        <div class="btn-group" style="margin-top: var(--spacing-lg);">
-          <button class="btn btn-success" :disabled="store.selectedFiles.length === 0 || isProcessing" @click="handleUpload">
-            {{ isProcessing ? '上传中...' : (store.selectedFiles.length > 1 ? '📦 批量上传' : '📷 上传图片') }}
-          </button>
-          <button class="btn btn-secondary" @click="handleReset">🔄 重置</button>
+          <div class="btn-group" style="margin-top: var(--spacing-lg);">
+            <button class="btn btn-success" :disabled="store.selectedFiles.length === 0 || isProcessing" @click="handleUpload">
+              {{ isProcessing ? '上传中...' : (store.selectedFiles.length > 1 ? '📦 批量上传' : '📷 上传图片') }}
+            </button>
+            <button class="btn btn-secondary" @click="handleReset">🔄 重置</button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section v-if="store.error" class="error-state">
-      <div class="error-icon">❌</div>
-      <div class="error-text">{{ store.error }}</div>
-    </section>
+      <section v-if="store.error" class="error-state">
+        <div class="error-icon">❌</div>
+        <div class="error-text">{{ store.error }}</div>
+      </section>
 
-    <section v-if="store.batchResults.length > 0" class="panel">
-      <div class="panel-header">
-        <h2>📊 检测结果</h2>
-        <span class="result-count">共 {{ store.batchResults.length }} 张图片</span>
-      </div>
-      <div class="panel-body">
-        <DetectionList :results="store.batchResults" :mode="store.currentMode" @review="handleReview" />
-
-        <div class="btn-group" style="margin-top: var(--spacing-lg);">
-          <button class="btn btn-primary" @click="goToTasks">📋 前往任务列表查看</button>
-          <button class="btn btn-secondary" @click="clearBatchResults">清空结果</button>
+      <section v-if="store.batchResults.length > 0" class="panel">
+        <div class="panel-header">
+          <h2>📊 检测结果</h2>
+          <span class="result-count">共 {{ store.batchResults.length }} 张图片</span>
         </div>
-      </div>
-    </section>
+        <div class="panel-body">
+          <DetectionList :results="store.batchResults" :mode="store.currentMode" @review="handleReview" />
 
-    <section v-if="showEmptyState" class="panel">
-      <div class="empty-state">
-        <div class="empty-icon">📷</div>
-        <p>请上传图片开始识别</p>
-        <p class="empty-tip">识别完成后请前往<a href="#" @click.prevent="goToTasks">任务列表</a>查看</p>
-      </div>
-    </section>
+          <div class="btn-group" style="margin-top: var(--spacing-lg);">
+            <button class="btn btn-primary" @click="goToTasks">📋 前往任务列表查看</button>
+            <button class="btn btn-secondary" @click="clearBatchResults">清空结果</button>
+          </div>
+        </div>
+      </section>
+
+      <section v-if="showEmptyState" class="panel">
+        <div class="empty-state">
+          <div class="empty-icon">📷</div>
+          <p>请上传图片开始识别</p>
+          <p class="empty-tip">识别完成后请前往<a href="#" @click.prevent="goToTasks">任务列表</a>查看</p>
+        </div>
+      </section>
+    </PageContainer>
 
     <ReviewDialog
       v-model="reviewDialogVisible"
@@ -65,6 +59,8 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { detector, tasks } from '@api/client'
 import { useAppStore } from '@stores/app'
+import PageHeader from '@layout/PageHeader.vue'
+import PageContainer from '@layout/PageContainer.vue'
 import StatusBanner from '@ui/StatusBanner.vue'
 import UploadArea from '@upload/UploadArea.vue'
 import FileList from '@upload/FileList.vue'
