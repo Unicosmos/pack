@@ -1,62 +1,43 @@
 <template>
   <div class="task-list-page">
     <PageContainer>
-      <div class="main-container" :class="{ 'split-view': showReviewPanel }">
-      <!-- 任务列表区域 -->
-      <div class="task-list-section">
-        <div class="section">
-          <div class="stats-row">
-            <div class="stat-card">
-              <div class="stat-value">{{ stats.total || 0 }}</div>
-              <div class="stat-label">总任务数</div>
-            </div>
-            <div class="stat-card success">
-              <div class="stat-value">{{ stats.completed || 0 }}</div>
-              <div class="stat-label">已完成</div>
-            </div>
-            <div class="stat-card warning">
-              <div class="stat-value">{{ stats.pending || 0 }}</div>
-              <div class="stat-label">进行中</div>
-            </div>
-            <div class="stat-card danger">
-              <div class="stat-value">{{ stats.failed || 0 }}</div>
-              <div class="stat-label">失败</div>
-            </div>
-          </div>
-        </div>
+      <div class="main-container" :class="{ 'view-detail': viewMode === 'detail' }">
+
+      <!-- 普通任务列表视图 -->
+      <div v-if="viewMode === 'list'" class="task-list-section">
+        <TaskStats :stats="stats" />
 
         <div class="section">
           <div class="table-toolbar">
-            <div class="filter-tabs">
-              <button :class="{ active: statusFilter === null }" @click="filterByStatus(null)">全部</button>
-              <button :class="{ active: statusFilter === 'completed' }" @click="filterByStatus('completed')">已完成</button>
-              <button :class="{ active: statusFilter === 'pending' }" @click="filterByStatus('pending')">进行中</button>
-              <button :class="{ active: statusFilter === 'failed' }" @click="filterByStatus('failed')">失败</button>
-            </div>
-            <div class="toolbar-right">
-              <button 
-                class="btn btn-primary" 
-                @click="batchDetectTasks"
-                :disabled="selectedTasks.length === 0"
+            <FilterBar>
+              <!-- 状态筛选 -->
+              <FilterDropdown
+                v-model="statusFilter"
+                :options="statusOptions"
+                placeholder="全部状态"
+                @change="handleStatusChange"
+              />
+
+              <!-- 时间筛选 -->
+              <TimeFilterDropdown
+                v-model="timeFilter"
+                :custom-start="customStart"
+                :custom-end="customEnd"
+                @update:customStart="customStart = $event"
+                @update:customEnd="customEnd = $event"
+                @change="handleTimeChange"
+              />
+
+              <!-- 批量操作 -->
+              <ActionMenu
+                :items="batchActions"
+                :loading="detecting"
+                :progress="detectProgress"
+                @select="handleBatchAction"
               >
-                🔍 批量识别 ({{ selectedTasks.length }}个)
-              </button>
-              <div class="export-dropdown">
-                <button class="btn btn-success" @click="toggleExportMenu" :disabled="selectedTasks.length === 0">
-                  📥 导出 ({{ selectedTasks.length }}个)
-                </button>
-                <div v-if="showExportMenu" class="export-menu">
-                  <div class="export-option" @click="exportTasks('json', false)">
-                    <span>📄 JSON格式</span>
-                    <span class="option-desc">结构清晰，便于程序处理</span>
-                  </div>
-                  <div class="export-option" @click="exportTasks('csv', false)">
-                    <span>📊 CSV格式</span>
-                    <span class="option-desc">适合Excel打开，便于数据分析</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+                <template #label>{{ detecting ? '识别中...' : `批量操作 (${selectedTasks.length}个)` }}</template>
+              </ActionMenu>
+            </FilterBar>
           </div>
 
           <div v-if="loading" class="loading">加载中...</div>
@@ -75,20 +56,19 @@
               <div class="task-cell task-id">ID</div>
               <div class="task-cell task-thumb">缩略图</div>
               <div class="task-cell task-name">图片名称</div>
+              <div class="task-cell task-status">状态</div>
               <div class="task-cell task-counts">统计</div>
               <div class="task-cell task-date">创建时间</div>
-              <div class="task-cell task-actions">操作</div>
-              <div class="task-cell task-toggle"></div>
             </div>
             
             <div 
               v-for="task in tasks" 
               :key="task.id" 
               class="task-row"
-              :class="{ 'expanded': expandedTaskId === task.id, 'selected': selectedTaskIds.includes(task.id) }"
+              :class="{ 'selected': selectedTaskIds.includes(task.id) }"
             >
               <!-- 任务行 -->
-              <div class="task-row-header" @click="toggleTask(task)">
+              <div class="task-row-header" @click="openViewDetail(task)">
                 <div class="task-cell task-select">
                   <input type="checkbox" :value="task.id" @click.stop="toggleTaskSelection(task.id)" :checked="selectedTaskIds.includes(task.id)" />
                 </div>
@@ -102,128 +82,18 @@
                   />
                 </div>
                 <div class="task-cell task-name">{{ task.image_name }}</div>
+                <div class="task-cell task-status">
+                  <button v-if="shouldShowDetect(task)" class="status-badge pending status-badge-btn" @click.stop="detectTask(task)" title="点击识别当前任务">
+                    待识别，点击识别
+                  </button>
+                  <span v-else :class="['status-badge', getStatusBadgeClass(task)]">{{ getStatusText(task.status) }}</span>
+                </div>
                 <div class="task-cell task-counts">
                   <span class="count-item">检测: {{ task.box_count || 0 }}</span>
                   <span class="count-item">匹配: {{ task.matched_count || 0 }}</span>
                 </div>
                 <div class="task-cell task-date">{{ formatDate(task.created_at) }}</div>
-                <div class="task-cell task-actions">
-                  <div class="action-buttons">
-                    <button v-if="shouldShowDetect(task)" class="btn-small btn-primary" @click.stop="detectTask(task)">识别</button>
-                    <button v-if="shouldShowReview(task)" class="btn-small btn-warning" @click.stop="openReview(task)">审核</button>
-                    <button v-if="shouldShowReDetect(task)" class="btn-small btn-danger" @click.stop="reDetectTask(task)">重新识别</button>
-                    <button class="btn-icon" @click.stop="deleteTask(task.id)" title="删除">🗑️</button>
-                  </div>
-                </div>
-                <div class="task-cell task-toggle">
-                  <span class="toggle-icon">{{ expandedTaskId === task.id ? '▼' : '▶' }}</span>
-                </div>
               </div>
-
-              <!-- 展开的详情 -->
-              <transition name="slide">
-                <div v-if="expandedTaskId === task.id" class="task-detail-expanded">
-                  <div class="detail-main">
-                    <!-- 左侧：任务详情和图片预览 -->
-                    <div class="detail-content">
-                      <div class="detail-actions">
-                      <button v-if="shouldShowDetect(task)" class="btn btn-primary" @click="detectTask(task)">识别</button>
-                    </div>
-
-                      <div class="detail-grid">
-                        <div class="detail-item">
-                          <span class="detail-label">图片名称：</span>
-                          <span class="detail-value">{{ task.image_name }}</span>
-                        </div>
-                        <div class="detail-item">
-                          <span class="detail-label">状态：</span>
-                          <span :class="['detail-value', 'status-badge', task.status]">{{ getStatusText(task.status) }}</span>
-                        </div>
-                        <div class="detail-item">
-                          <span class="detail-label">检测数量：</span>
-                          <span class="detail-value">{{ task.box_count || 0 }}</span>
-                        </div>
-                        <div class="detail-item">
-                          <span class="detail-label">匹配数量：</span>
-                          <span class="detail-value">{{ task.matched_count || 0 }}</span>
-                        </div>
-                        <div class="detail-item">
-                          <span class="detail-label">未匹配数量：</span>
-                          <span class="detail-value">{{ task.unmatched_count || 0 }}</span>
-                        </div>
-                        <div class="detail-item">
-                          <span class="detail-label">创建时间：</span>
-                          <span class="detail-value">{{ formatDate(task.created_at) }}</span>
-                        </div>
-                        <div class="detail-item" v-if="task.completed_at">
-                          <span class="detail-label">完成时间：</span>
-                          <span class="detail-value">{{ formatDate(task.completed_at) }}</span>
-                        </div>
-                      </div>
-
-                      <!-- 原图和检测结果 -->
-                      <div class="result-section">
-                        <div class="preview-row">
-                          <div class="preview-section" @click="openImageViewer(getTaskImagePath(task), task.image_name)">
-                            <div class="preview-title">
-                              <span>原图</span>
-                              <span class="click-indicator">👆 点击查看大图</span>
-                            </div>
-                            <SkuImage
-                              :image-path="getTaskImagePath(task)"
-                              height="200px"
-                              class="preview-img clickable"
-                            />
-                          </div>
-                          <div v-if="getTaskPreviewPath(task)" class="preview-section" @click="openImageViewer(getTaskPreviewPath(task).url, task.image_name + ' (检测结果)')">
-                            <div class="preview-title">
-                              <span>检测结果（带框）</span>
-                              <span class="click-indicator">👆 点击查看大图</span>
-                            </div>
-                            <SkuImage
-                              :image-path="getTaskPreviewPath(task)"
-                              height="200px"
-                              class="preview-img clickable"
-                            />
-                          </div>
-                        </div>
-
-                        <div v-if="getDetectionBoxes(task).length > 0" class="detection-boxes-preview">
-                          <h5>识别结果 ({{ getDetectionBoxes(task).length }}个)</h5>
-                          <div class="boxes-grid">
-                            <div v-for="(box, idx) in getDetectionBoxes(task)" :key="box.box_id" class="box-item" @click="openImageViewer(getBoxImageUrl(box), `箱体 ${idx + 1}`)">
-                              <SkuImage
-                                :image-path="getBoxImageUrl(box)"
-                                :placeholder-icon="String(idx + 1)"
-                                height="80px"
-                                class="clickable"
-                              />
-                              <div class="box-info">
-                                <span class="box-idx">箱体 {{ idx + 1 }}</span>
-                                <span class="box-conf">置信度: {{ (box.confidence * 100).toFixed(1) }}%</span>
-                                <span v-if="getMatchResultForTask(task, box.box_id)" class="box-match" :class="getMatchResultForTask(task, box.box_id).status">
-                                  {{ getMatchResultForTask(task, box.box_id).sku_id || '未匹配' }}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 右侧：审核面板 -->
-                    <div v-if="shouldShowReview(task) && task.detections" class="detail-review">
-                      <div class="review-content">
-                        <ReviewDialog
-                          :task="{ ...task, result: { detections: { boxes: task.detections } } }"
-                          :inline="true"
-                          @update="handleInlineReviewUpdate(task, $event)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </transition>
             </div>
           </div>
 
@@ -235,26 +105,76 @@
         </div>
       </div>
 
-      <!-- 审核面板（右侧分栏） -->
-      <transition name="slide-right">
-        <div v-if="showReviewPanel" class="review-panel">
-          <div class="review-panel-header">
-            <h3>审核检测结果 #{{ selectedTaskForReview?.id }}</h3>
-            <button class="btn-close" @click="closeReviewPanel">×</button>
-          </div>
-          <div class="review-panel-content">
-            <ReviewDialog
-              v-if="selectedTaskForReview"
-              :task="selectedTaskForReview"
-              @cancel="closeReviewPanel"
-              @update="handleReviewUpdate"
-            />
-          </div>
-        </div>
-      </transition>
     </div>
 
     </PageContainer>
+    
+    <!-- 查看识别结果详情视图 -->
+    <div v-if="viewMode === 'detail'" class="detail-view-container">
+      <div class="detail-view-sidebar">
+        <div class="detail-view-topbar">
+          <div class="topbar-left">
+            <h3>📊 任务列表</h3>
+          </div>
+          <button class="topbar-close" @click="closeViewDetail">×</button>
+        </div>
+        <div class="detail-view-nav">
+          <div class="detail-nav-list">
+            <div 
+              v-for="(task, index) in tasks" 
+              :key="task.id"
+              class="detail-nav-item"
+              :class="{ 'active': task.id === viewDetailTask?.id, 'reviewed': task.status === 'completed' }"
+              @click="switchViewDetailTask(task)"
+            >
+              <div class="nav-item-thumb">
+                <img :src="getTaskImagePath(task)" :alt="task.image_name" class="nav-item-thumb-img" @error="$event.target.style.display='none'" />
+              </div>
+              <div class="nav-item-info">
+                <div class="nav-item-id">#{{ task.id }}</div>
+                <div class="nav-item-name">{{ task.image_name }}</div>
+                <span :class="['status-badge', getStatusBadgeClass(task)]">{{ getStatusText(task.status) }}</span>
+              </div>
+              <div v-if="task.status === 'completed'" class="nav-item-check">✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="detail-view-main">
+        <div class="detail-view-main-topbar" v-if="viewDetailTask">
+          <span class="mainbar-item"><strong>#{{ viewDetailTask.id }}</strong> {{ viewDetailTask.image_name }}</span>
+          <span class="mainbar-divider">|</span>
+          <span :class="['mainbar-status', getStatusBadgeClass(viewDetailTask)]">{{ getStatusText(viewDetailTask.status) }}</span>
+          <span class="mainbar-divider">|</span>
+          <span>检测 {{ viewDetailTask.box_count || 0 }}</span>
+          <span class="mainbar-dot">·</span>
+          <span>匹配 {{ viewDetailTask.matched_count || 0 }}</span>
+          <span class="mainbar-spacer"></span>
+          <span>创建 {{ formatDate(viewDetailTask.created_at) }}</span>
+          <span class="mainbar-divider">|</span>
+          <span>完成 {{ formatDate(viewDetailTask.completed_at || viewDetailTask.updated_at) }}</span>
+        </div>
+        <TaskDetailPanel
+          v-if="viewDetailTask"
+          :task="viewDetailTask"
+          hide-info
+          @view-image="openImageViewer"
+          @match-box="handleBoxMatch"
+          @delete-box="handleDeleteBox"
+        />
+      </div>
+    </div>
+    
+    <!-- 匹配弹窗 -->
+    <BoxMatchDialog
+      :visible="showMatchDialog"
+      :box="matchDialogBox"
+      :box-index="matchDialogIndex"
+      :task-id="viewDetailTask?.id"
+      @close="showMatchDialog = false"
+      @update="handleBoxMatchUpdate"
+      @submit-review="handleSubmitReview"
+    />
     
     <!-- 大图查看器 -->
     <ImageViewer
@@ -267,19 +187,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { tasks as taskApi, getImageUrlFromPath } from '@api/client'
-import PageHeader from '@layout/PageHeader.vue'
+import { tasks as taskApi } from '@api/client'
 import PageContainer from '@layout/PageContainer.vue'
-import SkuImage from '@sku/SkuImage.vue'
-import ReviewDialog from '@task/ReviewDialog.vue'
+import TaskStats from '@task/TaskStats.vue'
+import TaskDetailPanel from '@task/TaskDetailPanel.vue'
+import BoxMatchDialog from '@task/BoxMatchDialog.vue'
 import ImageViewer from '@ui/ImageViewer.vue'
+import FilterBar from '@ui/FilterBar.vue'
+import FilterDropdown from '@ui/FilterDropdown.vue'
+import TimeFilterDropdown from '@ui/TimeFilterDropdown.vue'
+import ActionMenu from '@ui/ActionMenu.vue'
 import {
   getStatusText,
+  getStatusBadgeClass,
   formatDate,
   shouldShowDetect,
-  shouldShowReview,
   shouldShowReDetect
 } from '@utils/taskUtils'
 
@@ -291,14 +215,142 @@ const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const statusFilter = ref(null)
-const expandedTaskId = ref(null)
-const showReviewPanel = ref(false)
-const selectedTaskForReview = ref(null)
+const timeFilter = ref('all')
+const customStart = ref('')
+const customEnd = ref('')
+
+// 筛选选项配置
+const statusOptions = [
+  { value: null, label: '全部状态' },
+  { value: 'completed', label: '已完成' },
+  { value: 'pending', label: '待识别' },
+  { value: 'detected', label: '待审核' },
+  { value: 'failed', label: '识别失败' }
+]
+
+// 批量操作选项
+const batchActions = [
+  { label: '批量识别', icon: '🔍', action: 'detect' },
+  { divider: true },
+  { label: '导出 JSON', icon: '📄', action: 'export-json' },
+  { label: '导出 CSV', icon: '📊', action: 'export-csv' }
+]
+
+const timeOptions = [
+  { value: 'all', label: '全部时间' },
+  { value: 'today', label: '今日' },
+  { value: 'week', label: '本周' },
+  { value: 'month', label: '本月' },
+  { value: 'custom', label: '自定义' }
+]
+
+// 视图模式
+const viewMode = ref('list')
+const viewDetailTask = ref(null)
 
 // 导出相关
 const selectedTaskIds = ref([])
-const showExportMenu = ref(false)
 const exporting = ref(false)
+
+// 批量识别加载状态
+const detecting = ref(false)
+const detectProgress = ref(null)
+
+// 匹配弹窗相关
+const showMatchDialog = ref(false)
+const matchDialogBox = ref(null)
+const matchDialogIndex = ref(0)
+
+const handleBoxMatch = ({ box, index }) => {
+  matchDialogBox.value = box
+  matchDialogIndex.value = index
+  showMatchDialog.value = true
+}
+
+const handleBoxMatchUpdate = ({ boxId, skuId, boxIndex }) => {
+  if (!viewDetailTask.value) return
+
+  const boxes = viewDetailTask.value.detections || viewDetailTask.value.result?.detections?.boxes
+  if (!boxes) return
+
+  const box = boxes.find(b => b.box_id === boxId || b.box_id === `box_${boxId}` || String(b.box_id) === String(boxId))
+  if (!box) return
+
+  if (box.match_result) {
+    box.match_result.sku_id = skuId
+    box.match_result.status = 'matched'
+  } else {
+    box.match_result = { sku_id: skuId, status: 'matched' }
+  }
+  
+  box.isModified = true
+
+  ElMessage.success(`箱体 ${boxIndex + 1} 已更新为 ${skuId}`)
+}
+
+const handleDeleteBox = async ({ box, index }) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除箱体 ${index + 1} 吗？`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  if (!viewDetailTask.value) return
+
+  const boxes = viewDetailTask.value.detections || viewDetailTask.value.result?.detections?.boxes
+  if (!boxes) return
+
+  const targetBox = boxes.find(b => b.box_id === box.box_id || b.box_id === `box_${box.box_id}` || String(b.box_id) === String(box.box_id))
+  if (!targetBox) return
+
+  targetBox.status = 'deleted'
+  ElMessage.success(`箱体 ${index + 1} 已删除`)
+}
+
+const handleSubmitReview = async () => {
+  if (!viewDetailTask.value) return
+
+  const boxes = viewDetailTask.value.detections || viewDetailTask.value.result?.detections?.boxes
+  if (!boxes || boxes.length === 0) {
+    ElMessage.warning('没有检测结果可提交')
+    return
+  }
+
+  const activeBoxes = boxes.filter(b => b.status !== 'deleted')
+  if (activeBoxes.length === 0) {
+    ElMessage.warning('所有箱体都已删除，请恢复至少一个箱体后再提交')
+    return
+  }
+
+  try {
+    const resultBoxes = activeBoxes.map((b, idx) => ({
+      box_id: `box_${idx}`,  // 后端期望的格式
+      status: b.status === 'deleted' ? 'deleted' : (b.status || 'approved'),
+      is_manual_override: b.isModified || false,
+      custom_sku: b.match_result?.sku_id  // 后端期望的字段名
+    }))
+
+    const res = await taskApi.reviewTask(viewDetailTask.value.id, resultBoxes)
+    if (res.success) {
+      ElMessage.success(res.message || '审核提交成功')
+      viewDetailTask.value.status = 'completed'
+      await loadTasks()
+      await loadStats()
+    } else {
+      ElMessage.error('提交审核失败')
+    }
+  } catch (e) {
+    ElMessage.error('提交审核失败: ' + (e.detail || e.message || '未知错误'))
+  }
+}
 
 const selectedTasks = computed(() => {
   return tasks.value.filter(task => selectedTaskIds.value.includes(task.id))
@@ -331,10 +383,38 @@ const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
 const loadTasks = async () => {
   loading.value = true
   try {
-    const res = await taskApi.list(page.value, pageSize.value, statusFilter.value)
+    const customTime = timeFilter.value === 'custom'
+    let startUtc = null
+    let endUtc = null
+    if (customTime && customStart.value) {
+      startUtc = new Date(customStart.value).toISOString().slice(0, 16)
+    }
+    if (customTime && customEnd.value) {
+      endUtc = new Date(customEnd.value).toISOString().slice(0, 16)
+    }
+    const res = await taskApi.list(
+      page.value, pageSize.value,
+      statusFilter.value,
+      customTime ? null : timeFilter.value,
+      startUtc,
+      endUtc
+    )
     if (res.success) {
       tasks.value = res.tasks
       total.value = res.total
+      
+      // 如果当前正在查看详情，同步更新基本信息，保留detections数据
+      if (viewDetailTask.value) {
+        const updatedTask = tasks.value.find(t => t.id === viewDetailTask.value.id)
+        if (updatedTask) {
+          // 保留原有的detections和result数据，只更新基本信息（状态等）
+          viewDetailTask.value = { 
+            ...updatedTask, 
+            detections: viewDetailTask.value.detections,
+            result: viewDetailTask.value.result 
+          }
+        }
+      }
     }
   } catch (e) {
     ElMessage.error('加载任务列表失败: ' + (e.message || '未知错误'))
@@ -345,7 +425,20 @@ const loadTasks = async () => {
 
 const loadStats = async () => {
   try {
-    const res = await taskApi.stats()
+    const customTime = timeFilter.value === 'custom'
+    let startUtc = null
+    let endUtc = null
+    if (customTime && customStart.value) {
+      startUtc = new Date(customStart.value).toISOString().slice(0, 16)
+    }
+    if (customTime && customEnd.value) {
+      endUtc = new Date(customEnd.value).toISOString().slice(0, 16)
+    }
+    const res = await taskApi.stats(
+      customTime ? null : timeFilter.value,
+      startUtc,
+      endUtc
+    )
     if (res.success) {
       stats.value = res
     }
@@ -354,10 +447,43 @@ const loadStats = async () => {
   }
 }
 
-const filterByStatus = (status) => {
-  statusFilter.value = status
+const handleStatusChange = () => {
   page.value = 1
   loadTasks()
+}
+
+const applyCustomTime = () => {
+  if (!customStart.value || !customEnd.value) return
+  if (new Date(customEnd.value) <= new Date(customStart.value)) {
+    ElMessage.warning('结束时间必须晚于开始时间')
+    return
+  }
+  page.value = 1
+  loadTasks()
+  loadStats()
+}
+
+const handleTimeChange = (value) => {
+  if (value && value.type === 'custom') {
+    if (!customStart.value || !customEnd.value) return
+    if (new Date(customEnd.value) <= new Date(customStart.value)) {
+      ElMessage.warning('结束时间必须晚于开始时间')
+      return
+    }
+  }
+  page.value = 1
+  loadTasks()
+  loadStats()
+}
+
+const handleBatchAction = (action) => {
+  if (action === 'detect') {
+    batchDetectTasks()
+  } else if (action === 'export-json') {
+    exportTasks('json', false)
+  } else if (action === 'export-csv') {
+    exportTasks('csv', false)
+  }
 }
 
 const changePage = (newPage) => {
@@ -367,86 +493,33 @@ const changePage = (newPage) => {
   }
 }
 
-const toggleTask = async (task) => {
-  if (expandedTaskId.value === task.id) {
-    expandedTaskId.value = null
-  } else {
-    // 如果是待审核状态，先获取检测结果数据
-    if (shouldShowReview(task) && !task.detections) {
-      try {
-        const res = await taskApi.getDetections(task.id)
-        if (res.success && res.boxes) {
-          task.detections = res.boxes
-        }
-      } catch (e) {
-        console.error('获取检测结果失败:', e)
-      }
-    }
-    expandedTaskId.value = task.id
-  }
-}
-
 const getTaskImagePath = (task) => {
   return `/api/tasks/${task.id}/image`
 }
 
-const getBoxImageUrl = (box) => {
-  if (!box) return ''
-  if (box.crop_base64) {
-    return { url: 'data:image/jpeg;base64,' + box.crop_base64 }
-  }
-  if (box.crop_path) {
-    return getImageUrlFromPath(box.crop_path)
-  }
-  return ''
-}
-
-const getTaskPreviewPath = (task) => {
-  if (task.id && task.status === 'detected') {
-    return { url: `/api/tasks/${task.id}/detection-image` }
-  }
-  return null
-}
-
-const getDetectionBoxes = (task) => {
-  if (!task.detections) return []
-  return task.detections
-}
-
-const getMatchResultForTask = (task, boxId) => {
-  if (!task.detections) return null
-  const box = task.detections.find(b => b.box_id === boxId || b.box_id === `box_${boxId}` || String(b.box_id) === String(boxId))
-  return box ? box.match_result : null
-}
-
 const detectTask = async (task) => {
-    submitting.value = true
-    try {
-      const res = await taskApi.detect(task.id)
-      if (res && res.status === 'detected') {
-        ElMessage.success('检测成功')
-        await loadTasks()
-        await loadStats()
-        if (expandedTaskId.value === task.id) {
-          expandedTaskId.value = null
-          await new Promise(resolve => setTimeout(resolve, 100))
-          expandedTaskId.value = task.id
-        }
-      } else {
-        ElMessage.error('检测未成功执行')
-      }
-    } catch (e) {
-      ElMessage.error('检测失败: ' + (e.detail || e.message || '未知错误'))
-    } finally {
-      submitting.value = false
+  submitting.value = true
+  try {
+    const res = await taskApi.detect(task.id)
+    if (res && res.status === 'detected') {
+      ElMessage.success('检测成功')
+      await loadTasks()
+      await loadStats()
+    } else {
+      ElMessage.error('检测未成功执行')
     }
+  } catch (e) {
+    ElMessage.error('检测失败: ' + (e.detail || e.message || '未知错误'))
+  } finally {
+    submitting.value = false
   }
+}
 
-const openReview = async (task) => {
+const openViewDetail = async (task) => {
   try {
     const res = await taskApi.getDetections(task.id)
     if (res.success && res.boxes) {
-      const taskWithDetections = {
+      viewDetailTask.value = {
         ...task,
         result: {
           detections: {
@@ -454,87 +527,23 @@ const openReview = async (task) => {
           }
         }
       }
-      selectedTaskForReview.value = taskWithDetections
     } else {
-      selectedTaskForReview.value = task
+      viewDetailTask.value = task
     }
-    showReviewPanel.value = true
+    viewMode.value = 'detail'
   } catch (e) {
-    ElMessage.error('获取检测结果失败: ' + (e.message || '未知错误'))
-    selectedTaskForReview.value = task
-    showReviewPanel.value = true
+    viewDetailTask.value = task
+    viewMode.value = 'detail'
   }
 }
 
-const closeReviewPanel = () => {
-  showReviewPanel.value = false
-  selectedTaskForReview.value = null
+const closeViewDetail = () => {
+  viewMode.value = 'list'
+  viewDetailTask.value = null
 }
 
-const handleReviewSave = async ({ task, boxes }) => {
-  try {
-    await taskApi.reviewTask(task.id, boxes)
-    await loadTasks()
-    await loadStats()
-  } catch (e) {
-    ElMessage.error('保存失败: ' + (e.detail || e.message || '未知错误'))
-  }
-}
-
-const handleReviewUpdate = async ({ task, boxes, approvedCount, rejectedCount }) => {
-  try {
-    await taskApi.reviewTask(task.id, boxes)
-    ElMessage.success(`更新成功：通过 ${approvedCount} 个，拒绝 ${rejectedCount} 个`)
-    await loadTasks()
-    await loadStats()
-  } catch (e) {
-    ElMessage.error('更新失败: ' + (e.detail || e.message || '未知错误'))
-  }
-}
-
-const handleInlineReviewUpdate = async (task, { boxes, approvedCount, rejectedCount }) => {
-  try {
-    await taskApi.reviewTask(task.id, boxes)
-    ElMessage.success(`更新成功：通过 ${approvedCount} 个，拒绝 ${rejectedCount} 个`)
-    await loadTasks()
-    await loadStats()
-  } catch (e) {
-    ElMessage.error('更新失败: ' + (e.detail || e.message || '未知错误'))
-  }
-}
-
-const matchTask = async (task) => {
-  submitting.value = true
-  try {
-    const res = await taskApi.matchTask(task.id)
-    if (res) {
-      ElMessage.success('匹配成功')
-      await loadTasks()
-      await loadStats()
-      if (expandedTaskId.value === task.id) {
-        expandedTaskId.value = null
-        await new Promise(resolve => setTimeout(resolve, 100))
-        expandedTaskId.value = task.id
-      }
-    }
-  } catch (e) {
-    ElMessage.error('匹配失败: ' + (e.detail || e.message || '未知错误'))
-  } finally {
-    submitting.value = false
-  }
-}
-
-const reDetectTask = async (task) => {
-  try {
-    await ElMessageBox.confirm('确定要重新检测这个任务吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    await detectTask(task)
-  } catch {
-    // 用户取消
-  }
+const switchViewDetailTask = (task) => {
+  openViewDetail(task)
 }
 
 const batchDetectTasks = async () => {
@@ -543,16 +552,19 @@ const batchDetectTasks = async () => {
     return
   }
   
-  submitting.value = true
-  const loadingInstance = ElLoading.service({
-    message: `正在识别 ${selectedTasks.value.length} 个任务...`
-  })
+  detecting.value = true
+  detectProgress.value = 0
   
   try {
+    const total = selectedTasks.value.length
+    let completed = 0
+    
     for (const task of selectedTasks.value) {
       if (shouldShowDetect(task) || shouldShowReDetect(task)) {
         await taskApi.detect(task.id)
       }
+      completed++
+      detectProgress.value = Math.round((completed / total) * 100)
     }
     
     ElMessage.success('批量识别完成')
@@ -562,31 +574,8 @@ const batchDetectTasks = async () => {
   } catch (e) {
     ElMessage.error('批量识别失败: ' + (e.detail || e.message || '未知错误'))
   } finally {
-    loadingInstance.close()
-    submitting.value = false
-  }
-}
-
-const deleteTask = async (id) => {
-  try {
-    await ElMessageBox.confirm('确定要删除这个任务吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    const res = await taskApi.delete(id)
-    if (res.success) {
-      ElMessage.success('删除成功')
-      if (expandedTaskId.value === id) {
-        expandedTaskId.value = null
-      }
-      await loadTasks()
-      await loadStats()
-    }
-  } catch (e) {
-    if (e !== 'cancel') {
-      ElMessage.error('删除失败')
-    }
+    detecting.value = false
+    detectProgress.value = null
   }
 }
 
@@ -596,10 +585,6 @@ const openImageViewer = (imageUrl, imageName = '图片') => {
   showImageViewer.value = true
 }
 
-const toggleExportMenu = () => {
-  showExportMenu.value = !showExportMenu.value
-}
-
 const exportTasks = async (format, includeImages) => {
   if (selectedTasks.value.length === 0) {
     ElMessage.warning('请先选择要导出的任务')
@@ -607,7 +592,6 @@ const exportTasks = async (format, includeImages) => {
   }
 
   exporting.value = true
-  showExportMenu.value = false
 
   const taskIds = selectedTasks.value.map(task => task.id)
 
@@ -664,21 +648,9 @@ const exportTasks = async (format, includeImages) => {
   }
 }
 
-const handleClickOutside = (event) => {
-  const exportDropdown = document.querySelector('.export-dropdown')
-  if (exportDropdown && !exportDropdown.contains(event.target)) {
-    showExportMenu.value = false
-  }
-}
-
 onMounted(() => {
   loadTasks()
   loadStats()
-  document.addEventListener('click', handleClickOutside)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -692,18 +664,9 @@ onUnmounted(() => {
   gap: var(--spacing-lg);
 }
 
-.main-container.split-view {
-  gap: 0;
-}
-
 .task-list-section {
   flex: 1;
   min-width: 0;
-}
-
-.main-container.split-view .task-list-section {
-  flex: 0 0 45%;
-  max-width: 45%;
 }
 
 .section {
@@ -714,42 +677,6 @@ onUnmounted(() => {
   box-shadow: var(--shadow-md);
 }
 
-.stats-row {
-  display: flex;
-  gap: var(--spacing-lg);
-}
-
-.stat-card {
-  flex: 1;
-  padding: var(--spacing-lg);
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  text-align: center;
-}
-
-.stat-card.success {
-  background: rgba(103, 194, 58, 0.1);
-}
-
-.stat-card.warning {
-  background: rgba(230, 162, 60, 0.1);
-}
-
-.stat-card.danger {
-  background: rgba(245, 108, 108, 0.1);
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: bold;
-  color: var(--color-text-primary);
-}
-
-.stat-label {
-  color: var(--color-text-secondary);
-  margin-top: var(--spacing-xs);
-}
-
 .table-toolbar {
   display: flex;
   justify-content: space-between;
@@ -757,75 +684,47 @@ onUnmounted(() => {
   margin-bottom: var(--spacing-lg);
 }
 
-.toolbar-right {
-  display: flex;
-  gap: var(--spacing-md);
-  align-items: center;
-}
-
-.export-dropdown {
-  position: relative;
-}
-
-.export-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: var(--spacing-xs);
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  min-width: 200px;
-  z-index: 100;
-}
-
-.export-option {
-  padding: var(--spacing-md);
-  cursor: pointer;
+.time-custom-panel {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
-  transition: background-color var(--transition-fast);
 }
 
-.export-option:hover {
-  background: var(--color-bg-tertiary);
-}
-
-.export-option span:first-child {
-  font-weight: 500;
-  color: var(--color-text-primary);
-}
-
-.option-desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-}
-
-.filter-tabs {
+.time-row {
   display: flex;
-  gap: var(--spacing-md);
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
-.filter-tabs button {
-  padding: var(--spacing-sm) var(--spacing-lg);
-  background: var(--color-bg-tertiary);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--font-size-base);
+.time-label {
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  transition: all var(--transition-fast);
+  min-width: 32px;
 }
 
-.filter-tabs button:hover {
-  background: var(--color-bg-secondary);
+.time-input {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  flex: 1;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
 }
 
-.filter-tabs button.active {
-  background: var(--color-primary);
-  color: white;
+.time-input:focus {
+  border-color: var(--color-primary);
+}
+
+.time-custom-panel .btn-small {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  align-self: flex-end;
+  margin-top: var(--spacing-xs);
 }
 
 .task-table-container {
@@ -858,10 +757,6 @@ onUnmounted(() => {
 
 .task-row-header:hover {
   background: var(--color-bg-secondary);
-}
-
-.task-row.expanded .task-row-header {
-  background: rgba(102, 126, 234, 0.1);
 }
 
 .task-row-header.header-row {
@@ -923,50 +818,12 @@ onUnmounted(() => {
   color: var(--color-text-secondary);
 }
 
-.task-actions {
-  flex: 1;
-  min-width: 200px;
+.status-badge.pending {
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--color-info);
 }
 
-.task-toggle {
-  width: 30px;
-  text-align: center;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-}
-
-.toggle-icon {
-  display: inline-block;
-  transition: transform var(--transition-fast);
-}
-
-.action-buttons {
-  display: flex;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
-}
-
-.action-buttons .btn-small {
-  padding: 6px 12px;
-  font-size: var(--font-size-sm);
-}
-
-.btn-icon {
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  padding: 6px 10px;
-  font-size: 16px;
-  transition: all var(--transition-fast);
-}
-
-.btn-icon:hover {
-  background: var(--color-bg-tertiary);
-}
-
-.status-badge.pending,
-.status-badge.warning {
+.status-badge.detected {
   background: rgba(230, 162, 60, 0.1);
   color: var(--color-warning);
 }
@@ -981,114 +838,16 @@ onUnmounted(() => {
   color: var(--color-danger);
 }
 
-/* 展开详情样式 */
-.task-detail-expanded {
-  background: var(--color-bg-primary);
-  padding: 0;
-  overflow: hidden;
-}
-
-.detail-content {
-  padding: var(--spacing-lg);
-}
-
-.detail-actions {
-  display: flex;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
-  padding-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.detail-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.detail-value {
-  font-size: var(--font-size-base);
-  color: var(--color-text-primary);
-}
-
-.result-section h5 {
-  margin: var(--spacing-lg) 0 var(--spacing-md) 0;
-  font-size: var(--font-size-base);
-  color: var(--color-text-secondary);
-}
-
-.preview-row {
-  display: flex;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-}
-
-.preview-section {
-  flex: 1;
-}
-
-.preview-title {
-  margin-bottom: var(--spacing-sm);
-  font-size: var(--font-size-base);
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.click-indicator {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  font-weight: normal;
-}
-
-.preview-img {
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-}
-
-.preview-img.clickable,
-.box-item .clickable {
+.status-badge-btn {
+  border: none;
   cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  font: inherit;
+  outline: none;
+  transition: opacity var(--transition-fast);
 }
 
-.preview-img.clickable:hover,
-.box-item:hover .clickable {
-  transform: scale(1.02);
-  box-shadow: var(--shadow-lg);
-}
-
-.boxes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--spacing-md);
-  max-width: 100%;
-}
-
-.box-item {
-  min-width: 200px;
-  max-width: 300px;
-  justify-self: start;
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-}
-
-.box-item:hover {
-  transform: translateY(-2px);
+.status-badge-btn:hover {
+  opacity: 0.8;
 }
 
 .task-thumb {
@@ -1107,241 +866,53 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-.box-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-  margin-top: var(--spacing-xs);
-  font-size: var(--font-size-xs);
-}
-
-.box-idx {
-  font-weight: 600;
-  color: var(--color-primary);
-  font-size: var(--font-size-sm);
-}
-
-.box-conf {
+.loading, .empty-state {
+  text-align: center;
+  padding: var(--spacing-xl);
   color: var(--color-text-secondary);
 }
 
-.box-status {
-  color: var(--color-success);
-}
-
-.box-match {
-  padding: 3px 6px;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  text-align: center;
-}
-
-.box-match.matched {
-  background: rgba(103, 194, 58, 0.1);
-  color: var(--color-success);
-}
-
-.box-match.low_conf {
-  background: rgba(230, 162, 60, 0.1);
-  color: var(--color-warning);
-}
-
-.box-match.unmatched {
-  background: rgba(245, 108, 108, 0.1);
-  color: var(--color-danger);
-}
-
-/* 并排布局样式 */
-.detail-main {
-  display: flex;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-md);
-}
-
-.detail-content {
-  flex: 0 0 45%;
-  max-width: 45%;
-}
-
-.detail-review {
-  flex: 1;
-  min-width: 450px;
-  border-left: 1px solid var(--color-border);
-  padding-left: var(--spacing-lg);
-}
-
-.detail-review .review-header {
+.empty-icon {
+  font-size: 48px;
   margin-bottom: var(--spacing-md);
-  padding-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border);
 }
 
-.detail-review .review-header h4 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  color: var(--color-text-primary);
-}
-
-.detail-review .review-content {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
-}
-
-/* 审核面板样式 */
-.review-panel {
-  position: fixed;
-  top: 60px;
-  right: 0;
-  width: 55%;
-  height: calc(100vh - 60px);
-  background: var(--color-bg-primary);
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+.pagination {
   display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.review-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-lg);
-  border-bottom: 1px solid var(--color-border-light);
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-  color: white;
-}
-
-.review-panel-header h3 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-}
-
-.review-panel-content {
-  flex: 1;
-  overflow: hidden;
-}
-
-.btn-close {
-  background: transparent;
-  border: none;
-  font-size: var(--font-size-2xl);
-  cursor: pointer;
-  color: white;
-  padding: 0;
-  line-height: 1;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  transition: background-color var(--transition-fast);
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
 }
 
-.btn-close:hover {
-  background: rgba(255, 255, 255, 0.2);
+.pagination button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-/* 过渡动画 */
-.slide-enter-active,
-.slide-leave-active {
-  transition: all var(--transition-normal);
+.pagination button:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
 }
 
-.slide-enter-from {
-  opacity: 0;
-  max-height: 0;
-  transform: translateY(-20px);
-}
-
-.slide-leave-to {
-  opacity: 0;
-  max-height: 0;
-  transform: translateY(-20px);
-}
-
-.slide-right-enter-active,
-.slide-right-leave-active {
-  transition: all var(--transition-normal);
-}
-
-.slide-right-enter-from,
-.slide-right-leave-to {
-  transform: translateX(100%);
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 响应式设计 */
-@media (max-width: 1200px) {
-  .main-container.split-view .task-list-section {
-    flex: 0 0 40%;
-    max-width: 40%;
-  }
-  
-  .review-panel {
-    width: 60%;
-  }
-}
-
 @media (max-width: 900px) {
-  .detail-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .boxes-grid {
-    grid-template-columns: repeat(2, minmax(150px, 1fr));
-  }
-  
-  .box-item {
-    width: auto;
-  }
-  
   .task-counts {
     display: none;
   }
 }
 
 @media (max-width: 768px) {
-  .main-container.split-view {
-    flex-direction: column;
-  }
-  
-  .main-container.split-view .task-list-section {
-    flex: 1;
-    max-width: 100%;
-  }
-  
-  .review-panel {
-    position: fixed;
-    width: 100%;
-    height: 100vh;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-  
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .boxes-grid {
-    grid-template-columns: repeat(2, minmax(120px, 1fr));
-  }
-  
-  .box-item {
-    width: auto;
-  }
-  
-  .stats-row {
-    flex-wrap: wrap;
-  }
-  
-  .stat-card {
-    flex: none;
-    width: calc(50% - 10px);
-  }
-  
   .task-row-header {
     flex-wrap: wrap;
     gap: var(--spacing-md);
@@ -1351,5 +922,224 @@ onUnmounted(() => {
     width: 100%;
     order: -1;
   }
+}
+
+/* 查看详情视图样式 - position fixed 实现真贴边 */
+.detail-view-container {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: var(--color-bg-primary);
+  z-index: 100;
+}
+
+.detail-view-sidebar {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-tertiary);
+  border-right: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.detail-view-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-primary);
+  color: white;
+  flex-shrink: 0;
+  min-height: 42px;
+}
+
+.topbar-left {
+  flex-shrink: 0;
+}
+
+.topbar-left h3 {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.topbar-close {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: white;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color var(--transition-fast);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.topbar-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.detail-view-main-topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  min-height: 42px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.mainbar-item {
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.mainbar-item strong {
+  color: var(--color-primary);
+  margin-right: 4px;
+}
+
+.mainbar-divider {
+  color: var(--color-border);
+  font-size: 14px;
+}
+
+.mainbar-dot {
+  color: var(--color-text-tertiary);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.mainbar-status {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.mainbar-status.pending { background: rgba(14, 165, 233, 0.1); color: var(--color-info); }
+.mainbar-status.detected { background: rgba(230, 162, 60, 0.1); color: var(--color-warning); }
+.mainbar-status.completed { background: rgba(103, 194, 58, 0.1); color: var(--color-success); }
+.mainbar-status.failed { background: rgba(245, 108, 108, 0.1); color: var(--color-danger); }
+
+.mainbar-spacer {
+  flex: 1;
+  min-width: 12px;
+}
+
+.detail-view-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.detail-view-main > :deep(.task-detail-panel) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.detail-view-nav {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.detail-nav-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+}
+
+.detail-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.detail-nav-item:hover {
+  background: var(--color-bg-primary);
+}
+
+.detail-nav-item.active {
+  background: var(--color-primary-light);
+  border-left: 3px solid var(--color-primary);
+}
+
+.detail-nav-item.reviewed {
+  opacity: 0.7;
+}
+
+.nav-item-thumb {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  background: var(--color-bg-primary);
+}
+
+.nav-item-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nav-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item-id {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.nav-item-name {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-item-check {
+  color: var(--color-success);
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.nav-item-info .status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-xs);
 }
 </style>

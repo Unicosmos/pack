@@ -13,19 +13,14 @@ components/
 │   ├── PageHeader.vue        # 顶部横幅组件
 │   └── PageContainer.vue     # 内容容器组件
 ├── ui/                       # 通用UI组件（可复用）
-│   ├── StatsCard.vue         # 统计卡片
 │   ├── StatusBanner.vue      # 状态横幅
-│   ├── ImageViewer.vue       # 图片查看器
-│   └── ImagePreview.vue      # 图片预览
+│   └── ImageViewer.vue       # 图片查看器
 ├── task/                     # 任务相关组件
-│   ├── ReviewDialog.vue      # 审核对话框
 │   ├── BatchResultCard.vue   # 批量结果卡片
 │   ├── DetectionList.vue     # 检测结果列表
-│   ├── ResultImage.vue       # 结果图片
-│   └── match/                # 匹配相关
-│       ├── MatchResultCard.vue
-│       ├── MatchTags.vue
-│       └── MatchTop5.vue
+│   ├── TaskStats.vue         # 任务统计图表
+│   ├── TaskNav.vue           # 任务导航侧边栏
+│   └── MatchResult.vue       # 匹配结果卡片（含Top5候选）
 ├── sku/                      # SKU相关组件
 │   └── SkuImage.vue          # SKU图片组件
 ├── upload/                   # 上传相关组件
@@ -40,12 +35,12 @@ components/
 ### 1. 页面组件 (pages/)
 页面级组件，作为路由的直接入口，包含完整的页面布局和业务逻辑。
 
-| 组件名        | 说明                     | 依赖                                 |
-| ------------- | ------------------------ | ------------------------------------ |
-| HomePage      | 首页，包含上传和检测功能 | UploadArea, BatchResultCard          |
-| TaskListPage  | 任务列表管理页面         | StatsCard, ReviewDialog, ImageViewer |
-| SkuListPage   | SKU库管理页面            | SkuImage                             |
-| SkuReviewPage | SKU审核页面              | MatchResultCard                      |
+| 组件名        | 说明                     | 依赖                      |
+| ------------- | ------------------------ | ------------------------- |
+| HomePage      | 首页，包含上传和检测功能 | UploadArea, DetectionList |
+| TaskListPage  | 任务列表管理页面         | ImageViewer, TaskStats    |
+| SkuListPage   | SKU库管理页面            | SkuImage, ImageViewer     |
+| SkuReviewPage | SKU审核页面              | ImageViewer               |
 
 ### 2. 布局组件 (layout/)
 页面布局公共组件，用于统一页面结构，解决页面切换时的视觉跳变问题。
@@ -154,31 +149,21 @@ components/
 ### 3. UI组件 (ui/)
 通用UI组件，不包含业务逻辑，可在多个页面复用。
 
-| 组件名       | 说明         | 适用场景           |
-| ------------ | ------------ | ------------------ |
-| StatsCard    | 统计数据卡片 | 任务统计、数据概览 |
-| StatusBanner | 状态提示横幅 | 全局状态展示       |
-| ImageViewer  | 大图查看器   | 图片预览弹窗       |
-| ImagePreview | 图片预览组件 | 缩略图展示         |
+| 组件名       | 说明         | 适用场景     |
+| ------------ | ------------ | ------------ |
+| StatusBanner | 状态提示横幅 | 全局状态展示 |
+| ImageViewer  | 大图查看器   | 图片预览弹窗 |
 
-### 3. 任务组件 (task/)
+### 4. 任务组件 (task/)
 与任务检测相关的业务组件。
 
-| 组件名          | 说明             | 关联模块                   |
-| --------------- | ---------------- | -------------------------- |
-| ReviewDialog    | 审核对话框       | MatchResultCard, MatchTop5 |
-| BatchResultCard | 批量检测结果卡片 | DetectionList              |
-| DetectionList   | 检测框列表       | SkuImage                   |
-| ResultImage     | 检测结果图片     | ImageViewer                |
-
-### 4. 匹配组件 (task/match/)
-SKU匹配相关的子组件。
-
-| 组件名          | 说明         | 使用位置        |
-| --------------- | ------------ | --------------- |
-| MatchResultCard | 匹配结果卡片 | ReviewDialog    |
-| MatchTags       | 匹配标签     | MatchResultCard |
-| MatchTop5       | Top5匹配结果 | ReviewDialog    |
+| 组件名          | 说明             | 关联模块                     |
+| --------------- | ---------------- | ---------------------------- |
+| BatchResultCard | 批量检测结果卡片 | DetectionList                |
+| DetectionList   | 检测结果列表     | BatchResultCard, MatchResult |
+| TaskStats       | 任务统计图表     | 无                           |
+| TaskNav         | 任务导航侧边栏   | 无                           |
+| MatchResult     | 匹配结果卡片     | SkuImage                     |
 
 ### 5. SKU组件 (sku/)
 SKU相关的展示组件。
@@ -201,7 +186,7 @@ SKU相关的展示组件。
 - 使用 PascalCase（大驼峰）命名组件文件
 - 页面组件：`Page` 后缀（如 `HomePage.vue`）
 - 卡片组件：`Card` 后缀（如 `StatsCard.vue`）
-- 对话框组件：`Dialog` 后缀（如 `ReviewDialog.vue`）
+- 对话框组件：`Dialog` 后缀
 
 ### 组件命名
 - 组件名与文件名一致
@@ -287,25 +272,23 @@ const state = ref({})
 HomePage
 ├── UploadArea
 │   └── FileList
-└── BatchResultCard
-    ├── DetectionList
-    │   └── SkuImage
-    └── MatchResultCard
-        ├── MatchTags
-        └── MatchTop5
+├── DetectionList
+│   ├── BatchResultCard
+│   └── MatchResult
+│       └── SkuImage
+└── StatusBanner
 
 TaskListPage
-├── StatsCard
-├── ReviewDialog
-│   ├── MatchResultCard
-│   └── MatchTop5
+├── TaskStats
+├── TaskNav
 └── ImageViewer
 
 SkuListPage
-└── SkuImage
+├── SkuImage
+└── ImageViewer
 
 SkuReviewPage
-└── MatchResultCard
+└── ImageViewer
 ```
 
 ## 组件版本管理
@@ -332,10 +315,10 @@ SkuReviewPage
 import HomePage from '@pages/HomePage.vue'
 
 // UI组件
-import StatsCard from '@ui/StatsCard.vue'
+import ImageViewer from '@ui/ImageViewer.vue'
 
 // 任务组件
-import ReviewDialog from '@task/ReviewDialog.vue'
+import TaskStats from '@task/TaskStats.vue'
 
 // SKU组件
 import SkuImage from '@sku/SkuImage.vue'
@@ -346,12 +329,13 @@ import UploadArea from '@upload/UploadArea.vue'
 
 ### 组件使用示例
 
-#### StatsCard
+#### ImageViewer
 ```vue
-<StatsCard 
-  :value="123" 
-  label="总任务数" 
-  variant="default" 
+<ImageViewer 
+  :visible="showViewer"
+  :image-url="imageUrl"
+  :image-name="imageName"
+  @update:visible="showViewer = false"
 />
 ```
 
@@ -361,15 +345,6 @@ import UploadArea from '@upload/UploadArea.vue'
   :image-path="'/path/to/image.jpg'" 
   :placeholder-icon="'📦'" 
   height="80px" 
-/>
-```
-
-#### ReviewDialog
-```vue
-<ReviewDialog 
-  :task="taskData" 
-  :inline="false" 
-  @update="handleUpdate" 
 />
 ```
 

@@ -7,7 +7,7 @@ import os
 import uuid
 import base64
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 
@@ -69,8 +69,8 @@ def task_to_response(task: Task) -> TaskResponse:
         matched_count=task.matched_count,
         unmatched_count=task.unmatched_count,
         vis_image=task.vis_image,
-        created_at=task.created_at.isoformat() if task.created_at else "",
-        completed_at=task.completed_at.isoformat() if task.completed_at else None
+        created_at=task.created_at.isoformat() + 'Z' if task.created_at else "",
+        completed_at=task.completed_at.isoformat() + 'Z' if task.completed_at else None
     )
 
 
@@ -123,6 +123,9 @@ async def list_tasks(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     status_filter: Optional[str] = None,
+    time_filter: Optional[str] = Query(None, description="时间筛选: today/week/month"),
+    start_time: Optional[str] = Query(None, description="自定义开始时间 ISO格式"),
+    end_time: Optional[str] = Query(None, description="自定义结束时间 ISO格式"),
     db: Session = Depends(get_db)
 ):
     """获取任务列表"""
@@ -130,6 +133,33 @@ async def list_tasks(
 
     if status_filter:
         query = query.filter(Task.status == status_filter)
+
+    if start_time:
+        try:
+            start_dt = datetime.fromisoformat(start_time)
+            query = query.filter(Task.created_at >= start_dt)
+        except ValueError:
+            pass
+
+    if end_time:
+        try:
+            end_dt = datetime.fromisoformat(end_time)
+            query = query.filter(Task.created_at <= end_dt)
+        except ValueError:
+            pass
+
+    if not start_time and not end_time:
+        today = datetime.utcnow().date()
+        today_start = datetime.combine(today, datetime.min.time())
+        week_start = today_start - timedelta(days=today.weekday())
+        month_start = today_start.replace(day=1)
+
+        if time_filter == "today":
+            query = query.filter(Task.created_at >= today_start)
+        elif time_filter == "week":
+            query = query.filter(Task.created_at >= week_start)
+        elif time_filter == "month":
+            query = query.filter(Task.created_at >= month_start)
 
     total = query.count()
     tasks = query.order_by(Task.created_at.desc()) \
@@ -787,16 +817,92 @@ async def delete_task(
 
 @router.get("/stats/summary")
 async def get_task_stats(
+    time_filter: Optional[str] = Query(None, description="时间筛选: today/week/month"),
+    start_time: Optional[str] = Query(None, description="自定义开始时间 ISO格式"),
+    end_time: Optional[str] = Query(None, description="自定义结束时间 ISO格式"),
     db: Session = Depends(get_db)
 ):
-    """获取任务统计"""
-    total = db.query(Task).count()
-    completed = db.query(Task).filter(Task.status == "completed").count()
-    pending = db.query(Task).filter(Task.status == "pending").count()
-    detected = db.query(Task).filter(Task.status == "detected").count()
-    failed = db.query(Task).filter(Task.status == "failed").count()
+    """获取任务统计（支持时间筛选）"""
+    query = db.query(Task)
 
-    total_detections = db.query(Task).with_entities(func.sum(Task.box_count)).scalar() or 0
+    if start_time:
+        try:
+            start_dt = datetime.fromisoformat(start_time)
+            query = query.filter(Task.created_at >= start_dt)
+        except ValueError:
+            pass
+
+    if end_time:
+        try:
+            end_dt = datetime.fromisoformat(end_time)
+            query = query.filter(Task.created_at <= end_dt)
+        except ValueError:
+            pass
+
+    if not start_time and not end_time:
+        today = datetime.utcnow().date()
+        today_start = datetime.combine(today, datetime.min.time())
+        week_start = today_start - timedelta(days=today.weekday())
+        month_start = today_start.replace(day=1)
+
+        if time_filter == "today":
+            query = query.filter(Task.created_at >= today_start)
+        elif time_filter == "week":
+            query = query.filter(Task.created_at >= week_start)
+        elif time_filter == "month":
+            query = query.filter(Task.created_at >= month_start)
+
+    total = query.count()
+    completed = query.filter(Task.status == "completed").count()
+    pending = query.filter(Task.status == "pending").count()
+    detected = query.filter(Task.status == "detected").count()
+    failed = query.filter(Task.status == "failed").count()
+
+    total_boxes = query.with_entities(func.sum(Task.box_count)).scalar() or 0
+    matched_boxes = query.with_entities(func.sum(Task.matched_count)).scalar() or 0
+    unmatched_boxes = query.with_entities(func.sum(Task.unmatched_count)).scalar() or 0
+    match_rate = (matched_boxes / total_boxes * 100) if total_boxes > 0 else 0
+
+    filtered_task_ids = [t.id for t in query.all()]
+
+    sku_category_count = 0
+    sku_distribution = []
+    if filtered_task_ids:
+        match_query = db.query(MatchResult).filter(
+            MatchResult.task_id.in_(filtered_task_ids),
+            MatchResult.sku_id.isnot(None)
+        )
+        sku_category_count = match_query.with_entities(MatchResult.sku_id).distinct().count()
+
+        sku_dist_query = db.query(
+            MatchResult.sku_id,
+            MatchResult.sku_name,
+            func.count(MatchResult.id).label('count')
+        ).filter(
+            MatchResult.task_id.in_(filtered_task_ids),
+            MatchResult.sku_id.isnot(None),
+            MatchResult.status == "matched"
+        ).group_by(MatchResult.sku_id, MatchResult.sku_name).order_by(
+            func.count(MatchResult.id).desc()
+        ).limit(10).all()
+
+        sku_distribution = []
+        for sku_id, sku_name, count in sku_dist_query:
+            sku_distribution.append({
+                "sku_id": sku_id,
+                "sku_name": sku_name or "未知",
+                "count": count
+            })
+
+    if not start_time and not end_time:
+        today = datetime.utcnow().date()
+        today_start = datetime.combine(today, datetime.min.time())
+        week_start = today_start - timedelta(days=today.weekday())
+        today_tasks = db.query(Task).filter(Task.created_at >= today_start).count()
+        week_tasks = db.query(Task).filter(Task.created_at >= week_start).count()
+    else:
+        today_tasks = 0
+        week_tasks = 0
 
     return {
         "success": True,
@@ -805,7 +911,19 @@ async def get_task_stats(
         "pending": pending,
         "detected": detected,
         "failed": failed,
-        "total_detections": total_detections
+        "total_boxes": total_boxes,
+        "today_tasks": today_tasks,
+        "week_tasks": week_tasks,
+        "warehouse": {
+            "total_boxes": total_boxes,
+            "matched_boxes": matched_boxes,
+            "unmatched_boxes": unmatched_boxes,
+            "match_rate": round(match_rate, 2)
+        },
+        "sku": {
+            "category_count": sku_category_count,
+            "distribution": sku_distribution
+        }
     }
 
 
@@ -1062,7 +1180,7 @@ async def get_batch_task_status(
                 "box_count": t.box_count,
                 "matched_count": t.matched_count,
                 "unmatched_count": t.unmatched_count,
-                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "created_at": t.created_at.isoformat() + 'Z' if t.created_at else None,
                 "result": t.result
             } for t in tasks
         ]
@@ -1097,8 +1215,8 @@ async def export_task_result(
         "task_id": task.id,
         "image_name": task.image_name,
         "status": task.status,
-        "created_at": task.created_at.isoformat() if task.created_at else None,
-        "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+        "created_at": task.created_at.isoformat() + 'Z' if task.created_at else None,
+        "completed_at": task.completed_at.isoformat() + 'Z' if task.completed_at else None,
         "boxes": []
     }
 
@@ -1204,7 +1322,7 @@ async def export_batch_tasks(
     export_data = {
         "tasks": [],
         "total_tasks": len(tasks),
-        "exported_at": datetime.utcnow().isoformat()
+        "exported_at": datetime.utcnow().isoformat() + 'Z'
     }
 
     for task in tasks:
@@ -1225,8 +1343,8 @@ async def export_batch_tasks(
             "status": task.status,
             "image_path": task.image_path,
             "vis_image": task.vis_image,
-            "created_at": task.created_at.isoformat() if task.created_at else None,
-            "completed_at": task.completed_at.isoformat() if task.completed_at else None,
+            "created_at": task.created_at.isoformat() + 'Z' if task.created_at else None,
+            "completed_at": task.completed_at.isoformat() + 'Z' if task.completed_at else None,
             "box_count": 0,
             "matched_count": 0,
             "unmatched_count": 0,

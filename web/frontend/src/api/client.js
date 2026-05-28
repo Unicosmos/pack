@@ -123,10 +123,19 @@ export const tasks = {
     return response.json()
   },
 
-  async list(page = 1, pageSize = 10, status = null) {
+  async list(page = 1, pageSize = 10, status = null, timeFilter = null, customStart = null, customEnd = null) {
     let url = `/api/tasks?page=${page}&page_size=${pageSize}`
     if (status) {
       url += `&status_filter=${status}`
+    }
+    if (timeFilter && timeFilter !== 'all') {
+      url += `&time_filter=${timeFilter}`
+    }
+    if (customStart) {
+      url += `&start_time=${encodeURIComponent(customStart)}`
+    }
+    if (customEnd) {
+      url += `&end_time=${encodeURIComponent(customEnd)}`
     }
     const response = await request(url)
     return response.json()
@@ -144,8 +153,22 @@ export const tasks = {
     return response.json()
   },
 
-  async stats() {
-    const response = await request('/api/tasks/stats/summary')
+  async stats(timeFilter = null, customStart = null, customEnd = null) {
+    let url = '/api/tasks/stats/summary'
+    const params = []
+    if (timeFilter && timeFilter !== 'all') {
+      params.push(`time_filter=${timeFilter}`)
+    }
+    if (customStart) {
+      params.push(`start_time=${encodeURIComponent(customStart)}`)
+    }
+    if (customEnd) {
+      params.push(`end_time=${encodeURIComponent(customEnd)}`)
+    }
+    if (params.length > 0) {
+      url += '?' + params.join('&')
+    }
+    const response = await request(url)
     return response.json()
   },
 

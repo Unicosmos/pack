@@ -13,7 +13,8 @@ export const useAppStore = defineStore('app', () => {
   const error = ref(null)
   const skuCount = ref(0)
   const systemStatus = ref('ready')
-  const currentPage = ref('home')
+  const savedPage = localStorage.getItem('currentPage')
+  const currentPage = ref(savedPage || 'home')
   const refreshTrigger = ref(0)
 
   const batchTaskIds = ref([])
@@ -37,6 +38,7 @@ export const useAppStore = defineStore('app', () => {
 
   function setPage(page) {
     currentPage.value = page
+    localStorage.setItem('currentPage', page)
     refreshTrigger.value++
   }
 

@@ -239,18 +239,12 @@
 
     </PageContainer>
     
-    <!-- 大图查看模态框 -->
-    <div v-if="showLargeImage" class="large-image-overlay" @click="closeLargeImage">
-      <div class="large-image-container" @click.stop>
-        <div class="large-image-header">
-          <span class="large-image-name">{{ largeImageName }}</span>
-          <button class="close-btn" @click="closeLargeImage">×</button>
-        </div>
-        <div class="large-image-wrapper">
-          <img :src="largeImageUrl" :alt="largeImageName" @error="(e) => e.target.style.display = 'none'" />
-        </div>
-      </div>
-    </div>
+    <ImageViewer
+      :visible="showImageViewer"
+      :image-url="imageViewerUrl"
+      :image-name="imageViewerName"
+      @update:visible="showImageViewer = false"
+    />
   </div>
 </template>
 
@@ -259,6 +253,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { skuReview, build, getImageUrlFromPath } from '@api/client';
 import PageHeader from '@layout/PageHeader.vue';
 import PageContainer from '@layout/PageContainer.vue';
+import ImageViewer from '@ui/ImageViewer.vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 
 // 数据状态
@@ -304,9 +299,9 @@ const uploadFolderName = ref('')
 const folderFileInput = ref(null);
 
 // 大图查看
-const showLargeImage = ref(false);
-const largeImageUrl = ref('');
-const largeImageName = ref('');
+const showImageViewer = ref(false);
+const imageViewerUrl = ref('');
+const imageViewerName = ref('');
 
 // 计算属性
 const filteredSkus = computed(() => {
@@ -584,16 +579,10 @@ const handleDelete = async () => {
 
 // 大图查看
 const openLargeImage = (url, name, event) => {
-  event.stopPropagation();
-  largeImageUrl.value = encodeURI(url);
-  largeImageName.value = name;
-  showLargeImage.value = true;
-};
-
-const closeLargeImage = () => {
-  showLargeImage.value = false;
-  largeImageUrl.value = '';
-  largeImageName.value = '';
+  if (event) event.stopPropagation();
+  imageViewerUrl.value = url;
+  imageViewerName.value = name;
+  showImageViewer.value = true;
 };
 
 // 建库操作
@@ -1782,106 +1771,5 @@ onUnmounted(() => {
   }
 }
 
-/* 大图查看模态框 */
-.large-image-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  padding: 20px;
-  animation: fadeIn 0.2s ease;
-}
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.large-image-container {
-  background: var(--color-bg-primary);
-  border-radius: 12px;
-  max-width: 90vw;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-xl);
-  animation: scaleIn 0.2s ease;
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.large-image-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.large-image-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  max-width: 80%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.close-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: var(--color-bg-tertiary);
-  font-size: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-  transition: all var(--transition-fast);
-}
-
-.close-btn:hover {
-  background: var(--color-bg-secondary);
-  color: var(--color-text-primary);
-}
-
-.large-image-wrapper {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  overflow: auto;
-  background: var(--color-bg-tertiary);
-}
-
-.large-image-wrapper img {
-  max-width: 100%;
-  max-height: 75vh;
-  object-fit: contain;
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-}
 </style>

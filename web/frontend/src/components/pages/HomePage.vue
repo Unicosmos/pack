@@ -28,7 +28,7 @@
           <span class="result-count">共 {{ store.batchResults.length }} 张图片</span>
         </div>
         <div class="panel-body">
-          <DetectionList :results="store.batchResults" :mode="store.currentMode" @review="handleReview" />
+          <DetectionList :results="store.batchResults" :mode="store.currentMode" />
 
           <div class="btn-group" style="margin-top: var(--spacing-lg);">
             <button class="btn btn-primary" @click="goToTasks">📋 前往任务列表查看</button>
@@ -45,33 +45,22 @@
         </div>
       </section>
     </PageContainer>
-
-    <ReviewDialog
-      v-model="reviewDialogVisible"
-      :task="currentTask"
-      @update="handleReviewUpdate"
-    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { detector, tasks } from '@api/client'
+import { tasks } from '@api/client'
 import { useAppStore } from '@stores/app'
-import PageHeader from '@layout/PageHeader.vue'
 import PageContainer from '@layout/PageContainer.vue'
 import StatusBanner from '@ui/StatusBanner.vue'
 import UploadArea from '@upload/UploadArea.vue'
 import FileList from '@upload/FileList.vue'
 import DetectionList from '@task/DetectionList.vue'
-import ReviewDialog from '@task/ReviewDialog.vue'
 
 const store = useAppStore()
 const isProcessing = ref(false)
-
-const reviewDialogVisible = ref(false)
-const currentTask = ref(null)
 
 const showEmptyState = computed(() => {
   return store.batchResults.length === 0 && store.isIdle && !store.error && store.batchTaskIds.length === 0
@@ -141,42 +130,6 @@ const handleUpload = async () => {
     ElMessage.error(errorMsg)
   } finally {
     isProcessing.value = false
-  }
-}
-
-const handleReview = (result, idx) => {
-  if (!result.success) return
-
-  const boxesWithMatch = result.boxes?.map((box, boxIdx) => ({
-    ...box,
-    match_result: result.matches?.[String(boxIdx)] || result.matches?.[boxIdx]
-  })) || []
-
-  currentTask.value = {
-    id: idx,
-    image_name: result.fileName,
-    image_path: null,
-    result: {
-      ...result,
-      detections: { boxes: boxesWithMatch },
-      image_with_boxes: result.image_with_boxes
-    }
-  }
-  reviewDialogVisible.value = true
-}
-
-const handleReviewUpdate = async ({ task, boxes, approvedCount, rejectedCount }) => {
-  reviewDialogVisible.value = false
-  
-  if (task.result.taskId) {
-    try {
-      await tasks.reviewTask(task.result.taskId, boxes)
-      ElMessage.success(`更新成功：通过 ${approvedCount} 个，拒绝 ${rejectedCount} 个，已保存到数据库`)
-    } catch (err) {
-      ElMessage.error('更新失败: ' + (err.message || '未知错误'))
-    }
-  } else {
-    ElMessage.success(`更新成功：通过 ${approvedCount} 个，拒绝 ${rejectedCount} 个`)
   }
 }
 

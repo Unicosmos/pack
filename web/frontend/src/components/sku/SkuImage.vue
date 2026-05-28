@@ -38,6 +38,10 @@ const props = defineProps({
   placeholderIcon: {
     type: String,
     default: '📷'
+  },
+  fit: {
+    type: String,
+    default: 'cover'
   }
 })
 
@@ -72,14 +76,14 @@ function onLoad() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f5f5;
+  background-color: v-bind(fit === 'contain' ? 'transparent' : '#f5f5f5');
   overflow: hidden;
 }
 
 .sku-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: v-bind(fit);
 }
 
 .sku-image img.error {

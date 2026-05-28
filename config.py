@@ -24,7 +24,7 @@ class ModelConfig:
 
 @dataclass
 class MatchConfig:
-    MATCH_THRESHOLD: float = 0.85
+    MATCH_THRESHOLD: float = 0.7
     RATIO_THRESHOLD: float = 1.2
     FEATURE_DIM: int = 384
     TOP_K: int = 5

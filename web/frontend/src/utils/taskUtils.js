@@ -1,7 +1,7 @@
 export const getStatusBadgeClass = (task) => {
   if (task.status === 'failed') return 'failed'
   if (task.status === 'completed') return 'completed'
-  if (task.status === 'detected') return 'warning'
+  if (task.status === 'detected') return 'detected'
   return 'pending'
 }
 
@@ -10,7 +10,7 @@ export const getStatusText = (status) => {
     'pending': '待识别',
     'detected': '待审核',
     'completed': '已完成',
-    'failed': '失败'
+    'failed': '识别失败'
   }
   return map[status] || status
 }
@@ -48,5 +48,14 @@ export const getReviewStatusText = (status) => {
 export const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
-  return d.toLocaleString('zh-CN')
+  if (isNaN(d.getTime())) return '-'
+  return d.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
 }

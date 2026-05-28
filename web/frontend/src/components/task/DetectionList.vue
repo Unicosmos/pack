@@ -8,7 +8,7 @@
 
     <div v-else class="match-results-container">
       <div v-for="(result, idx) in results" :key="idx" class="match-result-card">
-        <MatchResultCard :result="result" :index="idx" />
+        <MatchResult :result="result" :index="idx" />
       </div>
     </div>
   </div>
@@ -16,7 +16,7 @@
 
 <script setup>
 import BatchResultCard from '@task/BatchResultCard.vue'
-import MatchResultCard from '@task/match/MatchResultCard.vue'
+import MatchResult from '@task/MatchResult.vue'
 
 const props = defineProps({
   results: {
