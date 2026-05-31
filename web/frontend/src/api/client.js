@@ -1,4 +1,46 @@
+import axios from 'axios'
+
 const API_BASE = ''
+
+const client = axios.create({
+  baseURL: API_BASE,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+client.interceptors.request.use(
+  (config) => {
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+client.interceptors.response.use(
+  (response) => {
+    return response
+  },
+  (error) => {
+    let errorMessage = '请求失败'
+    if (error.response) {
+      const data = error.response.data
+      if (data && data.detail) {
+        errorMessage = data.detail
+      } else {
+        errorMessage = `服务器错误: ${error.response.status}`
+      }
+    } else if (error.request) {
+      errorMessage = '网络连接失败，请检查网络'
+    } else {
+      errorMessage = error.message || '请求配置错误'
+    }
+    error.message = errorMessage
+    return Promise.reject(error)
+  }
+)
 
 function getImageUrl(type, id, filename) {
   const encodedFilename = encodeURIComponent(filename)
@@ -16,7 +58,6 @@ function getImageUrl(type, id, filename) {
 
 function getImageUrlFromPath(path) {
   if (!path) return ''
-  // 处理对象类型的路径（{url: ..., filename: ...}）
   if (typeof path === 'object') {
     if (path.url) {
       return path.url
@@ -26,13 +67,10 @@ function getImageUrlFromPath(path) {
     }
     return ''
   }
-  // 处理字符串类型的路径
   const pathStr = String(path)
-  // 如果已经是完整URL（以 /static/ 或 /api/ 开头），直接返回
   if (pathStr.startsWith('/static/') || pathStr.startsWith('/api/')) {
     return pathStr
   }
-  // 否则通过 /api/sku-image 端点处理
   return `/api/sku-image?path=${encodeURIComponent(pathStr)}`
 }
 
@@ -339,7 +377,6 @@ export const sku = {
   }
 }
 
-// SKU审核 API
 export const skuReview = {
   async getFolders() {
     const response = await request('/api/sku-review/folders')
@@ -487,9 +524,6 @@ export const build = {
   }
 }
 
-export { getImageUrl, getImageUrlFromPath }
-
-// 操作日志 API
 export const logs = {
   async list(params = {}) {
     const searchParams = new URLSearchParams()
@@ -508,3 +542,6 @@ export const logs = {
     return response.json()
   }
 }
+
+export { getImageUrl, getImageUrlFromPath }
+export default client

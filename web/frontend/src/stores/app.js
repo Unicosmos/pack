@@ -13,9 +13,14 @@ export const useAppStore = defineStore('app', () => {
   const error = ref(null)
   const skuCount = ref(0)
   const systemStatus = ref('ready')
+  const modelInfo = ref('')
+  const skuModelInfo = ref('')
+  const detectorReady = ref(false)
+  const matcherReady = ref(false)
   const savedPage = localStorage.getItem('currentPage')
   const currentPage = ref(savedPage || 'home')
   const refreshTrigger = ref(0)
+  const pendingTaskId = ref(null)
 
   const batchTaskIds = ref([])
   const batchTasks = ref([])
@@ -108,11 +113,20 @@ export const useAppStore = defineStore('app', () => {
     batchTasks.value = tasks
   }
 
+  const getModelName = (modelPath) => {
+    if (!modelPath) return ''
+    const parts = modelPath.replace(/\\/g, '/').split('/')
+    return parts[parts.length - 1] || modelPath
+  }
+
   async function fetchSystemHealth() {
     try {
       const res = await detector.health()
-      console.log('Health check response:', res)
       skuCount.value = res.sku_count || 0
+      modelInfo.value = getModelName(res.model_path) || ''
+      skuModelInfo.value = getModelName(res.sku_model_path) || ''
+      detectorReady.value = !!res.detector_ready
+      matcherReady.value = !!res.matcher_ready
 
       if (res.status === 'init') {
         systemStatus.value = 'init'
@@ -146,7 +160,12 @@ export const useAppStore = defineStore('app', () => {
     error,
     skuCount,
     systemStatus,
+    modelInfo,
+    skuModelInfo,
+    detectorReady,
+    matcherReady,
     currentPage,
+    pendingTaskId,
     batchTaskIds,
     batchTasks,
     batchResults,

@@ -13,6 +13,7 @@ export default defineConfig({
       '@task': resolve(__dirname, 'src/components/task'),
       '@sku': resolve(__dirname, 'src/components/sku'),
       '@upload': resolve(__dirname, 'src/components/upload'),
+      '@home': resolve(__dirname, 'src/components/home'),
       '@hooks': resolve(__dirname, 'src/components/hooks'),
       '@layout': resolve(__dirname, 'src/components/layout'),
       '@api': resolve(__dirname, 'src/api'),

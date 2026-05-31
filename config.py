@@ -44,6 +44,10 @@ class PathConfig:
     YOLO_CONFIG_DIR: Path
     TASKS_DIR: Path
     UPLOADS_DIR: Path
+    SKU_OUTPUT_DIR: Path
+    BUILD_SCRIPT: Path
+    EXTRACT_SCRIPT: Path
+    STATUS_FILE: Path
 
     def get_task_dir(self, task_id: int) -> Path:
         return self.TASKS_DIR / f"task_{task_id}"
@@ -102,7 +106,11 @@ class Config:
             ULTRALYTICS_DIR=data_dir / ".ultralytics",
             YOLO_CONFIG_DIR=data_dir / ".yolo",
             TASKS_DIR=tasks_dir,
-            UPLOADS_DIR=uploads_dir
+            UPLOADS_DIR=uploads_dir,
+            SKU_OUTPUT_DIR=training_sku_dir / "sku_output",
+            BUILD_SCRIPT=training_sku_dir / "build_sku_library.py",
+            EXTRACT_SCRIPT=training_sku_dir / "extract_features.py",
+            STATUS_FILE=data_dir / "build_status.json"
         )
 
         os.environ["ULTRALYTICS_CONFIG_DIR"] = str(self.paths.ULTRALYTICS_DIR)

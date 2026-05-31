@@ -59,6 +59,7 @@ class HealthResponse(BaseModel):
     matcher_ready: bool = Field(False, description="匹配器是否就绪")
     sku_count: int = Field(0, description="SKU库数量")
     model_path: str = Field("", description="模型路径")
+    sku_model_path: str = Field("", description="SKU匹配模型路径")
     sku_dir: str = Field("", description="SKU库路径")
 
 
@@ -123,6 +124,13 @@ class TaskResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BatchTaskResponse(BaseModel):
+    success: bool = Field(True, description="是否成功")
+    task_ids: List[int] = Field(default_factory=list, description="创建的任务ID列表")
+    total_count: int = Field(0, description="总数量")
+    message: str = Field("", description="提示信息")
 
 
 class TaskUpdate(BaseModel):

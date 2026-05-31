@@ -54,6 +54,10 @@ from repositories.task_repository import TaskRepository
 from database import init_db, SessionLocal, get_db
 from models.task import Task
 from api.task import router as task_router
+from api.detection import router as detection_router
+from api.match import router as match_router
+from api.review import router as review_router
+from api.export import router as export_router
 from api.sku import router as sku_router
 from api.sku_review import router as sku_review_router
 from api.logs import router as logs_router
@@ -98,6 +102,10 @@ app.add_middleware(
 )
 
 app.include_router(task_router)
+app.include_router(detection_router)
+app.include_router(match_router)
+app.include_router(review_router)
+app.include_router(export_router)
 app.include_router(sku_router)
 app.include_router(sku_review_router)
 app.include_router(logs_router)
@@ -205,6 +213,7 @@ async def health_check():
         matcher_ready=matcher_ready,
         sku_count=sku_count_val,
         model_path=str(config.paths.MODEL_PATH),
+        sku_model_path=str(config.paths.SKU_MODEL_PATH) if config.paths.SKU_MODEL_PATH else "",
         sku_dir=str(config.paths.SKU_DIR)
     )
 

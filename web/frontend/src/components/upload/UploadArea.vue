@@ -1,9 +1,11 @@
 <template>
   <div class="upload-area" :class="{ dragover: isDragover }" @click="triggerUpload" @dragover.prevent="isDragover = true" @dragleave.prevent="isDragover = false" @drop.prevent="handleDrop">
     <input type="file" ref="fileInput" @change="handleFileSelect" accept="image/*" multiple directory webkitdirectory style="display: none">
-    <div class="upload-icon">📤</div>
-    <div class="upload-text">点击或拖拽上传图片/文件夹</div>
-    <div class="upload-hint">支持 JPG、PNG 格式，可多选或选择文件夹</div>
+    <div class="upload-content">
+      <span class="upload-icon">📁</span>
+      <span class="upload-text">点击或拖拽上传图片/文件夹</span>
+    </div>
+    <div class="upload-hint">支持 JPG、PNG，可多选</div>
   </div>
 </template>
 
@@ -69,39 +71,40 @@ defineExpose({
 
 <style scoped>
 .upload-area {
-  border: 2px dashed var(--color-primary);
-  border-radius: var(--radius-lg);
-  padding: 40px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 36px 24px;
   text-align: center;
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: border-color var(--transition-fast);
 }
 
 .upload-area:hover {
-  background: rgba(102, 126, 234, 0.1);
-  border-color: var(--color-secondary);
+  border-color: var(--color-primary);
 }
 
 .upload-area.dragover {
-  background: rgba(102, 126, 234, 0.15);
   border-color: var(--color-primary);
   border-style: solid;
+  background: rgba(59, 159, 232, 0.08);
+}
+
+.upload-content {
+  margin-bottom: 6px;
 }
 
 .upload-icon {
-  font-size: 48px;
-  color: var(--color-primary);
-  margin-bottom: 15px;
+  font-size: 16px;
+  margin-right: 6px;
 }
 
 .upload-text {
   color: var(--color-primary);
-  font-size: 18px;
-  margin-bottom: 8px;
+  font-size: 14px;
 }
 
 .upload-hint {
   color: var(--color-text-tertiary);
-  font-size: 14px;
+  font-size: 12px;
 }
 </style>

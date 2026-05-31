@@ -1,18 +1,16 @@
 <template>
-  <div v-if="files.length > 0" class="preview-container show">
-    <div class="files-summary">
-      <span>已选择 {{ files.length }} 个文件</span>
-      <button class="btn-clear" @click="handleClear">清空</button>
+  <div v-if="files.length > 0" class="file-list">
+    <div class="file-list-header">
+      <span>已选择 <b>{{ files.length }}</b> 个文件</span>
+      <span class="btn-clear" @click="handleClear">清空</span>
     </div>
-    <div class="files-list">
-      <div v-for="(file, idx) in files" :key="idx" class="file-item">
-        <img :src="file.preview" class="file-thumb" :alt="file.name">
-        <div class="file-info">
-          <div class="file-name">{{ file.name }}</div>
-          <div class="file-size">{{ formatFileSize(file.size) }}</div>
-        </div>
-        <button class="file-remove" @click="handleRemove(idx)">×</button>
-      </div>
+    <div v-for="(file, idx) in files" :key="idx" class="file-item">
+      <span>
+        <span class="file-icon">🖼️</span>
+        <span class="file-name">{{ file.name }}</span>
+        <span class="file-size">{{ formatFileSize(file.size) }}</span>
+      </span>
+      <span class="file-remove" @click="handleRemove(idx)">删除</span>
     </div>
   </div>
 </template>
@@ -43,102 +41,62 @@ const formatFileSize = (bytes) => {
 </script>
 
 <style scoped>
-.preview-container {
-  margin-top: 20px;
-  display: none;
+.file-list {
+  margin-top: 16px;
 }
 
-.preview-container.show {
-  display: block;
-}
-
-.files-summary {
+.file-list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.files-summary span {
-  font-size: 14px;
-  color: #666;
-}
-
-.btn-clear {
-  padding: 6px 12px;
-  background: #f5f5f5;
-  color: #666;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  margin-bottom: 10px;
+  color: var(--color-text-secondary);
   font-size: 13px;
 }
 
-.btn-clear:hover {
-  background: #e0e0e0;
+.btn-clear {
+  color: var(--color-danger);
+  cursor: pointer;
+  font-size: 12px;
 }
 
-.files-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  max-height: 300px;
-  overflow-y: auto;
+.btn-clear:hover {
+  opacity: 0.8;
 }
 
 .file-item {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
-  background: #fafafa;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
-  width: calc(50% - 6px);
-  min-width: 280px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
 }
 
-.file-thumb {
-  width: 50px;
-  height: 50px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #e0e0e0;
-}
-
-.file-info {
-  flex: 1;
-  min-width: 0;
+.file-item:last-child {
+  margin-bottom: 0;
 }
 
 .file-name {
-  font-size: 13px;
-  color: #333;
-  margin-bottom: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--color-text-primary);
+  margin-left: 6px;
 }
 
 .file-size {
-  font-size: 11px;
-  color: #999;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  margin-left: 10px;
 }
 
 .file-remove {
-  padding: 4px 8px;
-  background: #fef0f0;
-  color: #f56c6c;
-  border: none;
-  border-radius: 4px;
+  color: var(--color-danger);
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
+  font-size: 12px;
 }
 
 .file-remove:hover {
-  background: #fde2e2;
+  opacity: 0.8;
 }
 </style>

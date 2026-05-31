@@ -189,7 +189,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElLoading } from 'element-plus'
-import { tasks as taskApi } from '@api/client'
+import taskApi from '@api/taskApi'
+import { useAppStore } from '@stores/app'
 import PageContainer from '@layout/PageContainer.vue'
 import TaskStats from '@task/TaskStats.vue'
 import TaskDetailPanel from '@task/TaskDetailPanel.vue'
@@ -219,6 +220,8 @@ const timeFilter = ref('all')
 const customStart = ref('')
 const customEnd = ref('')
 
+const store = useAppStore()
+
 // 筛选选项配置
 const statusOptions = [
   { value: null, label: '全部状态' },
@@ -233,7 +236,9 @@ const batchActions = [
   { label: '批量识别', icon: '🔍', action: 'detect' },
   { divider: true },
   { label: '导出 JSON', icon: '📄', action: 'export-json' },
-  { label: '导出 CSV', icon: '📊', action: 'export-csv' }
+  { label: '导出 CSV', icon: '📊', action: 'export-csv' },
+  { divider: true },
+  { label: '批量删除', icon: '🗑️', action: 'delete' }
 ]
 
 const timeOptions = [
@@ -255,6 +260,9 @@ const exporting = ref(false)
 // 批量识别加载状态
 const detecting = ref(false)
 const detectProgress = ref(null)
+
+// 批量删除加载状态
+const deleting = ref(false)
 
 // 匹配弹窗相关
 const showMatchDialog = ref(false)
@@ -332,10 +340,10 @@ const handleSubmitReview = async () => {
 
   try {
     const resultBoxes = activeBoxes.map((b, idx) => ({
-      box_id: `box_${idx}`,  // 后端期望的格式
+      box_id: `box_${idx}`,
       status: b.status === 'deleted' ? 'deleted' : (b.status || 'approved'),
       is_manual_override: b.isModified || false,
-      custom_sku: b.match_result?.sku_id  // 后端期望的字段名
+      custom_sku: b.match_result?.sku_id
     }))
 
     const res = await taskApi.reviewTask(viewDetailTask.value.id, resultBoxes)
@@ -392,16 +400,17 @@ const loadTasks = async () => {
     if (customTime && customEnd.value) {
       endUtc = new Date(customEnd.value).toISOString().slice(0, 16)
     }
-    const res = await taskApi.list(
-      page.value, pageSize.value,
-      statusFilter.value,
-      customTime ? null : timeFilter.value,
-      startUtc,
-      endUtc
-    )
+    const res = await taskApi.listTasks({
+      page: page.value,
+      page_size: pageSize.value,
+      status_filter: statusFilter.value,
+      time_filter: customTime ? null : timeFilter.value,
+      start_time: startUtc,
+      end_time: endUtc
+    })
     if (res.success) {
-      tasks.value = res.tasks
-      total.value = res.total
+      tasks.value = res.data.tasks
+      total.value = res.data.total
       
       // 如果当前正在查看详情，同步更新基本信息，保留detections数据
       if (viewDetailTask.value) {
@@ -434,13 +443,13 @@ const loadStats = async () => {
     if (customTime && customEnd.value) {
       endUtc = new Date(customEnd.value).toISOString().slice(0, 16)
     }
-    const res = await taskApi.stats(
+    const res = await taskApi.getTaskStats(
       customTime ? null : timeFilter.value,
       startUtc,
       endUtc
     )
     if (res.success) {
-      stats.value = res
+      stats.value = res.data
     }
   } catch (e) {
     console.error('加载统计失败', e)
@@ -483,6 +492,8 @@ const handleBatchAction = (action) => {
     exportTasks('json', false)
   } else if (action === 'export-csv') {
     exportTasks('csv', false)
+  } else if (action === 'delete') {
+    batchDeleteTasks()
   }
 }
 
@@ -500,8 +511,8 @@ const getTaskImagePath = (task) => {
 const detectTask = async (task) => {
   submitting.value = true
   try {
-    const res = await taskApi.detect(task.id)
-    if (res && res.status === 'detected') {
+    const res = await taskApi.detectTask(task.id)
+    if (res.success && res.data && res.data.status === 'detected') {
       ElMessage.success('检测成功')
       await loadTasks()
       await loadStats()
@@ -517,13 +528,13 @@ const detectTask = async (task) => {
 
 const openViewDetail = async (task) => {
   try {
-    const res = await taskApi.getDetections(task.id)
-    if (res.success && res.boxes) {
+    const res = await taskApi.getTaskDetections(task.id)
+    if (res.success && res.data && res.data.boxes) {
       viewDetailTask.value = {
         ...task,
         result: {
           detections: {
-            boxes: res.boxes
+            boxes: res.data.boxes
           }
         }
       }
@@ -561,7 +572,7 @@ const batchDetectTasks = async () => {
     
     for (const task of selectedTasks.value) {
       if (shouldShowDetect(task) || shouldShowReDetect(task)) {
-        await taskApi.detect(task.id)
+        await taskApi.detectTask(task.id)
       }
       completed++
       detectProgress.value = Math.round((completed / total) * 100)
@@ -576,6 +587,45 @@ const batchDetectTasks = async () => {
   } finally {
     detecting.value = false
     detectProgress.value = null
+  }
+}
+
+const batchDeleteTasks = async () => {
+  if (selectedTasks.value.length === 0) {
+    ElMessage.warning('请先选择要删除的任务')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedTasks.value.length} 个任务吗？此操作不可恢复。`,
+      '确认批量删除',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+  } catch {
+    return
+  }
+
+  deleting.value = true
+  try {
+    const taskIds = selectedTasks.value.map(task => task.id)
+    const res = await taskApi.batchDeleteTasks(taskIds)
+    if (res.success) {
+      ElMessage.success(res.data.message || `成功删除 ${selectedTasks.value.length} 个任务`)
+      selectedTaskIds.value = []
+      await loadTasks()
+      await loadStats()
+    } else {
+      ElMessage.error('批量删除失败')
+    }
+  } catch (e) {
+    ElMessage.error('批量删除失败: ' + (e.detail || e.message || '未知错误'))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -602,20 +652,13 @@ const exportTasks = async (format, includeImages) => {
       background: 'rgba(0, 0, 0, 0.7)'
     })
 
-    const response = await fetch(`/api/tasks/batch/export?format=${format}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(taskIds)
-    })
+    const response = await taskApi.batchExportTasks(taskIds, format)
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: '导出请求失败' }))
-      throw new Error(errorData.detail || `HTTP ${response.status}`)
+    if (!response.success) {
+      throw new Error(response.error || '导出请求失败')
     }
 
-    const blob = await response.blob()
+    const blob = response.data
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -648,9 +691,28 @@ const exportTasks = async (format, includeImages) => {
   }
 }
 
-onMounted(() => {
-  loadTasks()
-  loadStats()
+const openPendingTask = () => {
+  const pendingId = store.pendingTaskId
+  if (pendingId === null) return
+
+  store.pendingTaskId = null
+
+  const task = tasks.value.find(t => t.id === pendingId)
+  if (task) {
+    openViewDetail(task)
+  } else {
+    taskApi.getTask(pendingId).then(res => {
+      if (res.success && res.data) {
+        openViewDetail(res.data)
+      }
+    })
+  }
+}
+
+onMounted(async () => {
+  await loadTasks()
+  await loadStats()
+  openPendingTask()
 })
 </script>
 

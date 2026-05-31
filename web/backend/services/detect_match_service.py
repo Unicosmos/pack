@@ -211,6 +211,104 @@ class DetectMatchService:
             "sku_matcher_enabled": sku_matcher_enabled
         }
     
+    def detect(
+        self,
+        image: Image.Image,
+        conf_threshold: float = 0.5
+    ) -> Dict[str, Any]:
+        """
+        执行目标检测（不保存到数据库）
+
+        Args:
+            image: PIL Image对象
+            conf_threshold: 置信度阈值
+
+        Returns:
+            检测结果字典，包含boxes、plot_image等
+        """
+        if not self.is_detection_ready():
+            raise RuntimeError("检测模型未加载")
+
+        result = self.detection_service.detector.detect_single_image(
+            image, return_cropped=True, return_plot=True
+        )
+
+        boxes = result.get("detections", [])
+        plot_image = result.get("plot_image", None)
+
+        boxes = filter_small_boxes(
+            boxes,
+            image.size,
+            min_area_ratio=config.model.MIN_AREA_RATIO,
+            min_pixel_area=config.model.MIN_PIXEL_AREA
+        )
+
+        return {
+            "boxes": boxes,
+            "plot_image": plot_image,
+            "count": len(boxes)
+        }
+
+    def match(
+        self,
+        image: Image.Image,
+        boxes: List[Dict],
+        match_threshold: float = 0.85
+    ) -> Tuple[List[Dict[str, Any]], int, int]:
+        """
+        对检测结果进行SKU匹配（不保存到数据库）
+
+        Args:
+            image: PIL Image对象
+            boxes: 检测框列表
+            match_threshold: 匹配相似度阈值
+
+        Returns:
+            (match_results, matched_count, unmatched_count)
+        """
+        if not boxes:
+            return [], 0, 0
+
+        match_results = []
+        sku_matcher_enabled = self.is_match_ready()
+
+        if sku_matcher_enabled:
+            features = []
+            for box in boxes:
+                cropped = crop_box(image, box.get("bbox", []))
+                if cropped:
+                    resized = resize_with_padding(cropped, target_size=config.model.INPUT_SIZE)
+                    feat = self.match_service.matcher.extract_feature(resized)
+                    features.append(feat)
+                else:
+                    features.append(None)
+
+            for feat in features:
+                if feat is None:
+                    match_results.append({
+                        'sku_id': None,
+                        'sku_name': None,
+                        'similarity': 0.0,
+                        'status': 'unmatched',
+                        'top5_labels': []
+                    })
+                else:
+                    mr = self.match_service.matcher.match_sku(feat, threshold=match_threshold)
+                    match_results.append({
+                        'sku_id': mr.sku_id,
+                        'sku_name': mr.sku_name,
+                        'similarity': mr.similarity,
+                        'status': mr.status,
+                        'top5_labels': mr.top5_labels if mr.top5_labels else []
+                    })
+        else:
+            match_results = [None] * len(boxes)
+
+        matched_count = sum(1 for mr in match_results if mr and mr.get('status') == 'matched')
+        unmatched_count = sum(1 for mr in match_results if mr is None or mr.get('status') != 'matched')
+
+        return match_results, matched_count, unmatched_count
+
     def _save_task(
         self, 
         file_name: str, 
