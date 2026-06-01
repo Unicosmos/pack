@@ -2,8 +2,9 @@
   <div class="app-container">
     <nav class="nav-bar">
       <div class="nav-left">
-        <h1>📦 Pack Web</h1>
-        <span class="nav-title">{{ pageTitle }}</span>
+        <div class="nav-logo">📦</div>
+        <div class="nav-title">Pack Web</div>
+        <div class="nav-sub">{{ pageTitle }}</div>
       </div>
       <div class="nav-menu">
         <button :class="{ active: store.currentPage === 'home' }" @click="store.setPage('home')">
@@ -24,7 +25,7 @@
       </div>
     </nav>
 
-    <main class="main-wrapper" :class="{ 'fullscreen': store.currentPage === 'tasks' || store.currentPage === 'skus' }">
+    <main class="main-wrapper" :class="{ 'fullscreen': ['tasks', 'skus', 'skuReview'].includes(store.currentPage) }">
       <HomePage v-if="store.currentPage === 'home'" />
       <TaskListPage v-else-if="store.currentPage === 'tasks'" />
       <SkuListPage v-else-if="store.currentPage === 'skus'" />
@@ -47,7 +48,7 @@ const pageTitle = computed(() => {
   const titles = {
     home: '箱货检测与SKU匹配',
     tasks: '任务列表',
-    skus: 'SKU管理',
+    skus: 'SKU匹配库管理',
     skuReview: 'SKU入库审核'
   }
   return titles[store.currentPage] || ''
@@ -114,18 +115,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
-  border-radius: 50%;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: var(--font-size-lg);
-  background: var(--color-bg-tertiary);
-  transition: all var(--transition-fast);
+  font-size: 16px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: all .2s;
 }
 
 .theme-toggle:hover {
-  transform: scale(1.1);
-  background: var(--color-primary);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
 }
 </style>

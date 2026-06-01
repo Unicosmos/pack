@@ -205,10 +205,6 @@
               <SkuImage :image-path="img" width="100%" height="100%" />
               <button class="img-del" @click.stop="deleteImage(idx)">✕</button>
             </div>
-            <div class="img-add" @click="addImage">
-              <span>+</span>
-              添加图片
-            </div>
           </div>
         </div>
       </div>
@@ -720,11 +716,15 @@ onUnmounted(() => {
 /* 工具栏 */
 .toolbar {
   padding: 12px 20px;
-  border-bottom: 1px solid var(--color-border, #334155);
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+}
+
+.dark .toolbar {
   background: rgba(30, 41, 59, 0.4);
 }
 
@@ -807,8 +807,8 @@ onUnmounted(() => {
 }
 
 .dropdown-item:hover {
-  background: rgba(255,255,255,0.05);
-  color: var(--color-text-primary, #e2e8f0);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .dropdown-item.selected {
@@ -866,6 +866,10 @@ onUnmounted(() => {
 }
 
 .btn-blue:hover {
+  filter: brightness(1.1);
+}
+
+.dark .btn-blue:hover {
   background: #2563eb;
 }
 
@@ -890,11 +894,20 @@ onUnmounted(() => {
 }
 
 .btn-secondary {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.dark .btn-secondary {
   background: #334155;
-  color: var(--color-text-primary, #e2e8f0);
 }
 
 .btn-secondary:hover {
+  background: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.dark .btn-secondary:hover {
   background: #475569;
 }
 
@@ -904,6 +917,10 @@ onUnmounted(() => {
 }
 
 .btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+.dark .btn-primary:hover {
   background: #2563eb;
 }
 
@@ -913,18 +930,26 @@ onUnmounted(() => {
 }
 
 .btn-danger:hover {
+  filter: brightness(1.1);
+}
+
+.dark .btn-danger:hover {
   background: #dc2626;
 }
 
 /* 统计摘要 */
 .stats-summary {
   padding: 8px 20px;
-  border-bottom: 1px solid var(--color-border, #334155);
+  border-bottom: 1px solid var(--color-border);
   font-size: 12px;
-  color: var(--color-text-secondary, #94a3b8);
+  color: var(--color-text-secondary);
   display: flex;
   gap: 16px;
   flex-shrink: 0;
+  background: var(--color-bg-secondary);
+}
+
+.dark .stats-summary {
   background: rgba(30, 41, 59, 0.2);
 }
 
@@ -973,22 +998,30 @@ onUnmounted(() => {
 .sku-table th {
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--color-border, #334155);
+  border-bottom: 1px solid var(--color-border);
   font-size: 12px;
-  color: var(--color-text-tertiary, #64748b);
+  color: var(--color-text-tertiary);
   font-weight: 500;
-  background: rgba(30, 41, 59, 0.95);
+  background: var(--color-bg-tertiary);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
+.dark .sku-table th {
+  background: rgba(30, 41, 59, 0.95);
+}
+
 .sku-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+  border-bottom: 1px solid var(--color-border-light);
   font-size: 13px;
-  color: var(--color-text-primary, #e2e8f0);
+  color: var(--color-text-primary);
   vertical-align: middle;
+}
+
+.dark .sku-table td {
+  border-bottom: 1px solid rgba(51, 65, 85, 0.3);
 }
 
 .sku-table tr {
@@ -997,10 +1030,18 @@ onUnmounted(() => {
 }
 
 .sku-table tr:hover {
+  background: var(--color-bg-hover);
+}
+
+.dark .sku-table tr:hover {
   background: rgba(255,255,255,0.02);
 }
 
 .sku-table tr.selected {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.dark .sku-table tr.selected {
   background: rgba(59, 130, 246, 0.06);
 }
 
@@ -1037,12 +1078,12 @@ onUnmounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 6px;
-  background: var(--color-bg-tertiary, #0f172a);
-  border: 1px solid var(--color-border, #334155);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #475569;
+  color: var(--color-text-tertiary);
   font-size: 16px;
   overflow: hidden;
 }
@@ -1086,8 +1127,8 @@ onUnmounted(() => {
 }
 
 .icon-btn:hover {
-  background: rgba(255,255,255,0.05);
-  color: var(--color-text-primary, #e2e8f0);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .icon-btn.edit:hover {
@@ -1139,9 +1180,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #475569;
+  color: var(--color-text-tertiary);
   font-size: 40px;
-  background: var(--color-bg-tertiary, #0f172a);
+  background: var(--color-bg-tertiary);
   position: relative;
   overflow: hidden;
 }
@@ -1245,8 +1286,8 @@ onUnmounted(() => {
 }
 
 .detail-panel-close:hover {
-  background: rgba(255,255,255,0.05);
-  color: var(--color-text-primary, #e2e8f0);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .detail-panel-body {
@@ -1314,12 +1355,12 @@ onUnmounted(() => {
 .img-item {
   aspect-ratio: 1;
   border-radius: 8px;
-  background: var(--color-bg-tertiary, #0f172a);
-  border: 1px solid var(--color-border, #334155);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #475569;
+  color: var(--color-text-tertiary);
   font-size: 24px;
   position: relative;
   overflow: hidden;
@@ -1345,31 +1386,6 @@ onUnmounted(() => {
   display: none;
   align-items: center;
   justify-content: center;
-}
-
-.img-add {
-  aspect-ratio: 1;
-  border-radius: 8px;
-  border: 2px dashed var(--color-border, #334155);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-tertiary, #64748b);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.img-add:hover {
-  border-color: var(--color-primary, #3b82f6);
-  color: var(--color-primary, #3b82f6);
-  background: rgba(59, 130, 246, 0.05);
-}
-
-.img-add span {
-  font-size: 24px;
-  margin-bottom: 4px;
 }
 
 /* 加载和空状态 */
