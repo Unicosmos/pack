@@ -5,9 +5,13 @@ SKU管理API
 
 import csv
 import io
+import json
+import shutil
 from typing import Optional, List
 from pathlib import Path
 from datetime import datetime
+
+import numpy as np
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -104,6 +108,48 @@ def _sku_to_response(sku: SKU) -> SKUResponse:
         created_at=sku.created_at.isoformat() if sku.created_at else None,
         updated_at=sku.updated_at.isoformat() if sku.updated_at else None,
     )
+
+
+def _hard_delete_sku_files(sku_id: str) -> None:
+    """物理删除SKU的图片目录、CSV记录和特征向量"""
+    # 1. 删除图片目录
+    img_dir = config.paths.SKU_IMAGES_DIR / sku_id
+    if img_dir.exists():
+        shutil.rmtree(img_dir)
+
+    # 2. 从 CSV 中移除该 SKU 的所有行
+    csv_path = config.paths.SKU_INDEX
+    if csv_path.exists():
+        with open(csv_path, 'r', encoding='utf-8-sig', newline='') as f:
+            reader = csv.DictReader(f)
+            rows = [row for row in reader if row.get('sku_id') != sku_id]
+        if rows:
+            with open(csv_path, 'w', encoding='utf-8-sig', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=reader.fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+        else:
+            csv_path.unlink()
+
+    # 3. 从特征文件中移除对应的特征向量
+    features_path = config.paths.SKU_FEATURES
+    meta_path = features_path.parent / "feature_meta.json"
+    if features_path.exists() and meta_path.exists():
+        try:
+            csv_rows_before = len(rows) + 1  # 当前CSV行数 + 刚删除的1行
+            features = np.load(str(features_path))
+            if len(features) == csv_rows_before:
+                features = np.delete(features, len(rows), axis=0)
+                np.save(str(features_path), features)
+                # 更新 meta
+                with open(meta_path, 'r') as f:
+                    meta = json.loads(f.read())
+                meta['csv_rows'] = len(rows)
+                meta['shape'] = [len(rows), meta['shape'][1]]
+                with open(meta_path, 'w') as f:
+                    json.dump(meta, f, indent=2)
+        except Exception:
+            pass  # 特征文件损坏时静默忽略
 
 
 @router.get("", response_model=SKUListResponse)
@@ -269,7 +315,7 @@ async def delete_sku(
     sku_id: str,
     db: Session = Depends(get_db)
 ):
-    """禁用SKU"""
+    """物理删除SKU（删除数据库记录、图片文件、CSV记录和特征向量）"""
     sku = db.query(SKU).filter(
         SKU.sku_id == sku_id
     ).first()
@@ -277,10 +323,14 @@ async def delete_sku(
     if not sku:
         raise HTTPException(status_code=404, detail="SKU不存在")
 
-    sku.is_deleted = True
+    # 物理删除文件
+    _hard_delete_sku_files(sku_id)
+
+    # 从数据库删除记录
+    db.delete(sku)
     db.commit()
 
-    return MessageResponse(success=True, message=f"SKU {sku_id} 已删除")
+    return MessageResponse(success=True, message=f"SKU {sku_id} 已永久删除")
 
 
 @router.post("/batch-delete", response_model=MessageResponse)
@@ -288,17 +338,26 @@ async def batch_delete_skus(
     sku_ids: List[str],
     db: Session = Depends(get_db)
 ):
-    """批量禁用SKU"""
+    """批量物理删除SKU"""
     if len(sku_ids) > 100:
-        raise HTTPException(status_code=400, detail="单次最多禁用100个SKU")
+        raise HTTPException(status_code=400, detail="单次最多删除100个SKU")
 
-    count = db.query(SKU).filter(
+    skus = db.query(SKU).filter(
         SKU.sku_id.in_(sku_ids)
-    ).update({SKU.is_deleted: True}, synchronize_session=False)
+    ).all()
+
+    if not skus:
+        raise HTTPException(status_code=404, detail="未找到要删除的SKU")
+
+    deleted_ids = []
+    for sku in skus:
+        _hard_delete_sku_files(sku.sku_id)
+        db.delete(sku)
+        deleted_ids.append(sku.sku_id)
 
     db.commit()
 
-    return MessageResponse(success=True, message=f"已禁用 {count} 个SKU")
+    return MessageResponse(success=True, message=f"已永久删除 {len(deleted_ids)} 个SKU")
 
 
 @router.post("/import")

@@ -46,8 +46,8 @@ async def review_task_detections(
 
         review_box_map = {box.get("box_id"): box for box in review_data.boxes}
 
-        for idx, db_box in enumerate(detection_boxes):
-            box_id_str = f"box_{idx}"
+        for db_box in detection_boxes:
+            box_id_str = f"box_{db_box.box_index}"
             
             if box_id_str in review_box_map:
                 review_box = review_box_map[box_id_str]

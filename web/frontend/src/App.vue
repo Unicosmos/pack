@@ -3,7 +3,7 @@
     <nav class="nav-bar">
       <div class="nav-left">
         <div class="nav-logo">📦</div>
-        <div class="nav-title">Pack Web</div>
+        <div class="nav-title">仓储物品识别系统</div>
         <div class="nav-sub">{{ pageTitle }}</div>
       </div>
       <div class="nav-menu">

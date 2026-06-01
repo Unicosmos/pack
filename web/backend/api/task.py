@@ -413,6 +413,47 @@ async def batch_delete_tasks(
     return {"success": True, "message": f"已删除 {len(deleted_ids)} 个任务", "deleted_ids": deleted_ids}
 
 
+@router.delete("/{task_id}/boxes/{box_index}")
+async def delete_task_box(
+    task_id: int,
+    box_index: int,
+    db: Session = Depends(get_db)
+):
+    """删除任务中的单个箱体（删除DB记录和裁剪图片）"""
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    detection_box = db.query(DetectionBox).filter(
+        DetectionBox.task_id == task_id,
+        DetectionBox.box_index == box_index
+    ).first()
+
+    if not detection_box:
+        raise HTTPException(status_code=404, detail="箱体不存在")
+
+    # 删除关联的匹配结果
+    db.query(MatchResult).filter(
+        MatchResult.box_id == detection_box.id
+    ).delete(synchronize_session=False)
+
+    # 删除裁剪图片文件
+    if detection_box.path and os.path.exists(detection_box.path):
+        os.remove(detection_box.path)
+
+    # 删除箱体记录
+    db.delete(detection_box)
+
+    # 更新任务统计
+    task.box_count = db.query(DetectionBox).filter(
+        DetectionBox.task_id == task_id
+    ).count()
+
+    db.commit()
+
+    return {"success": True, "message": f"箱体 {box_index + 1} 已删除"}
+
+
 @router.get("/{task_id}/image")
 async def get_task_image(
     task_id: int,

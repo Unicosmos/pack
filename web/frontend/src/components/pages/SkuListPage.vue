@@ -9,31 +9,8 @@
             v-model="searchQuery"
             type="text"
             placeholder="搜索SKU编号或名称..."
-            @keyup.enter="loadSkus"
+            @keyup.enter="doSearch"
           />
-        </div>
-
-        <div style="position:relative;">
-          <div class="dropdown-btn" @click="toggleDropdown('status')">
-            <span>{{ selectedStatusLabel }}</span> ▼
-          </div>
-          <div class="dropdown-menu" :class="{ show: openDropdown === 'status' }">
-            <div 
-              class="dropdown-item" 
-              :class="{ selected: statusFilter === '' }"
-              @click="selectStatus('', '全部状态')"
-            >全部状态</div>
-            <div 
-              class="dropdown-item" 
-              :class="{ selected: statusFilter === 'active' }"
-              @click="selectStatus('active', '启用')"
-            >启用</div>
-            <div 
-              class="dropdown-item" 
-              :class="{ selected: statusFilter === 'inactive' }"
-              @click="selectStatus('inactive', '禁用')"
-            >禁用</div>
-          </div>
         </div>
 
         <div class="view-switch">
@@ -54,8 +31,6 @@
       <!-- 统计摘要栏 -->
       <div class="stats-summary">
         <span>📦 共 <b>{{ displayStats.total || 0 }}</b> 个SKU</span>
-        <span>✅ <b>{{ displayStats.active || 0 }}</b> 启用</span>
-        <span>🚫 <b>{{ displayStats.inactive || 0 }}</b> 禁用</span>
         <span>🖼️ <b>{{ displayStats.images || 0 }}</b> 张图片</span>
       </div>
 
@@ -64,8 +39,7 @@
         <!-- 批量操作栏 -->
         <div class="batch-bar" v-if="selectedSkus.length > 0">
           <span>已选择 <b>{{ selectedSkus.length }}</b> 个SKU</span>
-          <button class="btn btn-green" @click="batchEnable">✓ 批量启用</button>
-          <button class="btn btn-red" @click="batchDisable">✕ 批量禁用</button>
+          <button class="btn btn-red" @click="batchDelete">🗑️ 批量删除</button>
           <button class="btn btn-blue" @click="batchExport">📥 批量导出</button>
           <button class="btn btn-secondary" @click="clearSelection">清空</button>
         </div>
@@ -88,7 +62,6 @@
               <th class="id-cell">SKU编号</th>
               <th class="thumb-cell">缩略图</th>
               <th>名称</th>
-              <th class="status-cell">状态</th>
               <th class="count-cell">图片数</th>
               <th class="action-cell">操作</th>
             </tr>
@@ -110,18 +83,11 @@
                 </div>
               </td>
               <td>{{ sku.sku_name }}</td>
-              <td class="status-cell">
-                <span :class="['status-badge', sku.status === 'inactive' ? 'badge-disable' : 'badge-enable']">
-                  {{ sku.status === 'active' ? '启用' : '禁用' }}
-                </span>
-              </td>
               <td class="count-cell">{{ sku.image_count }}</td>
               <td class="action-cell">
                 <div class="action-btns">
                   <button class="icon-btn edit" @click.stop="openEditDialog(sku)" title="编辑">✎</button>
-                  <button class="icon-btn delete" @click.stop="confirmToggleStatus(sku)" :title="sku.status === 'active' ? '禁用' : '启用'">
-                    {{ sku.status === 'active' ? '⛔' : '✅' }}
-                  </button>
+                  <button class="icon-btn delete" @click.stop="confirmDelete(sku)" title="删除">🗑️</button>
                 </div>
               </td>
             </tr>
@@ -146,13 +112,24 @@
             <div class="gallery-info">
               <div class="gallery-sku">{{ sku.sku_id }}</div>
               <div class="gallery-name">{{ sku.sku_name }}</div>
-              <div class="gallery-meta">
-                <span :class="['status-badge', sku.status === 'inactive' ? 'badge-disable' : 'badge-enable']">
-                  {{ sku.status === 'active' ? '启用' : '禁用' }}
-                </span>
-              </div>
             </div>
           </div>
+        </div>
+      </div>
+      <!-- 分页 -->
+      <div v-if="total > pageSize" class="pagination-bar">
+        <span class="pagination-info">共 {{ total }} 条</span>
+        <div class="pagination-controls">
+          <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
+          <template v-for="p in totalPages" :key="p">
+            <button
+              v-if="p === 1 || p === totalPages || Math.abs(p - page) <= 2"
+              :class="['page-btn', { active: p === page }]"
+              @click="changePage(p)"
+            >{{ p }}</button>
+            <span v-else-if="p === page - 3 || p === page + 3" class="page-ellipsis">…</span>
+          </template>
+          <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
         </div>
       </div>
     </div>
@@ -172,12 +149,6 @@
             <div class="info-card">
               <div class="label">分类</div>
               <div class="value">{{ selectedSku.category || '-' }}</div>
-            </div>
-            <div class="info-card">
-              <div class="label">状态</div>
-              <div class="value" :class="{ green: selectedSku.status === 'active' }">
-                {{ selectedSku.status === 'active' ? '启用' : '禁用' }}
-              </div>
             </div>
             <div class="info-card">
               <div class="label">图片数量</div>
@@ -234,13 +205,6 @@
             <label>描述</label>
             <textarea v-model="formData.description" placeholder="请输入描述" rows="3"></textarea>
           </div>
-          <div class="form-group">
-            <label>状态</label>
-            <select v-model="formData.status">
-              <option value="active">启用</option>
-              <option value="inactive">禁用</option>
-            </select>
-          </div>
         </div>
         <div class="modal-footer">
           <button class="btn" @click="closeDialog">取消</button>
@@ -251,29 +215,27 @@
       </div>
     </div>
 
-    <!-- 确认对话框 -->
+    <!-- 确认删除对话框 -->
     <div v-if="showDeleteDialog" class="modal-overlay" @click.self="showDeleteDialog = false">
       <div class="modal modal-sm">
         <div class="modal-header">
-          <h3>确认{{ deleteTarget?.status === 'active' || deleteType === 'batch' ? '禁用' : '启用' }}</h3>
+          <h3>确认删除</h3>
           <button class="btn-close" @click="showDeleteDialog = false">✕</button>
         </div>
         <div class="modal-body">
           <p v-if="deleteType === 'single'">
-            确定要{{ deleteTarget?.status === 'active' ? '禁用' : '启用' }}SKU <strong>{{ deleteTarget?.sku_id }}</strong> 吗？
+            确定要永久删除SKU <strong>{{ deleteTarget?.sku_id }}</strong> 吗？<br/>
+            <span style="font-size:12px;color:var(--color-text-tertiary)">此操作将删除数据库记录、图片文件和特征数据，不可恢复。</span>
           </p>
           <p v-else>
-            确定要禁用选中的 {{ selectedSkus.length }} 个SKU吗？
+            确定要永久删除选中的 <strong>{{ selectedSkus.length }}</strong> 个SKU吗？<br/>
+            <span style="font-size:12px;color:var(--color-text-tertiary)">此操作不可恢复。</span>
           </p>
         </div>
         <div class="modal-footer">
           <button class="btn" @click="showDeleteDialog = false">取消</button>
-          <button 
-            :class="['btn', { 'btn-danger': deleteTarget?.status === 'active' || deleteType === 'batch' }]" 
-            @click="handleToggleStatus" 
-            :disabled="submitting"
-          >
-            {{ submitting ? '处理中...' : `确认${deleteTarget?.status === 'active' || deleteType === 'batch' ? '禁用' : '启用'}` }}
+          <button class="btn btn-danger" @click="handleDelete" :disabled="submitting">
+            {{ submitting ? '删除中...' : '确认删除' }}
           </button>
         </div>
       </div>
@@ -293,7 +255,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { sku } from '@api/client'
 import SkuImage from '@sku/SkuImage.vue'
 import ImageViewer from '@ui/ImageViewer.vue'
@@ -301,14 +263,16 @@ import ImageViewer from '@ui/ImageViewer.vue'
 const viewMode = ref('list')
 const skus = ref([])
 const stats = ref({})
-const categories = ref([])
 const loading = ref(false)
 const submitting = ref(false)
 
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
+
 const searchQuery = ref('')
 const categoryFilter = ref('')
-const statusFilter = ref('')
-const openDropdown = ref(null)
 
 const selectedSkus = ref([])
 const selectAll = ref(false)
@@ -337,33 +301,17 @@ const toast = ref({ show: false, message: '', type: 'info' })
 
 const skuImagesCache = ref({})
 
-const selectedCategoryLabel = computed(() => categoryFilter.value || '全部分类')
-const selectedStatusLabel = computed(() => {
-  if (statusFilter.value === 'active') return '启用'
-  if (statusFilter.value === 'inactive') return '禁用'
-  return '全部状态'
-})
-
-const filteredStats = computed(() => {
-  const filtered = skus.value
-  return {
-    total: filtered.length,
-    active: filtered.filter(s => s.status === 'active').length,
-    inactive: filtered.filter(s => s.status === 'inactive').length,
-    images: filtered.reduce((sum, s) => sum + (s.image_count || 0), 0)
-  }
-})
-
 const displayStats = computed(() => {
   if (stats.value && Object.keys(stats.value).length > 0) {
     return {
       total: stats.value.total_skus || 0,
-      active: stats.value.active_skus || 0,
-      inactive: stats.value.inactive_skus || 0,
       images: stats.value.total_images || 0
     }
   }
-  return filteredStats.value
+  return {
+    total: skus.value.length,
+    images: skus.value.reduce((sum, s) => sum + (s.image_count || 0), 0)
+  }
 })
 
 const showToast = (message, type = 'info') => {
@@ -391,9 +339,10 @@ const getFirstImagePath = (skuId) => {
 const loadSkus = async () => {
   loading.value = true
   try {
-    const res = await sku.list(1, 10000, searchQuery.value, categoryFilter.value, statusFilter.value)
+    const res = await sku.list(page.value, pageSize.value, searchQuery.value, categoryFilter.value)
     if (res.success) {
       skus.value = res.skus || []
+      total.value = res.total || 0
       await preloadSkuImages()
     }
   } catch (err) {
@@ -429,40 +378,14 @@ const loadStats = async () => {
   }
 }
 
-const loadCategories = async () => {
-  try {
-    const res = await sku.getCategories()
-    if (res.success) {
-      categories.value = res.categories || []
-    }
-  } catch (err) {
-    console.error('Failed to load categories:', err)
-  }
-}
-
-const toggleDropdown = (type) => {
-  if (openDropdown.value === type) {
-    openDropdown.value = null
-  } else {
-    openDropdown.value = type
-  }
-}
-
-const closeDropdown = (e) => {
-  if (!e.target.closest('.dropdown-btn') && !e.target.closest('.dropdown-menu')) {
-    openDropdown.value = null
-  }
-}
-
-const selectCategory = (value, label) => {
-  categoryFilter.value = value
-  openDropdown.value = null
+const doSearch = () => {
+  page.value = 1
   loadSkus()
 }
 
-const selectStatus = (value, label) => {
-  statusFilter.value = value
-  openDropdown.value = null
+const changePage = (newPage) => {
+  if (newPage < 1 || newPage > totalPages.value) return
+  page.value = newPage
   loadSkus()
 }
 
@@ -526,26 +449,26 @@ const handleSubmit = async () => {
   }
 }
 
-const confirmToggleStatus = (item) => {
+const confirmDelete = (item) => {
   deleteType.value = 'single'
   deleteTarget.value = item
   showDeleteDialog.value = true
 }
 
-const handleToggleStatus = async () => {
+const handleDelete = async () => {
   submitting.value = true
   try {
     if (deleteType.value === 'single') {
-      const targetStatus = deleteTarget.value.status === 'active' ? 'inactive' : 'active'
-      await sku.update(deleteTarget.value.sku_id, { status: targetStatus })
+      const res = await sku.delete(deleteTarget.value.sku_id)
+      if (!res.success) throw new Error(res.detail || '删除失败')
     } else {
-      for (const skuId of selectedSkus.value) {
-        await sku.update(skuId, { status: 'inactive' })
-      }
+      const res = await sku.batchDelete(selectedSkus.value)
+      if (!res.success) throw new Error(res.detail || '批量删除失败')
     }
-    showToast('操作成功')
+    showToast('删除成功')
     showDeleteDialog.value = false
     clearSelection()
+    page.value = 1
     loadSkus()
     loadStats()
   } catch (err) {
@@ -576,24 +499,7 @@ const clearSelection = () => {
   selectAll.value = false
 }
 
-const batchEnable = async () => {
-  submitting.value = true
-  try {
-    for (const skuId of selectedSkus.value) {
-      await sku.update(skuId, { status: 'active' })
-    }
-    showToast('批量启用成功')
-    clearSelection()
-    loadSkus()
-    loadStats()
-  } catch (err) {
-    showToast('操作失败: ' + err.message, 'error')
-  } finally {
-    submitting.value = false
-  }
-}
-
-const batchDisable = () => {
+const batchDelete = () => {
   deleteType.value = 'batch'
   showDeleteDialog.value = true
 }
@@ -688,12 +594,6 @@ const openImageViewer = (imageUrl, imageName = '图片') => {
 onMounted(() => {
   loadSkus()
   loadStats()
-  loadCategories()
-  document.addEventListener('click', closeDropdown)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', closeDropdown)
 })
 </script>
 
@@ -757,63 +657,6 @@ onUnmounted(() => {
 
 .search-box input:focus {
   border-color: var(--color-primary, #3b82f6);
-}
-
-.dropdown-btn {
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--color-border, #334155);
-  background: var(--color-bg-tertiary, #0f172a);
-  color: var(--color-text-secondary, #94a3b8);
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.dropdown-btn:hover {
-  border-color: #475569;
-  color: var(--color-text-primary, #e2e8f0);
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  background: var(--color-bg-primary, #1e293b);
-  border: 1px solid var(--color-border, #334155);
-  border-radius: 8px;
-  padding: 4px;
-  min-width: 140px;
-  display: none;
-  z-index: 50;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-}
-
-.dropdown-menu.show {
-  display: block;
-}
-
-.dropdown-item {
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--color-text-secondary, #94a3b8);
-  cursor: pointer;
-  transition: all 0.1s;
-}
-
-.dropdown-item:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-}
-
-.dropdown-item.selected {
-  color: var(--color-primary, #3b82f6);
-  background: rgba(59, 130, 246, 0.08);
 }
 
 .view-switch {
@@ -1060,10 +903,6 @@ onUnmounted(() => {
   width: 56px;
 }
 
-.sku-table .status-cell {
-  width: 80px;
-}
-
 .sku-table .count-cell {
   width: 80px;
   text-align: center;
@@ -1086,23 +925,6 @@ onUnmounted(() => {
   color: var(--color-text-tertiary);
   font-size: 16px;
   overflow: hidden;
-}
-
-.status-badge {
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  display: inline-block;
-}
-
-.badge-enable {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--color-success, #22c55e);
-}
-
-.badge-disable {
-  background: rgba(100, 116, 139, 0.15);
-  color: var(--color-text-tertiary, #64748b);
 }
 
 .action-btns {
@@ -1219,12 +1041,6 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-.gallery-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 /* 详情面板 */
 .overlay {
   position: fixed;
@@ -1322,10 +1138,6 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary, #e2e8f0);
-}
-
-.info-card .value.green {
-  color: var(--color-success, #22c55e);
 }
 
 .info-full {
@@ -1557,5 +1369,56 @@ onUnmounted(() => {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b;
+}
+
+/* 分页 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.pagination-info {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-btn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.page-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-ellipsis {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  padding: 0 2px;
 }
 </style>

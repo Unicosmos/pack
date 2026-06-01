@@ -95,6 +95,23 @@
             </div>
 
           </div>
+
+          <!-- 分页 -->
+          <div v-if="total > pageSize" class="pagination-bar">
+            <span class="pagination-info">共 {{ total }} 条</span>
+            <div class="pagination-controls">
+              <button class="page-btn" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
+              <template v-for="p in totalPages" :key="p">
+                <button
+                  v-if="p === 1 || p === totalPages || Math.abs(p - page) <= 2"
+                  :class="['page-btn', { active: p === page }]"
+                  @click="changePage(p)"
+                >{{ p }}</button>
+                <span v-else-if="p === page - 3 || p === page + 3" class="page-ellipsis">…</span>
+              </template>
+              <button class="page-btn" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
+            </div>
+          </div>
         </div>
 
         <!-- 右侧面板 - 任务详情 -->
@@ -256,7 +273,7 @@ const stats = ref({})
 const loading = ref(false)
 const submitting = ref(false)
 const page = ref(1)
-const pageSize = ref(100)  // 后端限制最大100，如需更多需要多次加载
+const pageSize = ref(10)
 const total = ref(0)
 const statusFilter = ref(null)
 const timeFilter = ref('all')
@@ -312,7 +329,7 @@ const selectedTasks = computed(() => {
   return tasks.value.filter(task => selectedTaskIds.value.includes(task.id))
 })
 
-// const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
+const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
 
 const toggleTaskSelection = (taskId) => {
   const index = selectedTaskIds.value.indexOf(taskId)
@@ -428,7 +445,7 @@ const handleBoxMatchUpdate = ({ boxId, skuId, boxIndex }) => {
 const handleDeleteBox = async ({ box, index }) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除箱体 ${index + 1} 吗？`,
+      `确定要删除箱体 ${index + 1} 吗？此操作不可恢复。`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -442,14 +459,20 @@ const handleDeleteBox = async ({ box, index }) => {
 
   if (!viewDetailTask.value) return
 
-  const boxes = viewDetailTask.value.detections || viewDetailTask.value.result?.detections?.boxes
-  if (!boxes) return
-
-  const targetBox = boxes.find(b => b.box_id === box.box_id || b.box_id === `box_${box.box_id}` || String(b.box_id) === String(box.box_id))
-  if (!targetBox) return
-
-  targetBox.status = 'deleted'
-  ElMessage.success(`箱体 ${index + 1} 已删除`)
+  try {
+    const res = await taskApi.deleteBox(viewDetailTask.value.id, index)
+    if (res.success) {
+      ElMessage.success(`箱体 ${index + 1} 已删除`)
+      // 刷新详情
+      await openViewDetail(viewDetailTask.value)
+      await loadTasks()
+      await loadStats()
+    } else {
+      ElMessage.error('删除箱体失败')
+    }
+  } catch (e) {
+    ElMessage.error('删除箱体失败: ' + (e.detail || e.message || '未知错误'))
+  }
 }
 
 const handleSubmitReview = async () => {
@@ -461,15 +484,9 @@ const handleSubmitReview = async () => {
     return
   }
 
-  const activeBoxes = boxes.filter(b => b.status !== 'deleted')
-  if (activeBoxes.length === 0) {
-    ElMessage.warning('所有箱体都已删除，请恢复至少一个箱体后再提交')
-    return
-  }
-
   try {
-    const resultBoxes = activeBoxes.map((b, idx) => ({
-      box_id: `box_${idx}`,
+    const resultBoxes = boxes.map((b) => ({
+      box_id: b.box_id,
       status: b.status === 'deleted' ? 'deleted' : (b.status || 'approved'),
       is_manual_override: b.isModified || false,
       custom_sku: b.match_result?.sku_id
@@ -630,9 +647,10 @@ const handleBatchAction = (action) => {
   }
 }
 
-// 分页功能已移除，保留此函数以防其他代码引用
 const changePage = (newPage) => {
-  console.log('分页功能已移除')
+  if (newPage < 1 || newPage > totalPages.value) return
+  page.value = newPage
+  loadTasks()
 }
 
 const batchDetectTasks = async () => {
@@ -836,6 +854,7 @@ onMounted(async () => {
 /* 任务列表区域 */
 .task-list-wrap {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0 12px 8px;
   position: relative;
@@ -1402,5 +1421,54 @@ onMounted(async () => {
   }
 }
 
-
+/* 分页 */
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.pagination-info {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.page-btn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.page-btn.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-ellipsis {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  padding: 0 2px;
+}
 </style>

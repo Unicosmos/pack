@@ -104,6 +104,15 @@ export async function reviewTask(taskId, boxes) {
   }
 }
 
+export async function deleteBox(taskId, boxIndex) {
+  try {
+    const res = await client.delete(`/api/tasks/${taskId}/boxes/${boxIndex}`)
+    return { success: true, data: res.data }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
+}
+
 export async function matchTask(taskId, matchThreshold = null) {
   try {
     const params = matchThreshold !== null ? { match_threshold: matchThreshold } : {}
@@ -158,6 +167,7 @@ export default {
   detectTask,
   getTaskDetections,
   reviewTask,
+  deleteBox,
   matchTask,
   updateTask,
   exportTask,
