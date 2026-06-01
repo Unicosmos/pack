@@ -1,6 +1,10 @@
 <template>
   <div class="filter-dropdown" ref="dropdownRef">
-    <button class="dropdown-trigger" @click="toggle">
+    <button
+      class="dropdown-trigger"
+      :class="{ active: isOpen }"
+      @click="toggle"
+    >
       <span class="dropdown-label">{{ displayLabel }}</span>
       <span class="dropdown-arrow" :class="{ open: isOpen }">▼</span>
     </button>
@@ -10,11 +14,10 @@
           v-for="option in options"
           :key="option.value"
           class="dropdown-item"
-          :class="{ active: modelValue === option.value }"
+          :class="{ selected: modelValue === option.value }"
           @click="selectOption(option.value)"
         >
-          <span class="check">{{ modelValue === option.value ? '✓' : '' }}</span>
-          <span>{{ option.label }}</span>
+          {{ option.label }}
         </div>
       </div>
     </transition>
@@ -75,21 +78,36 @@ onUnmounted(() => {
 .dropdown-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--color-bg-tertiary);
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 12px;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  transition: all var(--transition-fast);
-  min-width: 100px;
+  transition: all 0.2s;
+  position: relative;
+  white-space: nowrap;
 }
 
 .dropdown-trigger:hover {
-  background: var(--color-bg-secondary);
+  border-color: var(--color-text-tertiary);
+  color: var(--color-text-primary);
+}
+
+.dropdown-trigger.active {
   border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.dark .dropdown-trigger {
+  background: #0f172a;
+}
+
+.dark .dropdown-trigger:hover {
+  border-color: #475569;
 }
 
 .dropdown-label {
@@ -99,7 +117,7 @@ onUnmounted(() => {
 
 .dropdown-arrow {
   font-size: 10px;
-  transition: transform var(--transition-fast);
+  transition: transform 0.2s;
 }
 
 .dropdown-arrow.open {
@@ -110,44 +128,38 @@ onUnmounted(() => {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  min-width: 100%;
+  min-width: 140px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  z-index: 50;
   overflow: hidden;
 }
 
 .dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  transition: background-color var(--transition-fast);
-  min-height: 36px;
-  box-sizing: border-box;
+  transition: all 0.1s;
+  white-space: nowrap;
 }
 
 .dropdown-item:hover {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
-.dropdown-item.active {
-  background: var(--color-primary-light);
+.dropdown-item.selected {
   color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
 }
 
-.check {
-  width: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-primary);
-  font-weight: bold;
+.dark .dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .dropdown-enter-active,

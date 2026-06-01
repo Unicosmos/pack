@@ -39,8 +39,7 @@ class SKUMatcher:
         self,
         sku_dir: str,
         feature_dim: int = 384,
-        match_threshold: float = 0.85,
-        ratio_threshold: float = 1.2,
+        match_threshold: float = 0.7,
         top_k: int = 5,
         sku_model_path: Optional[str] = None
     ):
@@ -58,7 +57,6 @@ class SKUMatcher:
         self.sku_dir = Path(sku_dir)
         self.feature_dim = feature_dim
         self.match_threshold = match_threshold
-        self.ratio_threshold = ratio_threshold
         self.top_k = top_k
         self.sku_model_path = sku_model_path
 
@@ -136,8 +134,7 @@ class SKUMatcher:
     def match_sku(
         self,
         query: np.ndarray,
-        threshold: Optional[float] = None,
-        ratio_threshold: Optional[float] = None
+        threshold: Optional[float] = None
     ) -> MatchResult:
         """
         将查询特征与SKU特征库进行匹配
@@ -145,7 +142,6 @@ class SKUMatcher:
         Args:
             query: 查询特征向量
             threshold: 相似度阈值
-            ratio_threshold: Ratio Test阈值
 
         Returns:
             MatchResult: 匹配结果
@@ -160,7 +156,6 @@ class SKUMatcher:
             )
 
         t = threshold if threshold is not None else self.match_threshold
-        rt = ratio_threshold if ratio_threshold is not None else self.ratio_threshold
 
         query_norm = query / np.linalg.norm(query) if np.linalg.norm(query) > 0 else query
 
@@ -198,27 +193,12 @@ class SKUMatcher:
 
         top1_sku = top1_label.split('_')[0] if '_' in top1_label else top1_label
 
-        first_different_sku_sim = None
-        for i in range(1, len(top_labels)):
-            sku = top_labels[i].split('_')[0] if '_' in top_labels[i] else top_labels[i]
-            if sku != top1_sku:
-                first_different_sku_sim = float(top_similarities[i])
-                break
-
-        if first_different_sku_sim is None:
-            ratio = float('inf')
-        else:
-            ratio = top1_sim / first_different_sku_sim if first_different_sku_sim > 0 else float('inf')
-
-        if top1_sim < t:
-            status = "unmatched"
-            sku_id = None
-        elif ratio < rt:
-            status = "low_conf"
-            sku_id = top1_sku
-        else:
+        if top1_sim >= t:
             status = "matched"
             sku_id = top1_sku
+        else:
+            status = "unmatched"
+            sku_id = None
 
         top1_info = top5_labels[0] if top5_labels else {}
         sku_name = top1_info.get("sku_name") if sku_id else None
@@ -227,7 +207,7 @@ class SKUMatcher:
             sku_id=sku_id,
             sku_name=sku_name,
             similarity=top1_sim,
-            ratio=float(ratio) if ratio != float('inf') else None,
+            ratio=None,
             status=status,
             top5_labels=top5_labels
         )

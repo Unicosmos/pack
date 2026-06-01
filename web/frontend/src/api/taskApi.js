@@ -61,7 +61,7 @@ export async function batchDeleteTasks(taskIds) {
   }
 }
 
-export async function getTaskStats(timeFilter = null, customStart = null, customEnd = null) {
+export async function getTaskStats(timeFilter = null, customStart = null, customEnd = null, status = null) {
   try {
     const params = {}
     if (timeFilter && timeFilter !== 'all') {
@@ -69,6 +69,7 @@ export async function getTaskStats(timeFilter = null, customStart = null, custom
     }
     if (customStart) params.start_time = customStart
     if (customEnd) params.end_time = customEnd
+    if (status) params.status = status
     const res = await client.get('/api/tasks/stats/summary', { params })
     return { success: true, data: res.data }
   } catch (err) {
@@ -103,9 +104,10 @@ export async function reviewTask(taskId, boxes) {
   }
 }
 
-export async function matchTask(taskId, matchThreshold = 0.85) {
+export async function matchTask(taskId, matchThreshold = null) {
   try {
-    const res = await client.post(`/api/tasks/${taskId}/match?match_threshold=${matchThreshold}`)
+    const params = matchThreshold !== null ? { match_threshold: matchThreshold } : {}
+    const res = await client.post(`/api/tasks/${taskId}/match`, null, { params })
     return { success: true, data: res.data }
   } catch (err) {
     return { success: false, error: err.message }

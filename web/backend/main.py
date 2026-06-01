@@ -32,7 +32,6 @@ from schemas.schemas import (
     SKUListResponse,
     BoxInfo,
     MatchInfo,
-    TopLabel,
     SKUInfo,
     ErrorResponse,
 )
@@ -287,8 +286,7 @@ async def detect_image(
 @app.post("/api/match", response_model=MatchResponse)
 async def match_image(
     file: UploadFile = File(...),
-    match_threshold: float = 0.85,
-    ratio_threshold: float = 1.2
+    match_threshold: float = None
 ):
     """仅SKU匹配接口"""
     if not detect_match_service.is_match_ready():
@@ -300,28 +298,20 @@ async def match_image(
 
         resized = resize_with_padding(image, target_size=config.model.INPUT_SIZE)
         features = detect_match_service.match_service.matcher.extract_feature(resized)
+        if match_threshold is None:
+            match_threshold = config.match.MATCH_THRESHOLD
         result = detect_match_service.match_service.matcher.match_sku(
-            features, threshold=match_threshold, ratio_threshold=ratio_threshold
+            features, threshold=match_threshold
         )
-
-        top5_labels = [
-            TopLabel(
-                label=t['label'], 
-                similarity=t['similarity'], 
-                image_path=t.get('image_path', ''), 
-                sku_id=t.get('sku_id', ''), 
-                sku_name=t.get('sku_name', '')
-            ) 
-            for t in result.top5_labels
-        ] if result.top5_labels else []
 
         return MatchResponse(
             success=True,
             sku_id=result.sku_id,
+            sku_name=result.sku_name,
             similarity=result.similarity,
             ratio=result.ratio,
             status=result.status,
-            top5_labels=top5_labels
+            top5_labels=result.top5_labels if result.top5_labels else []
         )
 
     except Exception as e:
@@ -332,7 +322,7 @@ async def match_image(
 async def detect_and_match_image(
     file: UploadFile = File(...),
     conf_threshold: float = 0.5,
-    match_threshold: float = 0.85
+    match_threshold: float = None
 ):
     """检测+匹配接口（主接口）"""
     logger.info(f"detect_and_match_image called - detector_ready: {detect_match_service.is_detection_ready()}")
@@ -352,7 +342,6 @@ async def detect_and_match_image(
             success=True,
             count=result["count"],
             matched_count=result["matched_count"],
-            low_conf_count=result["low_conf_count"],
             unmatched_count=result["unmatched_count"],
             boxes=result["boxes"],
             crops=result["crops"],

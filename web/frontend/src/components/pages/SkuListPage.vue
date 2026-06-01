@@ -1,273 +1,234 @@
 <template>
   <div class="sku-list-page">
-    <PageContainer>
-      <div class="main-content" :class="{ expanded: selectedSku }">
-      <div class="left-panel">
-        <div class="panel-header">
-          <div class="search-bar">
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="搜索SKU编号或名称..."
-              class="search-input"
-              @keyup.enter="handleSearch"
-            />
-            <button class="btn btn-search" @click="handleSearch">🔍</button>
-          </div>
-          <div class="filter-row">
-            <select v-model="categoryFilter" class="filter-select" @change="loadSkus">
-              <option value="">全部分类</option>
-              <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-            </select>
-            <select v-model="statusFilter" class="filter-select" @change="loadSkus">
-              <option value="">全部状态</option>
-              <option value="active">启用</option>
-              <option value="inactive">禁用</option>
-            </select>
-          </div>
+    <!-- 主内容区 -->
+    <div class="main">
+      <!-- 工具栏 -->
+      <div class="toolbar">
+        <div class="search-box">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="搜索SKU编号或名称..."
+            @keyup.enter="loadSkus"
+          />
         </div>
 
-        <div class="actions-row">
-          <div class="view-toggle">
-            <button 
-              :class="['btn btn-sm', { active: viewMode === 'list' }]" 
-              @click="viewMode = 'list'"
-            >📋 列表</button>
-            <button 
-              :class="['btn btn-sm', { active: viewMode === 'gallery' }]" 
-              @click="viewMode = 'gallery'"
-            >🖼️ 画廊</button>
+        <div style="position:relative;">
+          <div class="dropdown-btn" @click="toggleDropdown('status')">
+            <span>{{ selectedStatusLabel }}</span> ▼
           </div>
-          <div class="action-buttons">
-            <button class="btn btn-secondary" @click="handleExport">📤 导出</button>
-            <button class="btn btn-secondary" @click="handleSyncFromCsv">🔄 同步CSV</button>
-          </div>
-        </div>
-
-        <div class="stats-bar">
-          <div class="stat-item">
-            <span class="stat-num">{{ stats.total_skus || 0 }}</span>
-            <span class="stat-label">SKU总数</span>
-          </div>
-          <div class="stat-item active">
-            <span class="stat-num">{{ stats.active_skus || 0 }}</span>
-            <span class="stat-label">启用</span>
-          </div>
-          <div class="stat-item inactive">
-            <span class="stat-num">{{ stats.inactive_skus || 0 }}</span>
-            <span class="stat-label">禁用</span>
-          </div>
-          <div class="stat-item images">
-            <span class="stat-num">{{ stats.total_images || 0 }}</span>
-            <span class="stat-label">图片数</span>
-          </div>
-        </div>
-
-        <div class="sku-list-container">
-          <div v-if="loading" class="loading">加载中...</div>
-
-          <div v-else-if="skus.length === 0" class="empty-state">
-            <div class="empty-icon">📭</div>
-            <p>暂无SKU数据</p>
-            <p>请通过同步CSV导入SKU数据</p>
-          </div>
-
-          <table v-else-if="viewMode === 'list'" class="data-table">
-            <thead>
-              <tr>
-                <th><input type="checkbox" v-model="selectAll" @change="toggleSelectAll" /></th>
-                <th>SKU编号</th>
-                <th>名称</th>
-                <th>分类</th>
-                <th>状态</th>
-                <th>图片数</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr 
-                v-for="sku in skus" 
-                :key="sku.id" 
-                :class="{ selected: selectedSku?.sku_id === sku.sku_id }"
-                @click="selectSku(sku)"
-              >
-                <td><input type="checkbox" :value="sku.sku_id" v-model="selectedSkus" @click.stop /></td>
-                <td class="sku-id">{{ sku.sku_id }}</td>
-                <td>{{ sku.sku_name }}</td>
-                <td>{{ sku.category || '-' }}</td>
-                <td>
-                  <span :class="['status-badge', sku.status === 'inactive' ? 'inactive' : 'active']">
-                    {{ sku.status === 'active' ? '启用' : '禁用' }}
-                  </span>
-                </td>
-                <td>{{ sku.image_count }}</td>
-                <td>
-                  <button class="btn-icon" @click.stop="openEditDialog(sku)" title="编辑">✏️</button>
-                  <button 
-                    :class="['btn-icon', { danger: sku.status === 'active' }]" 
-                    @click.stop="confirmToggleStatus(sku)" 
-                    :title="sku.status === 'active' ? '禁用' : '启用'"
-                  >{{ sku.status === 'active' ? '⛔' : '✅' }}</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div v-else class="gallery-view">
+          <div class="dropdown-menu" :class="{ show: openDropdown === 'status' }">
             <div 
+              class="dropdown-item" 
+              :class="{ selected: statusFilter === '' }"
+              @click="selectStatus('', '全部状态')"
+            >全部状态</div>
+            <div 
+              class="dropdown-item" 
+              :class="{ selected: statusFilter === 'active' }"
+              @click="selectStatus('active', '启用')"
+            >启用</div>
+            <div 
+              class="dropdown-item" 
+              :class="{ selected: statusFilter === 'inactive' }"
+              @click="selectStatus('inactive', '禁用')"
+            >禁用</div>
+          </div>
+        </div>
+
+        <div class="view-switch">
+          <button :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">
+            <span>☰</span> 列表
+          </button>
+          <button :class="{ active: viewMode === 'gallery' }" @click="viewMode = 'gallery'">
+            <span>▦</span> 画廊
+          </button>
+        </div>
+
+        <div class="toolbar-actions">
+          <button class="btn btn-secondary" @click="handleSyncFromCsv">🔄 同步CSV</button>
+          <button class="btn btn-blue" @click="handleExport">📥 导出全部</button>
+        </div>
+      </div>
+
+      <!-- 统计摘要栏 -->
+      <div class="stats-summary">
+        <span>📦 共 <b>{{ displayStats.total || 0 }}</b> 个SKU</span>
+        <span>✅ <b>{{ displayStats.active || 0 }}</b> 启用</span>
+        <span>🚫 <b>{{ displayStats.inactive || 0 }}</b> 禁用</span>
+        <span>🖼️ <b>{{ displayStats.images || 0 }}</b> 张图片</span>
+      </div>
+
+      <!-- 内容区 -->
+      <div class="content-wrap">
+        <!-- 批量操作栏 -->
+        <div class="batch-bar" v-if="selectedSkus.length > 0">
+          <span>已选择 <b>{{ selectedSkus.length }}</b> 个SKU</span>
+          <button class="btn btn-green" @click="batchEnable">✓ 批量启用</button>
+          <button class="btn btn-red" @click="batchDisable">✕ 批量禁用</button>
+          <button class="btn btn-blue" @click="batchExport">📥 批量导出</button>
+          <button class="btn btn-secondary" @click="clearSelection">清空</button>
+        </div>
+
+        <div v-if="loading" class="loading">加载中...</div>
+
+        <div v-else-if="skus.length === 0" class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>暂无SKU数据</p>
+          <p>请通过同步CSV导入SKU数据</p>
+        </div>
+
+        <!-- 列表视图 -->
+        <table v-else-if="viewMode === 'list'" class="sku-table">
+          <thead>
+            <tr>
+              <th class="chk-cell">
+                <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" />
+              </th>
+              <th class="id-cell">SKU编号</th>
+              <th class="thumb-cell">缩略图</th>
+              <th>名称</th>
+              <th class="status-cell">状态</th>
+              <th class="count-cell">图片数</th>
+              <th class="action-cell">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr 
               v-for="sku in skus" 
               :key="sku.id" 
-              :class="['gallery-card', { selected: selectedSku?.sku_id === sku.sku_id }]"
+              :class="{ selected: selectedSku?.sku_id === sku.sku_id }"
               @click="selectSku(sku)"
             >
-              <div class="gallery-image-box">
-                <SkuImage 
-                  :image-path="getFirstImagePath(sku.sku_id)" 
-                  width="100%"
-                  height="100%"
-                />
-                <div v-if="sku.image_count > 1" class="img-count">{{ sku.image_count }}</div>
-              </div>
-              <div class="gallery-info">
-                <div class="gallery-sku-id">{{ sku.sku_id }}</div>
-                <div class="gallery-sku-name">{{ sku.sku_name }}</div>
-                <div class="gallery-status">
-                  <span :class="['status-tag', sku.status === 'inactive' ? 'inactive' : 'active']">
-                    {{ sku.status === 'active' ? '启用' : '禁用' }}
-                  </span>
-                  <span class="image-count">📷 {{ sku.image_count }}</span>
+              <td class="chk-cell" @click.stop>
+                <input type="checkbox" :value="sku.sku_id" v-model="selectedSkus" />
+              </td>
+              <td class="id-cell">{{ sku.sku_id }}</td>
+              <td class="thumb-cell">
+                <div class="sku-thumb">
+                  <SkuImage :image-path="getFirstImagePath(sku.sku_id)" width="100%" height="100%" />
                 </div>
-              </div>
-              <div class="gallery-actions">
-                <button class="btn-icon" @click.stop="openEditDialog(sku)" title="编辑">✏️</button>
-                <button 
-                  :class="['btn-icon', { danger: sku.status === 'active' }]" 
-                  @click.stop="confirmToggleStatus(sku)" 
-                  :title="sku.status === 'active' ? '禁用' : '启用'"
-                >{{ sku.status === 'active' ? '⛔' : '✅' }}</button>
-              </div>
-            </div>
-          </div>
+              </td>
+              <td>{{ sku.sku_name }}</td>
+              <td class="status-cell">
+                <span :class="['status-badge', sku.status === 'inactive' ? 'badge-disable' : 'badge-enable']">
+                  {{ sku.status === 'active' ? '启用' : '禁用' }}
+                </span>
+              </td>
+              <td class="count-cell">{{ sku.image_count }}</td>
+              <td class="action-cell">
+                <div class="action-btns">
+                  <button class="icon-btn edit" @click.stop="openEditDialog(sku)" title="编辑">✎</button>
+                  <button class="icon-btn delete" @click.stop="confirmToggleStatus(sku)" :title="sku.status === 'active' ? '禁用' : '启用'">
+                    {{ sku.status === 'active' ? '⛔' : '✅' }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
 
-          <div class="pagination-bar">
-            <div class="selection-info" v-if="selectedSkus.length > 0">
-              已选择 {{ selectedSkus.length }} 项
-              <button class="btn btn-sm btn-danger" @click="confirmBatchToggleStatus">批量禁用</button>
+        <!-- 画廊视图 -->
+        <div v-else class="gallery-view">
+          <div 
+            v-for="sku in skus" 
+            :key="sku.id" 
+            :class="['gallery-card', { selected: selectedSku?.sku_id === sku.sku_id }]"
+            @click="selectSku(sku)"
+          >
+            <div class="chk-wrap" @click.stop>
+              <input type="checkbox" :value="sku.sku_id" v-model="selectedSkus" />
             </div>
-            <div class="pagination">
-              <button :disabled="page <= 1" @click="changePage(page - 1)">上一页</button>
-              <span>第 {{ page }} / {{ totalPages }} 页</span>
-              <button :disabled="page >= totalPages" @click="changePage(page + 1)">下一页</button>
+            <div class="gallery-image-box">
+              <SkuImage :image-path="getFirstImagePath(sku.sku_id)" width="100%" height="100%" />
+              <div v-if="sku.image_count > 0" class="img-count">{{ sku.image_count }}张</div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="right-panel" v-if="selectedSku">
-        <div class="panel-header">
-          <h3>{{ selectedSku.sku_id }} - {{ selectedSku.sku_name }}</h3>
-          <button class="btn-close" @click="selectedSku = null">×</button>
-        </div>
-        
-        <div class="detail-section">
-          <div class="section-title">基本信息</div>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="label">分类</span>
-              <span class="value">{{ selectedSku.category || '-' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">状态</span>
-              <span :class="['value', selectedSku.status]">
-                {{ selectedSku.status === 'active' ? '启用' : '禁用' }}
-              </span>
-            </div>
-            <div class="detail-item">
-              <span class="label">图片数量</span>
-              <span class="value">{{ selectedSku.image_count }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="label">创建时间</span>
-              <span class="value">{{ formatDate(selectedSku.created_at) }}</span>
-            </div>
-          </div>
-          <div class="detail-row-full">
-            <span class="label">标签</span>
-            <div class="tag-list">
-              <span v-for="tag in (selectedSku.tags || '').split(',').filter(t => t.trim())" :key="tag" class="tag">{{ tag.trim() }}</span>
-              <span v-if="!selectedSku.tags || !selectedSku.tags.trim()" class="empty-tag">-</span>
-            </div>
-          </div>
-          <div class="detail-row-full">
-            <span class="label">描述</span>
-            <span class="value-full">{{ selectedSku.description || '-' }}</span>
-          </div>
-        </div>
-
-        <div class="image-section">
-          <div class="section-header">
-            <span class="section-title">图片管理</span>
-          </div>
-          
-          <div v-if="currentSkuImages.length > 0" class="image-viewer">
-            <div class="image-grid">
-              <div 
-                v-for="(img, idx) in currentSkuImages" 
-                :key="idx"
-                class="image-grid-item"
-                @click="openImageViewer(img.url, img.filename)"
-              >
-                <SkuImage :image-path="img" width="100%" height="100%" />
-                <div class="image-grid-name">{{ img.filename }}</div>
+            <div class="gallery-info">
+              <div class="gallery-sku">{{ sku.sku_id }}</div>
+              <div class="gallery-name">{{ sku.sku_name }}</div>
+              <div class="gallery-meta">
+                <span :class="['status-badge', sku.status === 'inactive' ? 'badge-disable' : 'badge-enable']">
+                  {{ sku.status === 'active' ? '启用' : '禁用' }}
+                </span>
               </div>
             </div>
-            
-            <div class="image-stats">
-              <span>共 {{ currentSkuImages.length }} 张图片</span>
-              <span class="hint">点击图片查看大图</span>
-            </div>
           </div>
-          
-          <div v-else class="empty-images">
-            <div class="empty-icon">📷</div>
-            <p>暂无图片</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="right-panel-placeholder" v-else>
-        <div class="placeholder-content">
-          <span class="placeholder-icon">👆</span>
-          <p>选择一个SKU查看详情和图片</p>
         </div>
       </div>
     </div>
 
-    <div v-if="showCreateDialog || showEditDialog" class="modal-overlay" @click.self="closeDialog">
+    <!-- 遮罩 -->
+    <div class="overlay" :class="{ show: selectedSku }" @click="closeDetail"></div>
+
+    <!-- 详情面板 -->
+    <div class="detail-panel" :class="{ show: selectedSku }">
+      <div class="detail-panel-header">
+        <div class="detail-panel-title">{{ selectedSku?.sku_id }} - {{ selectedSku?.sku_name }}</div>
+        <button class="detail-panel-close" @click="closeDetail">✕</button>
+      </div>
+      <div class="detail-panel-body" v-if="selectedSku">
+        <div>
+          <div class="detail-info-grid">
+            <div class="info-card">
+              <div class="label">分类</div>
+              <div class="value">{{ selectedSku.category || '-' }}</div>
+            </div>
+            <div class="info-card">
+              <div class="label">状态</div>
+              <div class="value" :class="{ green: selectedSku.status === 'active' }">
+                {{ selectedSku.status === 'active' ? '启用' : '禁用' }}
+              </div>
+            </div>
+            <div class="info-card">
+              <div class="label">图片数量</div>
+              <div class="value">{{ selectedSku.image_count }}</div>
+            </div>
+            <div class="info-card">
+              <div class="label">创建时间</div>
+              <div class="value">{{ formatDate(selectedSku.created_at) }}</div>
+            </div>
+            <div class="info-card info-full">
+              <div class="label">描述</div>
+              <div class="value">{{ selectedSku.description || '-' }}</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="img-manage-title">🖼️ 图片管理（{{ currentSkuImages.length }}张）</div>
+          <div class="img-grid">
+            <div 
+              v-for="(img, idx) in currentSkuImages" 
+              :key="idx"
+              class="img-item"
+              @click="openImageViewer(img.url, img.filename)"
+            >
+              <SkuImage :image-path="img" width="100%" height="100%" />
+              <button class="img-del" @click.stop="deleteImage(idx)">✕</button>
+            </div>
+            <div class="img-add" @click="addImage">
+              <span>+</span>
+              添加图片
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑对话框 -->
+    <div v-if="showEditDialog" class="modal-overlay" @click.self="closeDialog">
       <div class="modal">
         <div class="modal-header">
-          <h3>{{ showEditDialog ? '编辑SKU' : '新增SKU' }}</h3>
-          <button class="btn-close" @click="closeDialog">×</button>
+          <h3>编辑SKU</h3>
+          <button class="btn-close" @click="closeDialog">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <label>SKU编号 <span class="required">*</span></label>
-            <input
-              v-model="formData.sku_id"
-              type="text"
-              :disabled="showEditDialog"
-              placeholder="请输入SKU编号"
-              maxlength="50"
-            />
+            <input v-model="formData.sku_id" type="text" disabled />
           </div>
           <div class="form-group">
             <label>SKU名称 <span class="required">*</span></label>
-            <input
-              v-model="formData.sku_name"
-              type="text"
-              placeholder="请输入SKU名称"
-              maxlength="200"
-            />
+            <input v-model="formData.sku_name" type="text" placeholder="请输入SKU名称" />
           </div>
           <div class="form-group">
             <label>分类</label>
@@ -278,10 +239,6 @@
             <textarea v-model="formData.description" placeholder="请输入描述" rows="3"></textarea>
           </div>
           <div class="form-group">
-            <label>标签</label>
-            <input v-model="formData.tags" type="text" placeholder="多个标签用逗号分隔" />
-          </div>
-          <div class="form-group" v-if="showEditDialog">
             <label>状态</label>
             <select v-model="formData.status">
               <option value="active">启用</option>
@@ -298,11 +255,12 @@
       </div>
     </div>
 
+    <!-- 确认对话框 -->
     <div v-if="showDeleteDialog" class="modal-overlay" @click.self="showDeleteDialog = false">
       <div class="modal modal-sm">
         <div class="modal-header">
           <h3>确认{{ deleteTarget?.status === 'active' || deleteType === 'batch' ? '禁用' : '启用' }}</h3>
-          <button class="btn-close" @click="showDeleteDialog = false">×</button>
+          <button class="btn-close" @click="showDeleteDialog = false">✕</button>
         </div>
         <div class="modal-body">
           <p v-if="deleteType === 'single'">
@@ -325,10 +283,10 @@
       </div>
     </div>
 
-    </PageContainer>
-    
+    <!-- Toast -->
     <div v-if="toast.show" :class="['toast', toast.type]">{{ toast.message }}</div>
 
+    <!-- 图片查看器 -->
     <ImageViewer
       :visible="showImageViewer"
       :image-url="viewerImageUrl"
@@ -339,33 +297,27 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { sku } from '@api/client'
-import PageHeader from '@layout/PageHeader.vue'
-import PageContainer from '@layout/PageContainer.vue'
 import SkuImage from '@sku/SkuImage.vue'
 import ImageViewer from '@ui/ImageViewer.vue'
 
-const viewMode = ref('gallery')
+const viewMode = ref('list')
 const skus = ref([])
 const stats = ref({})
 const categories = ref([])
 const loading = ref(false)
 const submitting = ref(false)
 
-
 const searchQuery = ref('')
 const categoryFilter = ref('')
 const statusFilter = ref('')
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
+const openDropdown = ref(null)
 
 const selectedSkus = ref([])
 const selectAll = ref(false)
 const selectedSku = ref(null)
 const currentSkuImages = ref([])
-const currentImageIndex = ref(0)
 
 const showImageViewer = ref(false)
 const viewerImageUrl = ref('')
@@ -382,7 +334,6 @@ const formData = ref({
   sku_name: '',
   description: '',
   category: '',
-  tags: '',
   status: 'active'
 })
 
@@ -390,7 +341,34 @@ const toast = ref({ show: false, message: '', type: 'info' })
 
 const skuImagesCache = ref({})
 
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1)
+const selectedCategoryLabel = computed(() => categoryFilter.value || '全部分类')
+const selectedStatusLabel = computed(() => {
+  if (statusFilter.value === 'active') return '启用'
+  if (statusFilter.value === 'inactive') return '禁用'
+  return '全部状态'
+})
+
+const filteredStats = computed(() => {
+  const filtered = skus.value
+  return {
+    total: filtered.length,
+    active: filtered.filter(s => s.status === 'active').length,
+    inactive: filtered.filter(s => s.status === 'inactive').length,
+    images: filtered.reduce((sum, s) => sum + (s.image_count || 0), 0)
+  }
+})
+
+const displayStats = computed(() => {
+  if (stats.value && Object.keys(stats.value).length > 0) {
+    return {
+      total: stats.value.total_skus || 0,
+      active: stats.value.active_skus || 0,
+      inactive: stats.value.inactive_skus || 0,
+      images: stats.value.total_images || 0
+    }
+  }
+  return filteredStats.value
+})
 
 const showToast = (message, type = 'info') => {
   toast.value = { show: true, message, type }
@@ -417,12 +395,10 @@ const getFirstImagePath = (skuId) => {
 const loadSkus = async () => {
   loading.value = true
   try {
-    const res = await sku.list(page.value, pageSize.value, searchQuery.value, categoryFilter.value, statusFilter.value)
+    const res = await sku.list(1, 10000, searchQuery.value, categoryFilter.value, statusFilter.value)
     if (res.success) {
-      skus.value = res.skus
-      total.value = res.total
+      skus.value = res.skus || []
       await preloadSkuImages()
-      await loadStats()
     }
   } catch (err) {
     showToast('加载失败: ' + err.message, 'error')
@@ -440,7 +416,6 @@ const preloadSkuImages = async () => {
           skuImagesCache.value[s.sku_id] = res.images || []
         }
       } catch (err) {
-        console.error(`Failed to load images for ${s.sku_id}:`, err)
         skuImagesCache.value[s.sku_id] = []
       }
     }
@@ -462,28 +437,41 @@ const loadCategories = async () => {
   try {
     const res = await sku.getCategories()
     if (res.success) {
-      categories.value = res.categories
+      categories.value = res.categories || []
     }
   } catch (err) {
     console.error('Failed to load categories:', err)
   }
 }
 
-const handleSearch = () => {
-  page.value = 1
+const toggleDropdown = (type) => {
+  if (openDropdown.value === type) {
+    openDropdown.value = null
+  } else {
+    openDropdown.value = type
+  }
+}
+
+const closeDropdown = (e) => {
+  if (!e.target.closest('.dropdown-btn') && !e.target.closest('.dropdown-menu')) {
+    openDropdown.value = null
+  }
+}
+
+const selectCategory = (value, label) => {
+  categoryFilter.value = value
+  openDropdown.value = null
   loadSkus()
 }
 
-const changePage = (newPage) => {
-  if (newPage >= 1 && newPage <= totalPages.value) {
-    page.value = newPage
-    loadSkus()
-  }
+const selectStatus = (value, label) => {
+  statusFilter.value = value
+  openDropdown.value = null
+  loadSkus()
 }
 
 const selectSku = async (skuItem) => {
   selectedSku.value = skuItem
-  currentImageIndex.value = 0
   await loadSkuImages(skuItem.sku_id)
 }
 
@@ -498,16 +486,8 @@ const loadSkuImages = async (skuId) => {
   }
 }
 
-const openCreateDialog = () => {
-  formData.value = {
-    sku_id: '',
-    sku_name: '',
-    description: '',
-    category: '',
-    tags: '',
-    status: 'active'
-  }
-  showCreateDialog.value = true
+const closeDetail = () => {
+  selectedSku.value = null
 }
 
 const openEditDialog = (item) => {
@@ -516,7 +496,6 @@ const openEditDialog = (item) => {
     sku_name: item.sku_name,
     description: item.description || '',
     category: item.category || '',
-    tags: item.tags || '',
     status: item.status
   }
   showEditDialog.value = true
@@ -557,52 +536,24 @@ const confirmToggleStatus = (item) => {
   showDeleteDialog.value = true
 }
 
-const confirmBatchToggleStatus = () => {
-  if (selectedSkus.value.length === 0) return
-  deleteType.value = 'batch'
-  showDeleteDialog.value = true
-}
-
 const handleToggleStatus = async () => {
   submitting.value = true
   try {
-    let res
-    let targetStatus
-    let actionText
-    
     if (deleteType.value === 'single') {
-      targetStatus = deleteTarget.value.status === 'active' ? 'inactive' : 'active'
-      actionText = targetStatus === 'inactive' ? '禁用' : '启用'
-      res = await sku.update(deleteTarget.value.sku_id, { status: targetStatus })
+      const targetStatus = deleteTarget.value.status === 'active' ? 'inactive' : 'active'
+      await sku.update(deleteTarget.value.sku_id, { status: targetStatus })
     } else {
-      targetStatus = 'inactive'
-      actionText = '禁用'
       for (const skuId of selectedSkus.value) {
-        await sku.update(skuId, { status: targetStatus })
+        await sku.update(skuId, { status: 'inactive' })
       }
-      res = { success: true }
     }
-    
-    if (res.success || deleteType.value === 'batch') {
-      showToast(`${actionText}成功`)
-      showDeleteDialog.value = false
-      selectedSkus.value = []
-      selectAll.value = false
-      if (selectedSku.value && (deleteType.value === 'single' || selectedSkus.value.includes(selectedSku.value.sku_id))) {
-        if (deleteType.value === 'single') {
-          selectedSku.value.status = targetStatus
-        } else {
-          selectedSku.value = null
-          currentSkuImages.value = []
-        }
-      }
-      loadSkus()
-      loadStats()
-    } else {
-      showToast(res.detail || `${actionText}失败`, 'error')
-    }
+    showToast('操作成功')
+    showDeleteDialog.value = false
+    clearSelection()
+    loadSkus()
+    loadStats()
   } catch (err) {
-    showToast(`${targetStatus === 'inactive' ? '禁用' : '启用'}失败: ` + (err.detail || err.message), 'error')
+    showToast('操作失败: ' + (err.detail || err.message), 'error')
   } finally {
     submitting.value = false
   }
@@ -616,12 +567,48 @@ const toggleSelectAll = () => {
   }
 }
 
-const handleExport = async () => {
+watch(selectedSkus, (newVal) => {
+  if (skus.value.length > 0 && newVal.length === skus.value.length) {
+    selectAll.value = true
+  } else {
+    selectAll.value = false
+  }
+})
+
+const clearSelection = () => {
+  selectedSkus.value = []
+  selectAll.value = false
+}
+
+const batchEnable = async () => {
+  submitting.value = true
   try {
-    await sku.exportCsv()
-    showToast('导出成功')
+    for (const skuId of selectedSkus.value) {
+      await sku.update(skuId, { status: 'active' })
+    }
+    showToast('批量启用成功')
+    clearSelection()
+    loadSkus()
+    loadStats()
   } catch (err) {
-    showToast('导出失败', 'error')
+    showToast('操作失败: ' + err.message, 'error')
+  } finally {
+    submitting.value = false
+  }
+}
+
+const batchDisable = () => {
+  deleteType.value = 'batch'
+  showDeleteDialog.value = true
+}
+
+const batchExport = async () => {
+  try {
+    await sku.exportSelectedCsv(selectedSkus.value)
+    showToast('批量导出成功')
+    clearSelection()
+  } catch (err) {
+    showToast('导出失败: ' + err.message, 'error')
   }
 }
 
@@ -629,7 +616,7 @@ const handleSyncFromCsv = async () => {
   try {
     const res = await sku.syncFromCsv()
     if (res.success) {
-      showToast(res.message)
+      showToast(res.message || '同步成功')
       loadSkus()
       loadStats()
       loadCategories()
@@ -641,30 +628,24 @@ const handleSyncFromCsv = async () => {
   }
 }
 
-const downloadTemplate = () => {
-  const csv = 'sku_id,sku_name,description,category,tags\n000001,示例商品,这是一个示例描述,电子产品,标签1,标签2'
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url = window.URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'sku_template.csv'
-  a.click()
+const handleExport = async () => {
+  try {
+    await sku.exportCsv()
+    showToast('导出成功')
+  } catch (err) {
+    showToast('导出失败: ' + err.message, 'error')
+  }
 }
 
-
-
 const deleteImage = async (index) => {
-  const image = currentSkuImages.value[index]
-  if (!image) return
-
+  if (!selectedSku.value) return
+  
   try {
-    const res = await sku.deleteImage(selectedSku.value.sku_id, image.filename)
+    const img = currentSkuImages.value[index]
+    const res = await sku.deleteImage(selectedSku.value.sku_id, img.filename)
     if (res.success) {
       showToast('删除成功')
       await loadSkuImages(selectedSku.value.sku_id)
-      if (currentImageIndex.value >= currentSkuImages.value.length) {
-        currentImageIndex.value = Math.max(0, currentSkuImages.value.length - 1)
-      }
       loadSkus()
       loadStats()
     } else {
@@ -675,20 +656,31 @@ const deleteImage = async (index) => {
   }
 }
 
-const prevImage = () => {
-  if (currentImageIndex.value > 0) {
-    currentImageIndex.value--
+const addImage = () => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.multiple = true
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length === 0) return
+    
+    submitting.value = true
+    try {
+      for (const file of files) {
+        await sku.uploadImage(selectedSku.value.sku_id, file)
+      }
+      showToast(`成功上传 ${files.length} 张图片`)
+      await loadSkuImages(selectedSku.value.sku_id)
+      loadSkus()
+      loadStats()
+    } catch (err) {
+      showToast('上传失败: ' + err.message, 'error')
+    } finally {
+      submitting.value = false
+    }
   }
-}
-
-const nextImage = () => {
-  if (currentImageIndex.value < currentSkuImages.value.length - 1) {
-    currentImageIndex.value++
-  }
-}
-
-const goToImage = (index) => {
-  currentImageIndex.value = index
+  input.click()
 }
 
 const openImageViewer = (imageUrl, imageName = '图片') => {
@@ -697,309 +689,426 @@ const openImageViewer = (imageUrl, imageName = '图片') => {
   showImageViewer.value = true
 }
 
-watch(selectedSku, () => {
-  currentImageIndex.value = 0
-})
-
 onMounted(() => {
   loadSkus()
   loadStats()
   loadCategories()
+  document.addEventListener('click', closeDropdown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdown)
 })
 </script>
 
 <style scoped>
 .sku-list-page {
-  min-height: 100vh;
-  background: var(--color-bg-secondary);
-}
-
-.main-content {
-  display: flex;
-  gap: 20px;
-  transition: all 0.3s ease;
-}
-
-.main-content.expanded .left-panel {
-  flex: 1;
-  max-width: calc(33.33% - 10px);
-}
-
-.main-content.expanded .right-panel {
-  flex: 2;
-  width: auto;
-  max-width: calc(66.67% - 10px);
-}
-
-.main-content:not(.expanded) .left-panel {
-  flex: 1;
-}
-
-.main-content:not(.expanded) .right-panel {
-  width: 450px;
-}
-
-.left-panel {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  transition: all 0.3s ease;
-}
-
-.right-panel {
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  display: flex;
-  flex-direction: column;
-  transition: all 0.3s ease;
-}
-
-.right-panel-placeholder {
-  width: 450px;
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.panel-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.panel-header h3 {
-  margin: 0;
-  font-size: 16px;
-  color: var(--color-text-primary);
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: var(--color-text-tertiary);
-  padding: 0;
-  line-height: 1;
-}
-
-.btn-close:hover { color: var(--color-text-primary); }
-
-.search-bar {
-  display: flex;
-  gap: 0;
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary, #0b1120);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
-.search-input {
+.sku-list-page .main {
+  display: flex;
+  flex-direction: column;
   flex: 1;
-  padding: 12px 16px;
-  border: none;
-  font-size: 14px;
+  overflow: hidden;
+}
+
+/* 工具栏 */
+.toolbar {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--color-border, #334155);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.search-box {
+  flex: 1;
+  max-width: 300px;
+  position: relative;
+}
+
+.search-box::before {
+  content: "🔍";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  background: var(--color-bg-tertiary, #0f172a);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  color: var(--color-text-primary, #e2e8f0);
+  font-size: 13px;
   outline: none;
 }
 
-.btn-search {
-  padding: 12px 16px;
-  border: none;
-  background: var(--color-primary);
-  color: white;
+.search-box input:focus {
+  border-color: var(--color-primary, #3b82f6);
+}
+
+.dropdown-btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #334155);
+  background: var(--color-bg-tertiary, #0f172a);
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 13px;
   cursor: pointer;
-  font-size: 16px;
-}
-
-.filter-row {
   display: flex;
-  gap: 10px;
-}
-
-.filter-select {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-}
-
-.actions-row {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  position: relative;
 }
 
-.view-toggle {
+.dropdown-btn:hover {
+  border-color: #475569;
+  color: var(--color-text-primary, #e2e8f0);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: var(--color-bg-primary, #1e293b);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 140px;
+  display: none;
+  z-index: 50;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.dropdown-item {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary, #94a3b8);
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.dropdown-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--color-text-primary, #e2e8f0);
+}
+
+.dropdown-item.selected {
+  color: var(--color-primary, #3b82f6);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.view-switch {
   display: flex;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary, #0f172a);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
   overflow: hidden;
 }
 
-.view-toggle .btn {
-  border-radius: 0;
+.view-switch button {
+  padding: 8px 16px;
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-secondary, #94a3b8);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
 }
 
-.view-toggle .btn.active {
-  background: var(--color-primary);
+.view-switch button.active {
+  background: var(--color-primary, #3b82f6);
   color: white;
 }
 
-.action-buttons {
+.toolbar-actions {
   display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-blue {
+  background: var(--color-primary, #3b82f6);
+  color: white;
+}
+
+.btn-blue:hover {
+  background: #2563eb;
+}
+
+.btn-green {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--color-success, #22c55e);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.btn-green:hover {
+  background: rgba(34, 197, 94, 0.25);
+}
+
+.btn-red {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--color-danger, #ef4444);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-red:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.btn-secondary {
+  background: #334155;
+  color: var(--color-text-primary, #e2e8f0);
+}
+
+.btn-secondary:hover {
+  background: #475569;
+}
+
+.btn-primary {
+  background: var(--color-primary, #3b82f6);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-danger {
+  background: var(--color-danger, #ef4444);
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* 统计摘要 */
+.stats-summary {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--color-border, #334155);
+  font-size: 12px;
+  color: var(--color-text-secondary, #94a3b8);
+  display: flex;
+  gap: 16px;
+  flex-shrink: 0;
+  background: rgba(30, 41, 59, 0.2);
+}
+
+.stats-summary span {
+  display: flex;
+  align-items: center;
   gap: 4px;
 }
 
-.btn-icon {
-  padding: 8px;
-  min-width: 36px;
-  min-height: 36px;
+/* 内容区 */
+.content-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px 16px;
+  position: relative;
+  min-height: 0;
+}
+
+/* 批量操作栏 */
+.batch-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  margin-bottom: 16px;
 }
 
-.stats-bar {
-  display: flex;
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
-  padding: 15px 20px;
-  gap: 20px;
-  box-shadow: var(--shadow-sm);
+.batch-bar span {
+  font-size: 13px;
+  color: var(--color-text-secondary, #94a3b8);
 }
 
-.stat-item {
-  flex: 1;
-  text-align: center;
+.batch-bar span b {
+  color: var(--color-primary, #3b82f6);
 }
 
-.stat-num {
-  display: block;
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--color-primary);
-}
-
-.stat-item.active .stat-num { color: var(--color-success); }
-.stat-item.inactive .stat-num { color: var(--color-text-tertiary); }
-.stat-item.images .stat-num { color: var(--color-primary); }
-
-.stat-label {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-}
-
-.sku-list-container {
-  flex: 1;
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-  overflow-y: auto;
-}
-
-.loading, .empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--color-text-tertiary);
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.data-table {
+/* 列表视图 */
+.sku-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.data-table th,
-.data-table td {
-  padding: 10px;
+.sku-table th {
   text-align: left;
-  border-bottom: 1px solid var(--color-border-light);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border, #334155);
+  font-size: 12px;
+  color: var(--color-text-tertiary, #64748b);
+  font-weight: 500;
+  background: rgba(30, 41, 59, 0.95);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.data-table th {
-  background: var(--color-bg-tertiary);
-  font-weight: 600;
-  color: var(--color-text-secondary);
+.sku-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.3);
   font-size: 13px;
+  color: var(--color-text-primary, #e2e8f0);
+  vertical-align: middle;
 }
 
-.data-table td {
-  font-size: 13px;
-  color: var(--color-text-primary);
+.sku-table tr {
+  transition: all 0.15s;
   cursor: pointer;
 }
 
-.data-table tr:hover {
-  background: var(--color-bg-tertiary);
+.sku-table tr:hover {
+  background: rgba(255,255,255,0.02);
 }
 
-.data-table tr.selected {
-  background: rgba(102, 126, 234, 0.1);
+.sku-table tr.selected {
+  background: rgba(59, 130, 246, 0.06);
 }
 
-.sku-id {
+.sku-table .chk-cell {
+  width: 40px;
+}
+
+.sku-table .id-cell {
+  width: 80px;
+  color: var(--color-primary, #3b82f6);
   font-family: monospace;
   font-weight: 600;
-  color: var(--color-primary);
+}
+
+.sku-table .thumb-cell {
+  width: 56px;
+}
+
+.sku-table .status-cell {
+  width: 80px;
+}
+
+.sku-table .count-cell {
+  width: 80px;
+  text-align: center;
+}
+
+.sku-table .action-cell {
+  width: 100px;
+  text-align: right;
+}
+
+.sku-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--color-bg-tertiary, #0f172a);
+  border: 1px solid var(--color-border, #334155);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  font-size: 16px;
+  overflow: hidden;
 }
 
 .status-badge {
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 10px;
+  padding: 2px 10px;
+  border-radius: 12px;
   font-size: 11px;
+  display: inline-block;
 }
 
-.status-badge.active {
-  background: rgba(103, 194, 58, 0.1);
-  color: var(--color-success);
+.badge-enable {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--color-success, #22c55e);
 }
 
-.status-badge.inactive {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-tertiary);
+.badge-disable {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--color-text-tertiary, #64748b);
 }
 
-.btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px;
+.action-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.icon-btn {
+  width: 24px;
+  height: 24px;
   border-radius: 4px;
-  transition: background 0.2s;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary, #94a3b8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s;
 }
 
-.btn-icon:hover { background: var(--color-bg-tertiary); }
-.btn-icon.danger:hover { background: rgba(245, 108, 108, 0.1); }
+.icon-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--color-text-primary, #e2e8f0);
+}
 
+.icon-btn.edit:hover {
+  color: var(--color-primary, #3b82f6);
+}
+
+.icon-btn.delete:hover {
+  color: var(--color-danger, #ef4444);
+}
+
+/* 画廊视图 */
 .gallery-view {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 15px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
 }
 
 .gallery-card {
-  background: var(--color-bg-primary);
+  background: var(--color-bg-primary, #1e293b);
   border: 2px solid transparent;
-  border-radius: var(--radius-lg);
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s;
@@ -1007,339 +1116,275 @@ onMounted(() => {
 }
 
 .gallery-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary, #3b82f6);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
 
 .gallery-card.selected {
-  border-color: var(--color-primary);
-  background: rgba(102, 126, 234, 0.05);
+  border-color: var(--color-primary, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.gallery-card .chk-wrap {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
 }
 
 .gallery-image-box {
-  height: 120px;
-  overflow: hidden;
-  background: var(--color-bg-tertiary);
+  width: 100%;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  font-size: 40px;
+  background: var(--color-bg-tertiary, #0f172a);
   position: relative;
+  overflow: hidden;
 }
 
-.img-count {
+.gallery-image-box .img-count {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 2px 6px;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.7);
+  color: #fff;
+  padding: 2px 8px;
   border-radius: 4px;
   font-size: 11px;
 }
 
 .gallery-info {
-  padding: 10px;
+  padding: 12px;
 }
 
-.gallery-sku-id {
-  font-family: monospace;
-  font-weight: 600;
-  color: var(--color-primary);
+.gallery-sku {
   font-size: 13px;
+  color: var(--color-primary, #3b82f6);
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-family: monospace;
 }
 
-.gallery-sku-name {
-  font-size: 12px;
-  color: var(--color-text-primary);
-  margin: 4px 0;
+.gallery-name {
+  font-size: 14px;
+  color: var(--color-text-primary, #e2e8f0);
+  margin-bottom: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.gallery-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-tag {
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-size: 10px;
-}
-
-.status-tag.active {
-  background: rgba(103, 194, 58, 0.1);
-  color: var(--color-success);
-}
-
-.status-tag.inactive {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-tertiary);
-}
-
-.image-count {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-
-.gallery-actions {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.gallery-card:hover .gallery-actions {
-  opacity: 1;
-}
-
-.gallery-actions .btn-icon {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(4px);
-}
-
-.dark .gallery-actions .btn-icon {
-  background: rgba(30, 30, 50, 0.9);
-}
-
-.pagination-bar {
+.gallery-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid var(--color-border-light);
 }
 
-.selection-info {
-  color: var(--color-text-secondary);
-  font-size: 13px;
+/* 详情面板 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  z-index: 55;
+}
+
+.overlay.show {
+  display: block;
+}
+
+.detail-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-bg-primary, #1e293b);
+  border-top: 1px solid var(--color-border, #334155);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 60;
+  max-height: 60vh;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
 }
 
-.pagination {
+.detail-panel.show {
+  transform: translateY(0);
+}
+
+.detail-panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border, #334155);
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
-.pagination button {
-  padding: 5px 12px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--color-text-primary);
-}
-
-.pagination button:hover:not(:disabled) {
-  background: var(--color-bg-tertiary);
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-}
-
-.detail-section {
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--color-border);
-  overflow-y: auto;
-}
-
-.section-title {
-  font-size: 14px;
+.detail-panel-title {
+  font-size: 16px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-primary, #e2e8f0);
 }
 
-.detail-grid {
+.detail-panel-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary, #94a3b8);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.detail-panel-close:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--color-text-primary, #e2e8f0);
+}
+
+.detail-panel-body {
+  padding: 20px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+}
+
+.detail-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-.detail-item {
-  background: var(--color-bg-tertiary);
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
+.info-card {
+  background: var(--color-bg-tertiary, #0f172a);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 8px;
+  padding: 12px;
 }
 
-.detail-item .label {
-  display: block;
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.detail-item .value {
-  display: block;
-  color: var(--color-text-primary);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.detail-item .value.active { color: var(--color-success); }
-.detail-item .value.inactive { color: var(--color-text-tertiary); }
-
-.detail-row-full {
-  margin-top: 12px;
-}
-
-.detail-row-full .label {
-  display: block;
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.tag {
-  background: rgba(102, 126, 234, 0.1);
-  color: var(--color-primary);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-}
-
-.empty-tag {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-
-.value-full {
-  display: block;
-  color: var(--color-text-primary);
-  font-size: 13px;
-  line-height: 1.5;
-  background: var(--color-bg-tertiary);
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  min-height: 44px;
-}
-
-.image-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 15px 20px;
-  overflow-y: auto;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.section-header .section-title {
-  margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: none;
-}
-
-.image-viewer {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.image-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
-  padding: 10px;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  min-height: 200px;
-}
-
-.image-grid-item {
-  aspect-ratio: 1;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 2px solid transparent;
-  background: var(--color-bg-secondary);
-}
-
-.image-grid-item:hover {
-  border-color: var(--color-primary);
-  transform: scale(1.02);
-}
-
-.image-grid-name {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 6px 8px;
-  color: white;
+.info-card .label {
   font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--color-text-tertiary, #64748b);
+  margin-bottom: 4px;
+  text-transform: uppercase;
 }
 
-.image-stats {
+.info-card .value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #e2e8f0);
+}
+
+.info-card .value.green {
+  color: var(--color-success, #22c55e);
+}
+
+.info-full {
+  grid-column: 1 / -1;
+}
+
+.info-full .value {
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--color-text-secondary, #94a3b8);
+}
+
+/* 图片管理 */
+.img-manage-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary, #e2e8f0);
+  margin-bottom: 12px;
+}
+
+.img-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.img-item {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: var(--color-bg-tertiary, #0f172a);
+  border: 1px solid var(--color-border, #334155);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
+  justify-content: center;
+  color: #475569;
+  font-size: 24px;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.img-item:hover .img-del {
+  display: flex;
+}
+
+.img-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+  border: none;
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
 }
 
-.image-stats .hint {
-  color: var(--color-primary);
-}
-
-.empty-images {
-  flex: 1;
+.img-add {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 2px dashed var(--color-border, #334155);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  color: var(--color-text-tertiary);
-}
-
-.empty-images p {
-  margin: 8px 0;
+  color: var(--color-text-tertiary, #64748b);
   font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.placeholder-content {
+.img-add:hover {
+  border-color: var(--color-primary, #3b82f6);
+  color: var(--color-primary, #3b82f6);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.img-add span {
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+/* 加载和空状态 */
+.loading, .empty-state {
   text-align: center;
-  color: var(--color-text-tertiary);
   padding: 60px 20px;
+  color: var(--color-text-tertiary, #64748b);
 }
 
-.placeholder-icon {
+.empty-icon {
   font-size: 48px;
   margin-bottom: 12px;
 }
 
+/* 模态框 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1354,7 +1399,7 @@ onMounted(() => {
 }
 
 .modal {
-  background: var(--color-bg-primary);
+  background: var(--color-bg-primary, #1e293b);
   border-radius: 10px;
   width: 480px;
   max-width: 90%;
@@ -1363,20 +1408,36 @@ onMounted(() => {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-.modal-sm { width: 400px; }
+.modal-sm {
+  width: 400px;
+}
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border, #334155);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 16px;
-  color: var(--color-text-primary);
+  color: var(--color-text-primary, #e2e8f0);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--color-text-tertiary, #64748b);
+  padding: 0;
+  line-height: 1;
+}
+
+.btn-close:hover {
+  color: var(--color-text-primary, #e2e8f0);
 }
 
 .modal-body {
@@ -1388,7 +1449,7 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 20px;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border, #334155);
 }
 
 .form-group {
@@ -1399,12 +1460,12 @@ onMounted(() => {
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
-  color: var(--color-text-primary);
+  color: var(--color-text-primary, #e2e8f0);
   font-weight: 500;
 }
 
 .required {
-  color: var(--color-danger);
+  color: var(--color-danger, #ef4444);
 }
 
 .form-group input,
@@ -1412,102 +1473,45 @@ onMounted(() => {
 .form-group select {
   width: 100%;
   padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border, #334155);
+  border-radius: 6px;
   font-size: 14px;
   box-sizing: border-box;
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background: var(--color-bg-primary, #1e293b);
+  color: var(--color-text-primary, #e2e8f0);
+  outline: none;
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
-  outline: none;
-  border-color: var(--color-primary);
+  border-color: var(--color-primary, #3b82f6);
 }
 
-.upload-area {
-  border: 2px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 40px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.upload-area:hover {
-  border-color: var(--color-primary);
-}
-
-.upload-icon {
-  display: block;
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.upload-text {
-  display: block;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
-}
-
-.upload-hint {
-  display: block;
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-}
-
-.import-instructions {
-  background: var(--color-bg-tertiary);
-  padding: 15px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 15px;
-  font-size: 13px;
-}
-
-.import-instructions ul {
-  margin: 10px 0;
-  padding-left: 20px;
-}
-
-.import-instructions code {
-  background: var(--color-bg-secondary);
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-family: monospace;
-}
-
-.download-link {
-  color: var(--color-primary);
-  text-decoration: underline;
-}
-
-.file-input {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  background: var(--color-bg-primary);
-}
-
+/* Toast */
 .toast {
   position: fixed;
   bottom: 30px;
   right: 30px;
   padding: 12px 24px;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   color: white;
   font-size: 14px;
   z-index: 2000;
   animation: slideIn 0.3s ease;
 }
 
-.toast.info { background: var(--color-primary); }
-.toast.error { background: var(--color-danger); }
-.toast.success { background: var(--color-success); }
+.toast.info {
+  background: var(--color-primary, #3b82f6);
+}
+
+.toast.error {
+  background: var(--color-danger, #ef4444);
+}
+
+.toast.success {
+  background: var(--color-success, #22c55e);
+}
 
 @keyframes slideIn {
   from {
@@ -1520,27 +1524,22 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 1100px) {
-  .main-content {
-    flex-direction: column;
-  }
-  
-  .main-content.expanded .left-panel,
-  .main-content:not(.expanded) .left-panel {
-    max-width: 100%;
-  }
-  
-  .main-content.expanded .right-panel {
-    max-width: 100%;
-  }
-  
-  .right-panel, .right-panel-placeholder {
-    width: 100%;
-    max-height: none;
-  }
-  
-  .right-panel {
-    max-height: calc(100vh - 200px);
-  }
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 </style>

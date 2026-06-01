@@ -97,11 +97,13 @@ export const detector = {
     return response.json()
   },
 
-  async detectAndMatch(file, confThreshold = 0.5, matchThreshold = 0.85) {
+  async detectAndMatch(file, confThreshold = 0.5, matchThreshold = null) {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('conf_threshold', confThreshold)
-    formData.append('match_threshold', matchThreshold)
+    if (matchThreshold !== null) {
+      formData.append('match_threshold', matchThreshold)
+    }
 
     const response = await request('/api/detect-and-match', {
       method: 'POST',
@@ -230,8 +232,12 @@ export const tasks = {
     return response.json()
   },
 
-  async matchTask(taskId, matchThreshold = 0.85) {
-    const response = await request(`/api/tasks/${taskId}/match?match_threshold=${matchThreshold}`, {
+  async matchTask(taskId, matchThreshold = null) {
+    let url = `/api/tasks/${taskId}/match`
+    if (matchThreshold !== null) {
+      url += `?match_threshold=${matchThreshold}`
+    }
+    const response = await request(url, {
       method: 'POST',
     })
     return response.json()

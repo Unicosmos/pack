@@ -1,6 +1,10 @@
 <template>
   <div class="time-filter-dropdown" ref="dropdownRef">
-    <button class="dropdown-trigger" @click="toggle">
+    <button
+      class="dropdown-trigger"
+      :class="{ active: isOpen }"
+      @click="toggle"
+    >
       <span class="dropdown-label">{{ displayLabel }}</span>
       <span class="dropdown-arrow" :class="{ open: isOpen }">▼</span>
     </button>
@@ -10,24 +14,22 @@
           v-for="option in quickOptions"
           :key="option.value"
           class="dropdown-item"
-          :class="{ active: modelValue === option.value }"
+          :class="{ selected: modelValue === option.value }"
           @click="selectQuickOption(option.value)"
         >
-          <span class="check">{{ modelValue === option.value ? '✓' : '' }}</span>
-          <span>{{ option.label }}</span>
+          {{ option.label }}
         </div>
-        <div class="dropdown-divider"></div>
-        <div class="custom-panel" v-if="modelValue === 'custom'">
+        <div class="custom-panel" v-if="showCustomPanel">
           <div class="time-row">
             <span class="time-label">开始</span>
-            <input type="datetime-local" v-model="customStart" class="time-input" />
+            <input type="date" v-model="customStart" class="time-input" />
           </div>
           <div class="time-row">
             <span class="time-label">结束</span>
-            <input type="datetime-local" v-model="customEnd" class="time-input" />
+            <input type="date" v-model="customEnd" class="time-input" />
           </div>
           <button
-            class="btn btn-small btn-primary"
+            class="confirm-btn"
             :disabled="!customStart || !customEnd"
             @click="confirmCustom"
           >
@@ -54,6 +56,7 @@ const isOpen = ref(false)
 const dropdownRef = ref(null)
 const customStart = ref(props.customStart)
 const customEnd = ref(props.customEnd)
+const showCustomPanel = ref(false)
 
 const quickOptions = [
   { value: 'all', label: '全部时间' },
@@ -64,6 +67,7 @@ const quickOptions = [
 ]
 
 const displayLabel = computed(() => {
+  if (props.modelValue === 'custom') return '自定义'
   const option = quickOptions.find(o => o.value === props.modelValue)
   return option ? option.label : '全部时间'
 })
@@ -73,14 +77,18 @@ const toggle = () => {
 }
 
 const selectQuickOption = (value) => {
+  if (value === 'custom') {
+    showCustomPanel.value = !showCustomPanel.value
+    return
+  }
+  showCustomPanel.value = false
   emit('update:modelValue', value)
   emit('change', value)
-  if (value !== 'custom') {
-    isOpen.value = false
-  }
+  isOpen.value = false
 }
 
 const confirmCustom = () => {
+  emit('update:modelValue', 'custom')
   emit('update:customStart', customStart.value)
   emit('update:customEnd', customEnd.value)
   emit('change', { type: 'custom', start: customStart.value, end: customEnd.value })
@@ -111,21 +119,36 @@ onUnmounted(() => {
 .dropdown-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--color-bg-tertiary);
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 12px;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  transition: all var(--transition-fast);
-  min-width: 100px;
+  transition: all 0.2s;
+  position: relative;
+  white-space: nowrap;
 }
 
 .dropdown-trigger:hover {
-  background: var(--color-bg-secondary);
+  border-color: var(--color-text-tertiary);
+  color: var(--color-text-primary);
+}
+
+.dropdown-trigger.active {
   border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.dark .dropdown-trigger {
+  background: #0f172a;
+}
+
+.dark .dropdown-trigger:hover {
+  border-color: #475569;
 }
 
 .dropdown-label {
@@ -135,7 +158,7 @@ onUnmounted(() => {
 
 .dropdown-arrow {
   font-size: 10px;
-  transition: transform var(--transition-fast);
+  transition: transform 0.2s;
 }
 
 .dropdown-arrow.open {
@@ -149,86 +172,95 @@ onUnmounted(() => {
   min-width: 180px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  z-index: 50;
   overflow: hidden;
 }
 
 .dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  transition: background-color var(--transition-fast);
-  min-height: 36px;
-  box-sizing: border-box;
+  transition: all 0.1s;
+  white-space: nowrap;
 }
 
 .dropdown-item:hover {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
-.dropdown-item.active {
-  background: var(--color-primary-light);
+.dropdown-item.selected {
   color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
 }
 
-.check {
-  width: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-primary);
-  font-weight: bold;
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: 4px 0;
+.dark .dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .custom-panel {
-  padding: 8px 12px;
+  padding: 10px;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
 }
 
 .time-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .time-label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  min-width: 28px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  min-width: 36px;
 }
 
 .time-input {
   flex: 1;
-  padding: 6px 8px;
+  padding: 5px 8px;
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  border-radius: 4px;
   color: var(--color-text-primary);
-  background: var(--color-bg-primary);
+  font-size: 12px;
   outline: none;
-  transition: border-color var(--transition-fast);
+}
+
+.dark .time-input {
+  background: #0f172a;
 }
 
 .time-input:focus {
   border-color: var(--color-primary);
 }
 
-.btn-small {
+.confirm-btn {
   width: 100%;
-  padding: 8px 12px;
-  margin-top: 4px;
+  padding: 6px;
+  margin-top: 2px;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.confirm-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .dropdown-enter-active,

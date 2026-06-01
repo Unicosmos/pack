@@ -32,7 +32,7 @@ class MatchResult(BaseModel):
     box_id: str = Field(..., description="检测框ID")
     sku_id: Optional[str] = Field(None, description="匹配的SKU编号")
     similarity: Optional[float] = Field(None, description="相似度")
-    status: str = Field(..., description="匹配状态: matched/low_conf/unmatched")
+    status: str = Field(..., description="匹配状态: matched/unmatched")
 
 
 class TopLabel(BaseModel):
@@ -48,8 +48,8 @@ class MatchInfo(BaseModel):
     sku_name: Optional[str] = Field(None, description="匹配的SKU名称")
     similarity: Optional[float] = Field(None, description="Top-1相似度")
     ratio: Optional[float] = Field(None, description="相似度比值")
-    status: str = Field(..., description="匹配状态: matched/low_conf/unmatched")
-    top5_labels: Optional[List[TopLabel]] = Field(None, description="Top-5候选标签")
+    status: str = Field(..., description="匹配状态: matched/unmatched")
+    top5_labels: Optional[List[Dict[str, Any]]] = Field(None, description="Top-5候选标签")
 
 
 class HealthResponse(BaseModel):
@@ -75,7 +75,6 @@ class DetectAndMatchResponse(BaseModel):
     success: bool = Field(True, description="是否成功")
     count: int = Field(0, description="检测数量")
     matched_count: int = Field(0, description="已匹配数量")
-    low_conf_count: int = Field(0, description="低置信数量")
     unmatched_count: int = Field(0, description="未匹配数量")
     boxes: List[BoxInfo] = Field(default_factory=list, description="检测框列表")
     crops: List[str] = Field(default_factory=list, description="裁剪图Base64列表")
@@ -88,10 +87,11 @@ class DetectAndMatchResponse(BaseModel):
 class MatchResponse(BaseModel):
     success: bool = Field(True, description="是否成功")
     sku_id: Optional[str] = Field(None, description="匹配的SKU编号")
+    sku_name: Optional[str] = Field(None, description="匹配的SKU名称")
     similarity: Optional[float] = Field(None, description="Top-1相似度")
     ratio: Optional[float] = Field(None, description="相似度比值")
-    status: str = Field("", description="匹配状态: matched/low_conf/unmatched")
-    top5_labels: List[TopLabel] = Field(default_factory=list, description="Top-5候选标签")
+    status: str = Field("", description="匹配状态: matched/unmatched")
+    top5_labels: List[Dict[str, Any]] = Field(default_factory=list, description="Top-5候选标签")
 
 
 class SKUInfo(BaseModel):

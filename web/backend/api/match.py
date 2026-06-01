@@ -40,7 +40,7 @@ def task_to_response(task: Task) -> TaskResponse:
 @router.post("/{task_id}/match", response_model=TaskResponse)
 async def match_task(
     task_id: int,
-    match_threshold: float = Query(0.85, ge=0, le=1),
+    match_threshold: float = Query(None, ge=0, le=1),
     db: Session = Depends(get_db)
 ):
     """对审核后的检测结果进行SKU匹配"""
@@ -118,6 +118,8 @@ async def match_task(
             else:
                 resized = resize_with_padding(cropped, target_size=detect_match_service.match_service.matcher.input_size)
                 features = detect_match_service.match_service.matcher.extract_feature(resized)
+                if match_threshold is None:
+                    match_threshold = config.match.MATCH_THRESHOLD
                 result = detect_match_service.match_service.matcher.match_sku(features, threshold=match_threshold)
 
                 top5_data = []

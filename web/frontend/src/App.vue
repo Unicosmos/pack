@@ -24,7 +24,7 @@
       </div>
     </nav>
 
-    <main class="main-wrapper">
+    <main class="main-wrapper" :class="{ 'fullscreen': store.currentPage === 'tasks' || store.currentPage === 'skus' }">
       <HomePage v-if="store.currentPage === 'home'" />
       <TaskListPage v-else-if="store.currentPage === 'tasks'" />
       <SkuListPage v-else-if="store.currentPage === 'skus'" />

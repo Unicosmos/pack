@@ -1,6 +1,11 @@
 <template>
   <div class="filter-bar">
-    <slot></slot>
+    <div class="filter-left">
+      <slot name="filters"></slot>
+    </div>
+    <div class="filter-right">
+      <slot name="actions"></slot>
+    </div>
   </div>
 </template>
 
@@ -10,8 +15,20 @@
 <style scoped>
 .filter-bar {
   display: flex;
-  gap: var(--spacing-md);
+  gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+}
+
+.filter-left {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.filter-right {
+  display: flex;
+  align-items: center;
 }
 </style>

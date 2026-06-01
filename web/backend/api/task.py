@@ -520,10 +520,14 @@ async def get_task_stats(
     time_filter: Optional[str] = Query(None, description="时间筛选: today/week/month"),
     start_time: Optional[str] = Query(None, description="自定义开始时间 ISO格式"),
     end_time: Optional[str] = Query(None, description="自定义结束时间 ISO格式"),
+    status: Optional[str] = Query(None, description="状态筛选"),
     db: Session = Depends(get_db)
 ):
-    """获取任务统计（支持时间筛选）"""
+    """获取任务统计（支持时间筛选和状态筛选）"""
     query = db.query(Task)
+    
+    if status:
+        query = query.filter(Task.status == status)
 
     if start_time:
         try:

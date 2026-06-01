@@ -29,23 +29,18 @@ def get_box_color(match_result: Optional[Dict[str, Any]]) -> Tuple[int, int, int
 
 
 def get_box_label(match_result: Optional[Dict[str, Any]], confidence: float, box_idx: int = 0) -> str:
-    label_parts = [f"#{box_idx + 1}"]
-    
     if match_result is None:
-        label_parts.append(f"Conf: {confidence:.2f}")
+        return f"#{box_idx + 1}"
     else:
         status = match_result.get("status", "")
-        sku_id = match_result.get("sku_id", "Unknown")
-        similarity = match_result.get("similarity", 0.0)
-
+        sku_id = match_result.get("sku_id", "")
+        
         if status == "matched":
-            label_parts.append(f"{sku_id} ({similarity:.2f})")
+            return f"{sku_id}"
         elif status == "low_conf":
-            label_parts.append(f"{sku_id}? ({similarity:.2f})")
+            return f"{sku_id}?"
         else:
-            label_parts.append("Unknown")
-    
-    return " | ".join(label_parts)
+            return f"#{box_idx + 1}"
 
 
 def draw_single_box(
@@ -102,7 +97,7 @@ def draw_detection_result(
         box_width = x2 - x1
         box_height = y2 - y1
 
-        base_font_size = max(28, min(56, int(min(box_width, box_height) / 3.5)))
+        base_font_size = max(36, min(72, int(min(box_width, box_height) / 3)))
         try:
             font = ImageFont.truetype("arial.ttf", base_font_size)
         except Exception:
@@ -148,7 +143,7 @@ def draw_boxes_only(
         box_width = x2 - x1
         box_height = y2 - y1
 
-        base_font_size = max(20, min(40, int(min(box_width, box_height) / 5)))
+        base_font_size = max(28, min(56, int(min(box_width, box_height) / 4)))
         try:
             font = ImageFont.truetype("arial.ttf", base_font_size)
         except Exception:
@@ -160,7 +155,7 @@ def draw_boxes_only(
         line_width = max(7, min(15, int(min(box_width, box_height) / 25)))
 
         color = COLOR_NO_MATCH
-        label = f"#{i + 1} | Conf: {confidence:.2f}"
+        label = f"#{i + 1}"
 
         draw_single_box(draw, bbox, color, label, font, line_width)
 

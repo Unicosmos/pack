@@ -1,12 +1,17 @@
 <template>
   <div class="action-menu" ref="menuRef">
-    <button class="menu-trigger" @click="toggle" :disabled="loading">
+    <button
+      class="menu-trigger"
+      :class="{ active: isOpen, disabled: loading || selectedCount === 0 }"
+      @click="toggle"
+      :disabled="loading || selectedCount === 0"
+    >
       <span class="menu-label"><slot name="label"></slot></span>
       <span v-if="loading" class="loading-indicator">
         <span class="loading-spinner"></span>
       </span>
       <span v-else class="dropdown-arrow" :class="{ open: isOpen }">▼</span>
-      
+
       <!-- 进度条 -->
       <div v-if="loading && progress !== null" class="progress-wrapper">
         <div class="progress-bar" :style="{ width: progress + '%' }"></div>
@@ -18,7 +23,7 @@
           v-for="(item, index) in items"
           :key="index"
           class="menu-item"
-          :class="{ divider: item.divider }"
+          :class="{ divider: item.divider, danger: item.danger }"
           @click="handleSelect(item)"
         >
           <template v-if="!item.divider">
@@ -32,9 +37,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-defineProps({
+const props = defineProps({
   items: {
     type: Array,
     default: () => []
@@ -46,6 +51,10 @@ defineProps({
   progress: {
     type: Number,
     default: null
+  },
+  selectedCount: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -55,6 +64,7 @@ const isOpen = ref(false)
 const menuRef = ref(null)
 
 const toggle = () => {
+  if (props.loading || props.selectedCount === 0) return
   isOpen.value = !isOpen.value
 }
 
@@ -83,26 +93,52 @@ onUnmounted(() => {
 .action-menu {
   position: relative;
   display: inline-block;
+  margin-left: auto;
+}
+
+/* 当在 filter-bar 中时的样式 */
+:global(.filter-bar) .action-menu {
+  margin-left: auto;
 }
 
 .menu-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--color-bg-tertiary);
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: 12px;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  transition: all var(--transition-fast);
-  min-width: 100px;
+  transition: all 0.2s;
+  white-space: nowrap;
+  position: relative;
 }
 
-.menu-trigger:hover {
-  background: var(--color-bg-secondary);
+.menu-trigger:hover:not(.disabled) {
+  border-color: var(--color-text-tertiary);
+  color: var(--color-text-primary);
+}
+
+.menu-trigger.active {
   border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.dark .menu-trigger {
+  background: #0f172a;
+}
+
+.dark .menu-trigger:hover:not(.disabled) {
+  border-color: #475569;
+}
+
+.menu-trigger.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .menu-label {
@@ -112,16 +148,11 @@ onUnmounted(() => {
 
 .dropdown-arrow {
   font-size: 10px;
-  transition: transform var(--transition-fast);
+  transition: transform 0.2s;
 }
 
 .dropdown-arrow.open {
   transform: rotate(180deg);
-}
-
-.menu-trigger:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 
 .loading-indicator {
@@ -152,7 +183,7 @@ onUnmounted(() => {
   right: 0;
   height: 3px;
   background: var(--color-border);
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  border-radius: 0 0 6px 6px;
   overflow: hidden;
 }
 
@@ -165,13 +196,15 @@ onUnmounted(() => {
 .menu-panel {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  min-width: 160px;
+  right: 0;
+  left: auto;
+  min-width: 130px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  z-index: 100;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  z-index: 50;
   overflow: hidden;
 }
 
@@ -179,24 +212,39 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 6px 10px;
   cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  transition: background-color var(--transition-fast);
-  min-height: 36px;
-  box-sizing: border-box;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  transition: all 0.1s;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 .menu-item:hover {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.menu-item.danger {
+  color: var(--color-danger);
+}
+
+.menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.dark .menu-item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .menu-item.divider {
   height: 1px;
   background: var(--color-border);
   margin: 4px 0;
+  padding: 0;
   cursor: default;
+  border-radius: 0;
 }
 
 .menu-icon {

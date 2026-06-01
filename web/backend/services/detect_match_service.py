@@ -19,7 +19,7 @@ from core.utils.image_utils import (
 )
 from core.utils.logger import logger
 from config import config
-from schemas.schemas import BoxInfo, MatchInfo, TopLabel
+from schemas.schemas import BoxInfo, MatchInfo
 from models.task import Task
 from database import SessionLocal
 from .detection_service import DetectionService
@@ -51,7 +51,7 @@ class DetectMatchService:
         contents: bytes, 
         file_name: str,
         conf_threshold: float = 0.5,
-        match_threshold: float = 0.85
+        match_threshold: float = None
     ) -> Dict[str, Any]:
         """
         执行检测+匹配完整流程
@@ -83,7 +83,6 @@ class DetectMatchService:
                 "success": True,
                 "count": 0,
                 "matched_count": 0,
-                "low_conf_count": 0,
                 "unmatched_count": 0,
                 "boxes": [],
                 "matches": [],
@@ -107,6 +106,8 @@ class DetectMatchService:
         
         if sku_matcher_enabled and boxes:
             try:
+                if match_threshold is None:
+                    match_threshold = config.match.MATCH_THRESHOLD
                 features = []
                 for box in boxes:
                     cropped = crop_box(image, box.get("bbox", []))
@@ -122,6 +123,7 @@ class DetectMatchService:
                     if feat is None:
                         match_results.append(MatchResult(
                             sku_id=None,
+                            sku_name=None,
                             similarity=0.0,
                             ratio=None,
                             status="unmatched",
@@ -160,7 +162,6 @@ class DetectMatchService:
         
         match_infos = []
         matched_count = 0
-        low_conf_count = 0
         unmatched_count = 0
         
         for mr in match_results:
@@ -168,29 +169,17 @@ class DetectMatchService:
                 match_infos.append(None)
                 unmatched_count += 1
             else:
-                top5 = [
-                    TopLabel(
-                        label=t['label'], 
-                        similarity=t['similarity'], 
-                        image_path=t.get('image_path', ''), 
-                        sku_id=t.get('sku_id', ''), 
-                        sku_name=t.get('sku_name', '')
-                    ) 
-                    for t in mr.top5_labels
-                ] if mr.top5_labels else []
-                
+                # 直接传递字典列表，不转换为 TopLabel 对象
                 match_infos.append(MatchInfo(
                     sku_id=mr.sku_id,
                     similarity=mr.similarity,
                     ratio=mr.ratio,
                     status=mr.status,
-                    top5_labels=top5
+                    top5_labels=mr.top5_labels
                 ))
                 
                 if mr.status == "matched":
                     matched_count += 1
-                elif mr.status == "low_conf":
-                    low_conf_count += 1
                 else:
                     unmatched_count += 1
         
@@ -201,7 +190,6 @@ class DetectMatchService:
             "success": True,
             "count": len(boxes),
             "matched_count": matched_count,
-            "low_conf_count": low_conf_count,
             "unmatched_count": unmatched_count,
             "boxes": box_infos,
             "crops": crops_base64,
@@ -253,7 +241,7 @@ class DetectMatchService:
         self,
         image: Image.Image,
         boxes: List[Dict],
-        match_threshold: float = 0.85
+        match_threshold: float = None
     ) -> Tuple[List[Dict[str, Any]], int, int]:
         """
         对检测结果进行SKU匹配（不保存到数据库）
@@ -273,6 +261,8 @@ class DetectMatchService:
         sku_matcher_enabled = self.is_match_ready()
 
         if sku_matcher_enabled:
+            if match_threshold is None:
+                match_threshold = config.match.MATCH_THRESHOLD
             features = []
             for box in boxes:
                 cropped = crop_box(image, box.get("bbox", []))

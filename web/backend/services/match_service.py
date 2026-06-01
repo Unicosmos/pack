@@ -9,7 +9,6 @@ from core.matcher import SKUMatcher
 from core.utils.image_utils import resize_with_padding
 from core.utils.logger import logger
 from config import config
-from schemas.schemas import MatchInfo, TopLabel
 
 
 class MatchService:
@@ -29,7 +28,6 @@ class MatchService:
                 self.matcher = SKUMatcher(
                     str(cfg.paths.SKU_DIR),
                     match_threshold=cfg.match.MATCH_THRESHOLD,
-                    ratio_threshold=cfg.match.RATIO_THRESHOLD,
                     sku_model_path=str(cfg.paths.SKU_MODEL_PATH) if cfg.paths.SKU_MODEL_PATH else None
                 )
                 if self.matcher.is_ready():
@@ -46,14 +44,13 @@ class MatchService:
         """检查匹配器是否就绪"""
         return self._ready and self.matcher is not None
     
-    def match_single(self, image: Image.Image, match_threshold: float = 0.85, ratio_threshold: float = 1.2) -> Dict[str, Any]:
+    def match_single(self, image: Image.Image, match_threshold: float = None) -> Dict[str, Any]:
         """
         对单张图片进行SKU匹配
         
         Args:
             image: PIL Image对象
             match_threshold: 相似度阈值
-            ratio_threshold: Ratio Test阈值
             
         Returns:
             匹配结果字典
@@ -63,18 +60,9 @@ class MatchService:
         
         resized = resize_with_padding(image, target_size=config.model.INPUT_SIZE)
         features = self.matcher.extract_feature(resized)
-        result = self.matcher.match_sku(features, threshold=match_threshold, ratio_threshold=ratio_threshold)
-        
-        top5_labels = [
-            TopLabel(
-                label=t['label'], 
-                similarity=t['similarity'], 
-                image_path=t.get('image_path', ''), 
-                sku_id=t.get('sku_id', ''), 
-                sku_name=t.get('sku_name', '')
-            ) 
-            for t in result.top5_labels
-        ] if result.top5_labels else []
+        if match_threshold is None:
+            match_threshold = config.match.MATCH_THRESHOLD
+        result = self.matcher.match_sku(features, threshold=match_threshold)
         
         return {
             "sku_id": result.sku_id,
@@ -82,15 +70,15 @@ class MatchService:
             "similarity": result.similarity,
             "ratio": result.ratio,
             "status": result.status,
-            "top5_labels": top5_labels
+            "top5_labels": result.top5_labels
         }
     
-    def match_batch(self, images: List[Image.Image], boxes: List[Dict], match_threshold: float = 0.85) -> List[Dict]:
+    def match_batch(self, image: Image.Image, boxes: List[Dict], match_threshold: float = None) -> List[Dict]:
         """
         批量匹配SKU
         
         Args:
-            images: PIL Image对象列表
+            image: PIL Image对象
             boxes: 检测框列表
             match_threshold: 相似度阈值
             
@@ -101,6 +89,8 @@ class MatchService:
             return [None] * len(boxes)
         
         try:
+            if match_threshold is None:
+                match_threshold = config.match.MATCH_THRESHOLD
             match_results = []
             for box in boxes:
                 bbox = box.get("bbox", [])
@@ -110,24 +100,13 @@ class MatchService:
                     feat = self.matcher.extract_feature(resized)
                     mr = self.matcher.match_sku(feat, threshold=match_threshold)
                     
-                    top5 = [
-                        TopLabel(
-                            label=t['label'], 
-                            similarity=t['similarity'], 
-                            image_path=t.get('image_path', ''), 
-                            sku_id=t.get('sku_id', ''), 
-                            sku_name=t.get('sku_name', '')
-                        ) 
-                        for t in mr.top5_labels
-                    ] if mr.top5_labels else []
-                    
                     match_results.append({
                         "sku_id": mr.sku_id,
                         "sku_name": mr.sku_name,
                         "similarity": mr.similarity,
                         "ratio": mr.ratio,
                         "status": mr.status,
-                        "top5_labels": top5
+                        "top5_labels": mr.top5_labels
                     })
                 else:
                     match_results.append(None)

@@ -42,7 +42,7 @@ def task_to_response(task: Task) -> TaskResponse:
 @router.post("/{task_id}/detect", response_model=TaskResponse)
 async def detect_task(
     task_id: int,
-    match_threshold: float = Query(0.85, description="匹配阈值"),
+    match_threshold: float = Query(None, description="匹配阈值"),
     db: Session = Depends(get_db)
 ):
     """对任务图片执行YOLO检测和SKU匹配"""
@@ -99,6 +99,8 @@ async def detect_task(
 
         if sku_matcher_enabled and boxes:
             try:
+                if match_threshold is None:
+                    match_threshold = config.match.MATCH_THRESHOLD
                 images_to_match = []
                 valid_indices = []
                 

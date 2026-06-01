@@ -109,9 +109,10 @@ def _sku_to_response(sku: SKU) -> SKUResponse:
 @router.get("", response_model=SKUListResponse)
 async def list_skus(
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page_size: int = Query(20, ge=1, le=10000),
     search: Optional[str] = None,
     category: Optional[str] = None,
+    status: Optional[str] = None,
     is_deleted: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
@@ -131,7 +132,13 @@ async def list_skus(
     if category:
         query = query.filter(SKU.category == category)
 
-    if is_deleted is not None:
+    if status is not None:
+        # 兼容status参数：active=未删除，inactive=已删除
+        if status == 'active':
+            query = query.filter(SKU.is_deleted == False)
+        elif status == 'inactive':
+            query = query.filter(SKU.is_deleted == True)
+    elif is_deleted is not None:
         query = query.filter(SKU.is_deleted == is_deleted)
 
     total = query.count()

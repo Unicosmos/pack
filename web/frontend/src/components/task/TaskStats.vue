@@ -1,111 +1,88 @@
 <template>
   <div class="task-stats">
-    <div class="section">
-      <div class="chart-section">
-        <div class="chart-header">
-          <h3>📋 任务状态分布</h3>
+    <!-- 可折叠统计面板 -->
+    <div class="stats-panel">
+      <div class="stats-toggle" @click="toggleStats">
+        <div class="stats-toggle-left">
+          <span>📊</span>
+          <span>识别统计概览</span>
+          <span class="stats-toggle-icon" :class="{ expanded: !collapsed }">
+            {{ collapsed ? '▼' : '▲' }}
+          </span>
         </div>
-        <div class="stacked-bar-container">
-          <div class="stacked-bar">
-            <div 
-              class="bar-segment completed" 
-              :style="{ width: completedPercent + '%' }"
-            ></div>
-            <div 
-              class="bar-segment pending" 
-              :style="{ width: pendingPercent + '%' }"
-            ></div>
-            <div 
-              class="bar-segment detected" 
-              :style="{ width: detectedPercent + '%' }"
-            ></div>
-            <div 
-              class="bar-segment failed" 
-              :style="{ width: failedPercent + '%' }"
-            ></div>
-          </div>
-          <div class="bar-legend">
-            <span class="legend-item">
-              <span class="legend-dot completed"></span>
-              <span>已完成 {{ stats.completed || 0 }}</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-dot pending"></span>
-              <span>待识别 {{ stats.pending || 0 }}</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-dot detected"></span>
-              <span>待审核 {{ stats.detected || 0 }}</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-dot failed"></span>
-              <span>识别失败 {{ stats.failed || 0 }}</span>
-            </span>
-            <span class="legend-item total">
-              <span>总任务: {{ stats.total || 0 }}</span>
-            </span>
-          </div>
+        <div class="stats-toggle-right">
+          已完成 {{ stats.completed || 0 }} / 待识别 {{ stats.pending || 0 }} / 待审核 {{ stats.detected || 0 }}
         </div>
       </div>
 
-      <div class="chart-section mt-4">
-        <div class="chart-header">
-          <h3>📦 箱体匹配进度</h3>
-        </div>
-        <div class="progress-bar-container">
-          <div class="progress-bar">
-            <div 
-              class="progress-fill matched" 
-              :style="{ width: boxMatchPercent + '%' }"
-            ></div>
-            <div 
-              class="progress-fill unmatched" 
-              :style="{ width: (100 - boxMatchPercent) + '%' }"
-            ></div>
-            <span class="progress-rate">{{ stats.warehouse?.match_rate || 0 }}%</span>
+      <div class="stats-content" :class="{ expanded: !collapsed }">
+        <div class="stats-inner">
+          <!-- 任务状态分布 -->
+          <div class="stats-section">
+            <div class="stats-section-title">任务状态分布</div>
+            <div class="status-distribution">
+              <div class="status-chip done">
+                <span class="num">{{ stats.completed || 0 }}</span>
+                <span class="label">已完成</span>
+              </div>
+              <div class="status-chip pending">
+                <span class="num">{{ stats.pending || 0 }}</span>
+                <span class="label">待识别</span>
+              </div>
+              <div class="status-chip review">
+                <span class="num">{{ stats.detected || 0 }}</span>
+                <span class="label">待审核</span>
+              </div>
+              <div class="status-chip fail">
+                <span class="num">{{ stats.failed || 0 }}</span>
+                <span class="label">失败</span>
+              </div>
+            </div>
           </div>
-          <div class="progress-legend">
-            <span class="legend-item">
-              <span class="legend-dot matched"></span>
-              <span>已匹配 {{ stats.warehouse?.matched_boxes || 0 }}</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-dot unmatched"></span>
-              <span>未匹配 {{ stats.warehouse?.unmatched_boxes || 0 }}</span>
-            </span>
-            <span class="legend-item total">
-              <span>箱体总数: {{ stats.warehouse?.total_boxes || 0 }}</span>
-            </span>
-          </div>
-        </div>
-      </div>
 
-      <div v-if="stats.sku?.distribution?.length > 0" class="chart-section mt-4">
-        <div class="chart-header collapsible" @click="skuCollapsed = !skuCollapsed">
-          <h3>📊 识别结果汇总（商品SKU及数量）</h3>
-          <div class="chart-header-right">
-            <span class="chart-subtitle">共 {{ stats.sku?.category_count || 0 }} 种商品</span>
-            <span class="collapse-icon">{{ skuCollapsed ? '▶' : '▼' }}</span>
+          <!-- 箱体匹配进度 -->
+          <div class="stats-section">
+            <div class="stats-section-title">箱体匹配进度</div>
+            <div class="box-progress">
+              <div class="box-progress-header">
+                <span>已匹配 {{ stats.warehouse?.matched_boxes || 0 }}</span>
+                <span>未匹配 {{ stats.warehouse?.unmatched_boxes || 0 }}</span>
+                <span>总数 {{ stats.warehouse?.total_boxes || 0 }}</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div
+                  class="progress-bar-fill"
+                  :style="{ width: boxMatchPercent + '%' }"
+                ></div>
+              </div>
+            </div>
           </div>
-        </div>
-        <div v-show="!skuCollapsed" class="horizontal-bars">
-          <div 
-            v-for="(item, index) in stats.sku.distribution" 
-            :key="item.sku_id" 
-            class="horizontal-bar-item"
-          >
-            <div class="bar-label">
-              <span class="rank">{{ index + 1 }}</span>
-              <span class="sku-name">{{ item.sku_name || '未知' }}</span>
-              <span class="sku-id">({{ item.sku_id }})</span>
+
+          <!-- SKU识别排名 -->
+          <div v-if="stats.sku?.distribution?.length > 0" class="stats-section">
+            <div class="stats-section-title">🏆 SKU识别排名</div>
+            <div class="sku-ranking">
+              <div
+                v-for="(item, index) in stats.sku.distribution.slice(0, 8)"
+                :key="item.sku_id"
+                class="sku-item"
+              >
+                <div class="sku-rank">{{ index + 1 }}</div>
+                <div class="sku-info">
+                  <div class="sku-name">{{ item.sku_name || '未知' }}</div>
+                  <div class="sku-id">({{ item.sku_id }})</div>
+                </div>
+                <div class="sku-bar-wrap">
+                  <div class="sku-bar-bg">
+                    <div
+                      class="sku-bar-fill"
+                      :style="{ width: getSkuBarWidth(item.count) + '%' }"
+                    ></div>
+                  </div>
+                </div>
+                <div class="sku-count">{{ item.count }}</div>
+              </div>
             </div>
-            <div class="bar-track">
-              <div 
-                class="bar-fill" 
-                :style="{ width: getSkuBarWidth(item.count) + '%' }"
-              ></div>
-            </div>
-            <span class="bar-value">{{ item.count }}个</span>
           </div>
         </div>
       </div>
@@ -123,31 +100,11 @@ const props = defineProps({
   }
 })
 
-const skuCollapsed = ref(false)
+const collapsed = ref(true)
 
-const completedPercent = computed(() => {
-  const total = props.stats.total || 0
-  const completed = props.stats.completed || 0
-  return total > 0 ? (completed / total) * 100 : 0
-})
-
-const detectedPercent = computed(() => {
-  const total = props.stats.total || 0
-  const detected = props.stats.detected || 0
-  return total > 0 ? (detected / total) * 100 : 0
-})
-
-const pendingPercent = computed(() => {
-  const total = props.stats.total || 0
-  const pending = props.stats.pending || 0
-  return total > 0 ? (pending / total) * 100 : 0
-})
-
-const failedPercent = computed(() => {
-  const total = props.stats.total || 0
-  const failed = props.stats.failed || 0
-  return total > 0 ? (failed / total) * 100 : 0
-})
+const toggleStats = () => {
+  collapsed.value = !collapsed.value
+}
 
 const boxMatchPercent = computed(() => {
   return props.stats.warehouse?.match_rate || 0
@@ -168,263 +125,254 @@ const getSkuBarWidth = (count) => {
   width: 100%;
 }
 
-.section {
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-  box-shadow: var(--shadow-md);
-}
-
-.mt-4 {
-  margin-top: 16px;
-}
-
-.chart-section {
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-lg);
-}
-
-.chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-md);
-}
-
-.chart-header.collapsible {
-  cursor: pointer;
-  user-select: none;
-}
-
-.chart-header-right {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.collapse-icon {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  transition: transform var(--transition-fast);
-}
-
-.chart-header h3 {
-  margin: 0;
-  font-size: var(--font-size-base);
-  color: var(--color-text-primary);
-}
-
-.chart-subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.stacked-bar-container {
-  width: 100%;
-}
-
-.stacked-bar {
-  display: flex;
-  height: 24px;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.bar-segment {
-  height: 100%;
-  transition: width var(--transition-normal);
-}
-
-.bar-segment.completed {
-  background: linear-gradient(90deg, #67c23a, #85ce61);
-}
-
-.bar-segment.pending {
-  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
-}
-
-.bar-segment.detected {
-  background: linear-gradient(90deg, #e6a23c, #f0c78a);
-}
-
-.bar-segment.failed {
-  background: linear-gradient(90deg, #f56c6c, #f89898);
-}
-
-.bar-legend {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: var(--spacing-sm);
-  flex-wrap: wrap;
-  gap: var(--spacing-md);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.legend-item.total {
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.legend-dot.completed {
-  background: #67c23a;
-}
-
-.legend-dot.detected {
-  background: #e6a23c;
-}
-
-.legend-dot.pending {
-  background: #0ea5e9;
-}
-
-.legend-dot.failed {
-  background: #f56c6c;
-}
-
-.legend-dot.matched {
-  background: #67c23a;
-}
-
-.legend-dot.unmatched {
-  background: #909399;
-}
-
-.progress-bar-container {
-  width: 100%;
-}
-
-.progress-bar {
-  position: relative;
-  height: 32px;
-  background: #e4e7ed;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  display: flex;
-}
-
-.progress-fill {
-  height: 100%;
-  transition: width var(--transition-normal);
-}
-
-.progress-fill.matched {
-  background: linear-gradient(90deg, #67c23a, #85ce61);
-}
-
-.progress-fill.unmatched {
-  background: #d9d9d9;
-}
-
-.progress-rate {
-  position: absolute;
-  right: var(--spacing-sm);
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
-}
-
-.progress-legend {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: var(--spacing-sm);
-  flex-wrap: wrap;
-  gap: var(--spacing-md);
-}
-
-.horizontal-bars {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.horizontal-bar-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-sm);
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-sm);
-  transition: background-color var(--transition-fast);
-}
-
-.horizontal-bar-item:hover {
-  background: var(--color-bg-primary);
-}
-
-.bar-label {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  width: 200px;
+/* 可折叠面板 */
+.stats-panel {
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
-.bar-label .rank {
-  width: 24px;
-  height: 24px;
+.stats-toggle {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: var(--color-primary);
-  color: white;
-  border-radius: 50%;
-  font-size: var(--font-size-xs);
-  font-weight: bold;
-  margin-right: var(--spacing-md);
+  justify-content: space-between;
+  padding: 10px 16px;
+  cursor: pointer;
+  background: var(--color-bg-tertiary);
+  transition: all 0.2s;
+  user-select: none;
 }
 
-.bar-label .sku-name {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  font-weight: 500;
+.stats-toggle:hover {
+  background: var(--color-bg-hover);
 }
 
-.bar-label .sku-id {
-  font-size: var(--font-size-xs);
+.dark .stats-toggle {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.dark .stats-toggle:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.stats-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--color-text-secondary);
 }
 
-.bar-track {
+.stats-toggle-icon {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  transition: transform 0.3s;
+}
+
+.stats-toggle-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.stats-toggle-right {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.stats-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.stats-content.expanded {
+  max-height: 600px;
+}
+
+.stats-inner {
+  padding: 0 16px 16px;
+}
+
+/* 统计区块 */
+.stats-section {
+  margin-top: 16px;
+}
+
+.stats-section:first-child {
+  margin-top: 0;
+}
+
+.stats-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 状态分布卡片 */
+.status-distribution {
+  display: flex;
+  gap: 6px;
+}
+
+.status-chip {
   flex: 1;
-  height: 16px;
-  background: #e4e7ed;
-  border-radius: var(--radius-xs);
+  padding: 8px 4px;
+  border-radius: 6px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.status-chip .num {
+  font-size: 18px;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 1px;
+}
+
+.status-chip .label {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.status-chip.done .num {
+  color: var(--color-success);
+}
+
+.status-chip.pending .num {
+  color: var(--color-warning);
+}
+
+.status-chip.review .num {
+  color: var(--color-danger);
+}
+
+.status-chip.fail .num {
+  color: var(--color-text-tertiary);
+}
+
+/* 箱体匹配进度 */
+.box-progress {
+  margin-bottom: 4px;
+}
+
+.box-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.progress-bar-bg {
+  height: 6px;
+  background: var(--color-bg-secondary);
+  border-radius: 3px;
   overflow: hidden;
 }
 
-.bar-fill {
+.progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
-  border-radius: var(--radius-xs);
-  transition: width var(--transition-normal);
+  background: linear-gradient(90deg, var(--color-success), #4ade80);
+  border-radius: 3px;
+  transition: width 0.5s ease;
 }
 
-.bar-value {
-  width: 60px;
-  text-align: right;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+/* SKU排名 */
+.sku-ranking {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.sku-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.dark .sku-item {
+  border-bottom-color: rgba(55, 65, 81, 0.5);
+}
+
+.sku-item:last-child {
+  border-bottom: none;
+}
+
+.sku-rank {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sku-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sku-name {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--color-text-primary);
+}
+
+.sku-id {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.sku-bar-wrap {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.sku-bar-bg {
+  height: 5px;
+  background: var(--color-bg-secondary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sku-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.sku-count {
+  width: 32px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+/* 深色模式适配 */
+.dark .status-chip {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.dark .progress-bar-bg {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dark .sku-bar-bg {
+  background: rgba(0, 0, 0, 0.3);
 }
 </style>
