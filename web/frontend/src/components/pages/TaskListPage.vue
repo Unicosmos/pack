@@ -80,10 +80,7 @@
                   <div class="task-stat-text">检测:{{ task.box_count || 0 }} · 匹配:{{ task.matched_count || 0 }}</div>
                 </div>
                 <div class="td-status">
-                  <button v-if="shouldShowDetect(task)" class="status-tag pending status-btn" @click.stop="detectTask(task)" title="点击识别">
-                    待识别
-                  </button>
-                  <span v-else :class="['status-tag', getStatusBadgeClass(task)]">{{ getStatusText(task.status) }}</span>
+                  <span :class="['status-tag', getStatusBadgeClass(task)]">{{ getStatusText(task.status) }}</span>
                 </div>
                 <div class="td-counts">
                   <span class="count-detect">{{ task.box_count || 0 }}</span>
@@ -982,8 +979,8 @@ onMounted(async () => {
 }
 
 .status-tag.pending {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--color-warning);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary);
 }
 
 .status-tag.detected {

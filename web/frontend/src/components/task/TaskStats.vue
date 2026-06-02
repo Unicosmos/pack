@@ -243,11 +243,11 @@ const getSkuBarWidth = (count) => {
 }
 
 .status-chip.pending .num {
-  color: var(--color-warning);
+  color: var(--color-primary);
 }
 
 .status-chip.review .num {
-  color: var(--color-danger);
+  color: var(--color-warning);
 }
 
 .status-chip.fail .num {

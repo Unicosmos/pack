@@ -438,7 +438,6 @@ const handleSubmit = async () => {
       closeDialog()
       loadSkus()
       loadStats()
-      loadCategories()
     } else {
       showToast(res.detail || '操作失败', 'error')
     }
@@ -521,7 +520,6 @@ const handleSyncFromCsv = async () => {
       showToast(res.message || '同步成功')
       loadSkus()
       loadStats()
-      loadCategories()
     } else {
       showToast(res.detail || '同步失败', 'error')
     }

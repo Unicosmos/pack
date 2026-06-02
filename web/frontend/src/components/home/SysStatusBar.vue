@@ -4,9 +4,11 @@
       <span class="status-dot" :class="statusDotClass"></span>
       <span class="status-label">{{ statusLabel }}</span>
       <span class="status-divider">|</span>
-      <span class="status-model">检测: {{ detectorModel }}</span>
+      <span class="status-model">检测:</span>
+      <FilterDropdown v-model="selectedDetector" :options="detectorOptions" class="model-dropdown" />
       <span v-if="matcherModel" class="status-divider">|</span>
-      <span v-if="matcherModel" class="status-model">匹配: {{ matcherModel }}</span>
+      <span v-if="matcherModel" class="status-model">匹配:</span>
+      <FilterDropdown v-if="matcherModel" v-model="selectedMatcher" :options="matcherOptions" class="model-dropdown" />
       <span class="status-divider">|</span>
       <span class="status-sku">SKU库: {{ skuCount }}个</span>
     </div>
@@ -18,8 +20,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAppStore } from '@stores/app'
+import FilterDropdown from '@ui/FilterDropdown.vue'
 
 const store = useAppStore()
 
@@ -59,6 +62,19 @@ const matcherModel = computed(() => {
 })
 
 const skuCount = computed(() => store.skuCount)
+
+const detectorOptions = [
+  { value: 'best.pt', label: 'best.pt' },
+  { value: 'base.pt', label: 'base.pt' }
+]
+
+const matcherOptions = [
+  { value: 'vits16_dino_finetuned.pth', label: '微调模型' },
+  { value: 'vits16_dino.pth', label: '预训练模型' }
+]
+
+const selectedDetector = ref(store.modelInfo || 'best.pt')
+const selectedMatcher = ref(store.skuModelInfo || 'vits16_dino_finetuned.pth')
 
 const goTo = (page) => {
   emit('navigate', page)
@@ -162,5 +178,30 @@ const goTo = (page) => {
     width: 100%;
     justify-content: flex-start;
   }
+}
+
+.model-dropdown {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.model-dropdown :deep(.dropdown-trigger) {
+  padding: 1px 6px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  gap: 2px;
+}
+
+.model-dropdown :deep(.dropdown-trigger:hover) {
+  color: var(--color-primary);
+  background: var(--color-bg-hover);
+}
+
+.model-dropdown :deep(.dropdown-arrow) {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
 }
 </style>
