@@ -1,42 +1,49 @@
 <template>
   <div class="app-container">
-    <nav class="nav-bar">
-      <div class="nav-left">
-        <div class="nav-logo">📦</div>
-        <div class="nav-title">仓储物品识别系统</div>
-        <div class="nav-sub">{{ pageTitle }}</div>
-      </div>
-      <div class="nav-menu">
-        <button :class="{ active: store.currentPage === 'home' }" @click="store.setPage('home')">
-          🏠 首页
-        </button>
-        <button :class="{ active: store.currentPage === 'tasks' }" @click="store.setPage('tasks')">
-          📋 任务列表
-        </button>
-        <button :class="{ active: store.currentPage === 'skus' }" @click="store.setPage('skus')">
-          📦 SKU管理
-        </button>
-        <button :class="{ active: store.currentPage === 'skuReview' }" @click="store.setPage('skuReview')">
-          🔍 SKU入库审核
-        </button>
-        <button class="theme-toggle" @click="toggleDarkMode" :title="isDark ? '切换到浅色模式' : '切换到深色模式'">
-          {{ isDark ? '☀️' : '🌙' }}
-        </button>
-      </div>
-    </nav>
+    <LoginPage v-if="!store.isLoggedIn" />
+    <template v-else>
+      <nav class="nav-bar">
+        <div class="nav-left">
+          <div class="nav-logo">📦</div>
+          <div class="nav-title">仓储物品识别系统</div>
+          <div class="nav-sub">{{ pageTitle }}</div>
+        </div>
+        <div class="nav-menu">
+          <button :class="{ active: store.currentPage === 'home' }" @click="store.setPage('home')">
+            🏠 首页
+          </button>
+          <button :class="{ active: store.currentPage === 'tasks' }" @click="store.setPage('tasks')">
+            📋 任务列表
+          </button>
+          <button :class="{ active: store.currentPage === 'skus' }" @click="store.setPage('skus')">
+            📦 SKU管理
+          </button>
+          <button :class="{ active: store.currentPage === 'skuReview' }" @click="store.setPage('skuReview')">
+            🔍 SKU入库审核
+          </button>
+          <button class="theme-toggle" @click="toggleDarkMode" :title="isDark ? '切换到浅色模式' : '切换到深色模式'">
+            {{ isDark ? '☀️' : '🌙' }}
+          </button>
+          <button class="logout-button" @click="store.logout" title="退出登录">
+            🚪 退出
+          </button>
+        </div>
+      </nav>
 
-    <main class="main-wrapper" :class="{ 'fullscreen': ['tasks', 'skus', 'skuReview'].includes(store.currentPage) }">
-      <HomePage v-if="store.currentPage === 'home'" />
-      <TaskListPage v-else-if="store.currentPage === 'tasks'" />
-      <SkuListPage v-else-if="store.currentPage === 'skus'" />
-      <SkuReviewPage v-else-if="store.currentPage === 'skuReview'" />
-    </main>
+      <main class="main-wrapper" :class="{ 'fullscreen': ['tasks', 'skus', 'skuReview'].includes(store.currentPage) }">
+        <HomePage v-if="store.currentPage === 'home'" />
+        <TaskListPage v-else-if="store.currentPage === 'tasks'" />
+        <SkuListPage v-else-if="store.currentPage === 'skus'" />
+        <SkuReviewPage v-else-if="store.currentPage === 'skuReview'" />
+      </main>
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useAppStore } from '@stores/app'
+import LoginPage from '@pages/LoginPage.vue'
 import HomePage from '@pages/HomePage.vue'
 import TaskListPage from '@pages/TaskListPage.vue'
 import SkuListPage from '@pages/SkuListPage.vue'
@@ -129,5 +136,27 @@ onMounted(() => {
 .theme-toggle:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--color-text-primary);
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: all .2s;
+  gap: 4px;
+}
+
+.logout-button:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+  border-color: var(--color-danger);
 }
 </style>

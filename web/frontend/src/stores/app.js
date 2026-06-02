@@ -28,6 +28,9 @@ export const useAppStore = defineStore('app', () => {
   const currentBatchIndex = ref(0)
   const currentMode = ref('review')
 
+  // 登录状态
+  const isLoggedIn = ref(sessionStorage.getItem('isLoggedIn') === 'true')
+
   const isIdle = computed(() => currentState.value === 'IDLE')
   const isUploaded = computed(() => currentState.value === 'UPLOADED')
   const isProcessing = computed(() => currentState.value === 'PROCESSING')
@@ -151,6 +154,21 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  // 登录/登出功能
+  function login(username, password) {
+    if (username === 'admin' && password === '123456') {
+      isLoggedIn.value = true
+      sessionStorage.setItem('isLoggedIn', 'true')
+      return { success: true }
+    }
+    return { success: false, message: '账号或密码错误' }
+  }
+
+  function logout() {
+    isLoggedIn.value = false
+    sessionStorage.removeItem('isLoggedIn')
+  }
+
   return {
     currentState,
     selectedFile,
@@ -171,6 +189,7 @@ export const useAppStore = defineStore('app', () => {
     batchResults,
     currentBatchIndex,
     currentMode,
+    isLoggedIn,
     isIdle,
     isUploaded,
     isProcessing,
@@ -190,6 +209,8 @@ export const useAppStore = defineStore('app', () => {
     removeFile,
     setBatchTaskIds,
     setBatchTasks,
-    fetchSystemHealth
+    fetchSystemHealth,
+    login,
+    logout
   }
 })

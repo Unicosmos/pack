@@ -14,19 +14,26 @@ components/
 │   └── PageContainer.vue     # 内容容器组件
 ├── ui/                       # 通用UI组件（可复用）
 │   ├── StatusBanner.vue      # 状态横幅
-│   └── ImageViewer.vue       # 图片查看器
+│   ├── ImageViewer.vue       # 图片查看器
+│   ├── ActionMenu.vue        # 操作菜单
+│   ├── FilterBar.vue         # 筛选工具栏
+│   ├── FilterDropdown.vue    # 筛选下拉框
+│   └── TimeFilterDropdown.vue # 时间筛选下拉框
 ├── task/                     # 任务相关组件
 │   ├── BatchResultCard.vue   # 批量结果卡片
 │   ├── DetectionList.vue     # 检测结果列表
 │   ├── TaskStats.vue         # 任务统计图表
 │   ├── TaskNav.vue           # 任务导航侧边栏
-│   └── MatchResult.vue       # 匹配结果卡片（含Top5候选）
+│   ├── MatchResult.vue       # 匹配结果卡片（含Top5候选）
+│   └── BoxMatchDialog.vue    # 箱体匹配对话框
 ├── sku/                      # SKU相关组件
 │   └── SkuImage.vue          # SKU图片组件
 ├── upload/                   # 上传相关组件
 │   ├── UploadArea.vue        # 上传区域
 │   └── FileList.vue          # 文件列表
-├── hooks/                    # 自定义Hooks（待扩展）
+├── home/                     # 首页专用组件
+│   ├── RecentTasks.vue       # 最近任务列表
+│   └── SysStatusBar.vue      # 系统状态栏
 └── COMPONENTS.md             # 组件文档
 ```
 
@@ -37,6 +44,7 @@ components/
 
 | 组件名        | 说明                     | 依赖                      |
 | ------------- | ------------------------ | ------------------------- |
+| LoginPage     | 登录页面                 | 无                        |
 | HomePage      | 首页，包含上传和检测功能 | UploadArea, DetectionList |
 | TaskListPage  | 任务列表管理页面         | ImageViewer, TaskStats    |
 | SkuListPage   | SKU库管理页面            | SkuImage, ImageViewer     |
@@ -305,6 +313,7 @@ SkuReviewPage
 | ------ | ---------- | -------------------------------------------- |
 | v1.0.0 | 2026-05-23 | 初始版本                                     |
 | v1.0.1 | 2026-05-23 | 更新导入路径为别名格式，添加路径别名配置说明 |
+| v1.1.0 | 2026-06-02 | 修正组件列表：删除不存在的LoginPage，新增home/目录及组件，补充ui/和task/遗漏组件 |
 
 ## 使用指南
 
